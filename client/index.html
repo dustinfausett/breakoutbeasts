@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#141a33">
+  <meta name="description" content="Breakout Beasts! — a cooperative pixel-art zoo escape for 1 to 4 players.">
+  <title>Breakout Beasts!</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game" aria-label="Game view"></canvas>
+
+  <main id="ui">
+    <section id="loading" class="screen show" aria-live="polite">
+      <div class="panel center">
+        <h1 class="logo">Breakout Beasts!</h1>
+        <p id="loading-text">Loading Moonleaf Zoo…</p>
+      </div>
+    </section>
+
+    <section id="title" class="screen" aria-labelledby="title-h">
+      <div class="panel wide center">
+        <h1 class="logo" id="title-h">Breakout Beasts!</h1>
+        <p class="tagline">Slip out of your enclosure, free your friends and escape the zoo together.</p>
+        <div id="title-parade" class="parade" aria-hidden="true"></div>
+        <label class="field">Your name
+          <input id="name" maxlength="14" autocomplete="nickname" placeholder="e.g. Sam">
+        </label>
+        <div class="menu" role="menu">
+          <button class="btn primary" data-act="solo" role="menuitem">Play Solo</button>
+          <button class="btn" data-act="create" role="menuitem">Create Online Room</button>
+          <button class="btn" data-act="join" role="menuitem">Join a Room</button>
+          <button class="btn subtle" data-act="help" role="menuitem">How to Play</button>
+          <button class="btn subtle" data-act="settings" role="menuitem">Settings</button>
+        </div>
+        <div class="zoos">
+          <div class="zoo-card on"><b>Moonleaf Zoo</b><span>Mission 1 · Available</span></div>
+          <div class="zoo-card locked"><b>Sunspire Safari Park</b><span>Coming soon</span></div>
+          <div class="zoo-card locked"><b>Frostfern Aquarium Zoo</b><span>Coming soon</span></div>
+        </div>
+        <p id="title-msg" class="msg" role="alert"></p>
+      </div>
+    </section>
+
+    <section id="join" class="screen" aria-labelledby="join-h">
+      <div class="panel center">
+        <h2 id="join-h">Join a Room</h2>
+        <p>Ask the host for their 5-letter room code.</p>
+        <label class="field">Room code
+          <input id="join-code" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCDE" class="code-input">
+        </label>
+        <div class="row">
+          <button class="btn" data-act="back">Back</button>
+          <button class="btn primary" data-act="join-go">Join</button>
+        </div>
+        <p id="join-msg" class="msg" role="alert"></p>
+      </div>
+    </section>
+
+    <section id="animals" class="screen" aria-labelledby="animals-h">
+      <div class="panel full">
+        <div class="bar">
+          <h2 id="animals-h">Choose your animal</h2>
+          <span id="animals-sub" class="sub"></span>
+        </div>
+        <div id="animal-grid" class="animal-grid" role="listbox" aria-label="Animals"></div>
+        <div id="animal-detail" class="animal-detail" aria-live="polite"></div>
+        <div class="row end">
+          <button class="btn" data-act="animals-back">Back</button>
+          <button class="btn primary" data-act="animals-go" id="animals-go" disabled>Continue</button>
+        </div>
+        <p id="animals-msg" class="msg" role="alert"></p>
+      </div>
+    </section>
+
+    <section id="lobby" class="screen" aria-labelledby="lobby-h">
+      <div class="panel wide">
+        <div class="bar">
+          <h2 id="lobby-h">Lobby</h2>
+          <div class="code-box">Room code <strong id="lobby-code">—</strong>
+            <button class="btn small" data-act="copy">Copy invite link</button>
+          </div>
+        </div>
+        <ul id="lobby-players" class="lobby-players"></ul>
+        <p id="lobby-info" class="info"></p>
+        <div class="row">
+          <button class="btn" data-act="lobby-leave">Leave room</button>
+          <button class="btn" data-act="lobby-animal">Change animal</button>
+          <button class="btn" data-act="lobby-ready" id="lobby-ready">I'm ready</button>
+          <button class="btn primary" data-act="lobby-start" id="lobby-start">Start mission</button>
+        </div>
+        <p id="lobby-msg" class="msg" role="alert"></p>
+      </div>
+    </section>
+
+    <section id="hud" class="screen hud" aria-label="Game status">
+      <div id="objectives" class="objectives" aria-live="polite"></div>
+      <div id="team" class="team"></div>
+      <button id="menu-btn" class="btn small menu-btn" data-act="pause" aria-label="Menu (Escape)">☰ Menu</button>
+      <canvas id="minimap" class="minimap" width="162" height="112" aria-hidden="true"></canvas>
+      <div id="waiting" class="waiting" hidden></div>
+      <div id="prompts" class="prompts" aria-live="polite"></div>
+      <div id="ability" class="ability"><div class="ab-ring"><div id="ab-fill"></div></div><div><b id="ab-name">Ability</b><small id="ab-state">Space</small></div></div>
+      <div id="emotes" class="emotes" aria-label="Quick messages"></div>
+      <div id="captions" class="captions" aria-live="polite"></div>
+      <div id="touch" class="touch" aria-hidden="true">
+        <div id="stick" class="stick"><div id="knob" class="knob"></div></div>
+        <button id="tbtn-e" class="tbtn tbtn-e" tabindex="-1">E<small>Use</small></button>
+        <button id="tbtn-sp" class="tbtn tbtn-sp" tabindex="-1">★<small>Ability</small></button>
+      </div>
+    </section>
+
+    <section id="pause" class="screen overlay" role="dialog" aria-modal="true" aria-labelledby="pause-h">
+      <div class="panel center">
+        <h2 id="pause-h">Paused</h2>
+        <p id="pause-note" class="info"></p>
+        <div class="menu">
+          <button class="btn primary" data-act="resume">Resume</button>
+          <button class="btn" data-act="settings">Settings</button>
+          <button class="btn" data-act="help">How to Play</button>
+          <button class="btn" data-act="quit" id="quit-btn">Leave mission</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="settings" class="screen overlay" role="dialog" aria-modal="true" aria-labelledby="settings-h">
+      <div class="panel center">
+        <h2 id="settings-h">Settings</h2>
+        <label class="field">Music volume <input type="range" id="set-music" min="0" max="100"></label>
+        <label class="field">Sound effects volume <input type="range" id="set-sfx" min="0" max="100"></label>
+        <label class="check"><input type="checkbox" id="set-mute"> Mute all sound</label>
+        <label class="check"><input type="checkbox" id="set-motion"> Reduced motion (less shaking, bobbing and flashing)</label>
+        <label class="check"><input type="checkbox" id="set-captions" checked> Show sound captions</label>
+        <label class="check"><input type="checkbox" id="set-bigtext"> Larger text</label>
+        <label class="field">Touch controls
+          <select id="set-touch"><option value="auto">Automatic</option><option value="on">Always show</option><option value="off">Hide</option></select>
+        </label>
+        <div class="row"><button class="btn primary" data-act="settings-close">Done</button></div>
+      </div>
+    </section>
+
+    <section id="help" class="screen overlay" role="dialog" aria-modal="true" aria-labelledby="help-h">
+      <div class="panel wide scroll">
+        <h2 id="help-h">How to Play</h2>
+        <div class="help-grid">
+          <div>
+            <h3>Goal</h3>
+            <ol>
+              <li>Escape your enclosure using your animal's ability.</li>
+              <li>Free caged animals by holding <kbd>E</kbd> at the yellow keeper levers outside their gates.</li>
+              <li>Restore power: in the Maintenance Yard each player opens their own bay, takes the fuse and plugs it into the generator.</li>
+              <li>Hold the exit keys in the Exit Plaza <em>at the same time</em> — one key per player.</li>
+              <li>Everyone walks through the Moonleaf Gate.</li>
+            </ol>
+            <h3>Controls</h3>
+            <ul>
+              <li><kbd>W A S D</kbd> or arrow keys — move</li>
+              <li><kbd>E</kbd> — interact (hold for levers, cranks and keys)</li>
+              <li><kbd>Space</kbd> — use your ability</li>
+              <li><kbd>1</kbd>–<kbd>6</kbd> — quick messages to teammates</li>
+              <li><kbd>M</kbd> — toggle the minimap · <kbd>Esc</kbd> — menu</li>
+              <li>Touch: left stick to move, <b>E</b> and <b>★</b> buttons on the right.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Keepers</h3>
+            <p>Keepers walk set routes with flashlights. If one spots you, a <b>?</b> meter fills — get out of the light! At 100% they shout <b>!</b> and chase. Hide in bushes, break line of sight behind walls and hedges, or rattle a noisy bin to send them looking somewhere else.</p>
+            <p>Caught animals go back to their enclosure with a few seconds of safety. Escape again, or a teammate can pull your keeper lever. Everything your team finished stays finished.</p>
+            <h3>Playing together</h3>
+            <p>Each puzzle splits into one part per player, built for each animal's ability. If a teammate disconnects, the team waits for them; you can choose to continue without them and their remaining task is adapted.</p>
+          </div>
+        </div>
+        <div class="row"><button class="btn primary" data-act="help-close">Got it</button></div>
+      </div>
+    </section>
+
+    <section id="complete" class="screen overlay" role="dialog" aria-modal="true" aria-labelledby="complete-h">
+      <div class="panel center">
+        <h2 id="complete-h">Mission complete!</h2>
+        <p class="tagline">The beasts broke out of Moonleaf Zoo.</p>
+        <div id="complete-stats" class="stats"></div>
+        <div class="row" id="complete-actions">
+          <button class="btn primary" data-act="replay">Play again</button>
+          <button class="btn" data-act="to-lobby">Return to lobby</button>
+          <button class="btn" data-act="to-title">Back to title</button>
+        </div>
+        <p id="complete-msg" class="info"></p>
+      </div>
+    </section>
+
+    <section id="conn" class="screen overlay" role="alertdialog" aria-modal="true" aria-labelledby="conn-h">
+      <div class="panel center">
+        <h2 id="conn-h">Connection lost</h2>
+        <p id="conn-text">Trying to reconnect…</p>
+        <div class="row"><button class="btn" data-act="to-title">Back to title</button></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

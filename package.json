@@ -1,0 +1,17 @@
+{
+  "name": "breakout-beasts",
+  "version": "0.1.0",
+  "description": "Breakout Beasts! — a cooperative pixel-art zoo escape game for 1–4 players",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test test/",
+    "test:e2e": "node e2e/run-all.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

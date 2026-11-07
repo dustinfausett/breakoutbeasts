@@ -1,0 +1,86 @@
+// The ten playable animals. Text here is shown on the selection screen.
+
+export const ANIMALS = {
+  redpanda: {
+    id: 'redpanda', name: 'Red Panda', difficulty: 'Easy', speed: 4.4,
+    ability: 'Climb',
+    abilityText: 'Climbs over fences with yellow climbing marks and scampers along narrow ledges.',
+    limitText: 'Too small to move heavy crates.',
+    controls: 'Face a striped fence and press Space to hop over it. Ledges can be walked on.',
+    color: '#c8502a',
+  },
+  elephant: {
+    id: 'elephant', name: 'Elephant', difficulty: 'Easy', speed: 3.9,
+    ability: 'Push & Pull',
+    abilityText: 'Shoves heavy crates with Space and tugs them back with its trunk (E). Heavy enough to hold big pressure plates.',
+    limitText: 'Too big for narrow gaps between rocks.',
+    controls: 'Face a crate: Space pushes it, E pulls it. Stand on a heavy plate to hold it down.',
+    color: '#8d93a6',
+  },
+  monkey: {
+    id: 'monkey', name: 'Monkey', difficulty: 'Easy', speed: 4.6,
+    ability: 'Long Reach',
+    abilityText: 'Reaches through bars to pull switches and levers, and climbs along ropes.',
+    limitText: 'Cannot break reinforced barriers.',
+    controls: 'Stand by bars with a lever behind them and press Space. Walk onto ropes to climb across.',
+    color: '#9a6a3c',
+  },
+  beaver: {
+    id: 'beaver', name: 'Beaver', difficulty: 'Easy', speed: 4.2,
+    ability: 'Chew & Build',
+    abilityText: 'Chews through marked wooden barriers and builds small bridges from log piles.',
+    limitText: 'Chewing takes time, and bridges need logs.',
+    controls: 'Hold Space at a marked wooden barrier to chew it. Press E at a log pile, then Space at bridge posts.',
+    color: '#7b4a2a',
+  },
+  giraffe: {
+    id: 'giraffe', name: 'Giraffe', difficulty: 'Medium', speed: 4.3,
+    ability: 'High Reach & Lookout',
+    abilityText: 'Reaches switches mounted high on walls and looks out over walls to spot every keeper.',
+    limitText: 'Too tall for low tunnels and burrows.',
+    controls: 'Press Space near a high switch to flip it. Press Space anywhere else to look out and reveal keepers for the team.',
+    color: '#e0a73c',
+  },
+  penguin: {
+    id: 'penguin', name: 'Penguin', difficulty: 'Medium', speed: 3.0,
+    ability: 'Belly Slide',
+    abilityText: 'Slides through low passages, zooms across ice and swims through water.',
+    limitText: 'Waddles slowly on ordinary ground.',
+    controls: 'Press Space to belly-slide in the direction you face. Slide into low passages to squeeze through.',
+    color: '#2b3448',
+  },
+  zebra: {
+    id: 'zebra', name: 'Zebra', difficulty: 'Medium', speed: 4.6,
+    ability: 'Sprint & Kick',
+    abilityText: 'Kicks down marked loose planks and sprints across open ground.',
+    limitText: 'Sprint needs to recharge and its hooves are noisy — keepers come to look.',
+    controls: 'Face loose planks and press Space to kick. Press Space elsewhere to sprint.',
+    color: '#e8e8e8',
+  },
+  meerkat: {
+    id: 'meerkat', name: 'Meerkat', difficulty: 'Hard', speed: 4.4,
+    ability: 'Dig & Scout',
+    abilityText: 'Digs through marked soft soil to open a tunnel and scouts where it comes out.',
+    limitText: 'Digging takes time and each tunnel has only one far exit.',
+    controls: 'Hold Space on or next to marked soil to dig. Press E on a tunnel to travel through it.',
+    color: '#c9a46a',
+  },
+  tortoise: {
+    id: 'tortoise', name: 'Tortoise', difficulty: 'Hard', speed: 1.7,
+    ability: 'Shell',
+    abilityText: 'Tucks into its shell to jam closing gates open and block passing keepers. Keepers mistake the shell for a rock.',
+    limitText: 'Moves very slowly.',
+    controls: 'Press Space to tuck in or pop out of your shell. Tuck in inside a closing gate to jam it.',
+    color: '#5f8a3a',
+  },
+  flamingo: {
+    id: 'flamingo', name: 'Flamingo', difficulty: 'Hard', speed: 4.3,
+    ability: 'Wade & Stretch',
+    abilityText: 'Wades through shallow ponds, stretches across water to reach switches and balances on beams.',
+    limitText: 'Wobbles on balance beams — move carefully or hold Space to steady yourself.',
+    controls: 'Press Space facing water to reach a switch beyond it. On a beam, hold Space to steady your steps.',
+    color: '#f08aa8',
+  },
+};
+
+export const ANIMAL_IDS = Object.keys(ANIMALS);

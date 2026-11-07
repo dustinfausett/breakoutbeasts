@@ -519,7 +519,12 @@ function clientView() {
 }
 
 // ---------------- actions ----------------
+// Opened as a downloaded file (no server): solo works, online rooms need the hosted game.
+const OFFLINE_FILE = location.protocol === 'file:' && !params.get('server');
+const OFFLINE_MSG = 'Online rooms need the game server. This downloaded copy plays solo; open the game\'s web link to play with friends.';
+
 async function startOnline(kind, code) {
+  if (OFFLINE_FILE) { const where = kind === 'create' ? '#title-msg' : '#join-msg'; show(kind === 'create' ? 'title' : 'join'); $(where).textContent = OFFLINE_MSG; return; }
   const name = myName();
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.mode = 'online'; app.lobby = null; app.pickAnimal = null;
@@ -666,9 +671,14 @@ function boot() {
     input.attachTouch($('#touch'));
     window.addEventListener('resize', () => app.renderer.resize());
     buildTitle();
+    if (OFFLINE_FILE) {
+      for (const a of ['create', 'join']) { const b = document.querySelector(`#title [data-act="${a}"]`); b.disabled = true; b.title = OFFLINE_MSG; }
+      const note = document.createElement('p'); note.className = 'info'; note.id = 'offline-note'; note.textContent = 'Downloaded copy: solo play works offline. ' + OFFLINE_MSG.split('. ')[0] + '.';
+      $('#title .menu').after(note);
+    }
     const room = params.get('room');
     const saved = OnlineLink.savedSession();
-    if (saved && !room) {
+    if (saved && !room && !OFFLINE_FILE) {
       // a page reload during an online game: try to resume within the grace period
       app.mode = 'online';
       const link = new OnlineLink(onMessage, connStatus);

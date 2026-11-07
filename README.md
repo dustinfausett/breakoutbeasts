@@ -47,6 +47,17 @@ Open **http://localhost:8080** in your browser.
 > `node_modules` is missing) and `npm start` again. A development environment's preview URL is
 > not a public website, and §6 explains the difference.
 
+### Single-file download (solo, offline)
+
+```bash
+npm run build:single
+```
+
+This writes `dist/index.html`: the whole game in one file, about 240 KB, with no other files
+needed. Double-click it to play **solo** in any modern browser, even with no internet. Online
+rooms are switched off in this copy because they need the game server. `dist/` is not committed,
+so rebuild after changing the game.
+
 ### Handy URL options
 | URL | What it does |
 |---|---|

@@ -128,7 +128,7 @@ h3 { font-size: 1.1em; color: var(--leaf); }
 .cap.alert { background: #ffd0c8; } .cap.good { background: #d0f4c8; } .cap.sound { background: #e6e6ff; font-style: italic; }
 @keyframes capin { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 body.reduced * { animation: none !important; transition: none !important; }
-.waiting { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); background: #ffe39a; color: #2a1d10; border: 3px solid #2a1d10; border-radius: 6px; padding: 8px 12px; text-align: center; max-width: 90vw; }
+.waiting { position: absolute; bottom: 96px; z-index: 5; left: 50%; transform: translateX(-50%); background: #ffe39a; color: #2a1d10; border: 3px solid #2a1d10; border-radius: 6px; padding: 8px 12px; text-align: center; max-width: 90vw; }
 .waiting .btn { margin-top: 6px; }
 
 /* touch */
@@ -171,3 +171,30 @@ body.touch-on .prompts { bottom: 190px; }
   .tbtn { width: 68px; height: 68px; }
   .tbtn-e { right: 96px; bottom: 16px; } .tbtn-sp { right: 16px; bottom: 60px; }
 }
+
+.objectives .now { display: none; color: #ffe36a; font-weight: 700; }
+.objectives.collapsed .now { display: block; }
+.objectives h4 { cursor: pointer; }
+.objectives h4::after { content: ' ▾'; font-size: 0.8em; }
+.objectives.collapsed h4::after { content: ' ▸ (tap for all)'; font-size: 0.75em; color: #d8d4c8; }
+.emote-toggle { display: none; }
+body.touch-on .emote-toggle, body.small .emote-toggle { display: inline-block; }
+body.touch-on .emotes .btn:not(.emote-toggle) { display: none; }
+body.touch-on .emotes.open .btn { display: inline-block; }
+body.touch-on .emotes { bottom: auto; top: 50%; left: 8px; flex-direction: column; max-width: 50vw; }
+body.touch-on .ability { display: none; }
+@media (max-width: 760px), (max-height: 520px) {
+  .menu-btn { left: auto; right: 8px; transform: none; }
+  .team { top: 52px; }
+  .captions { top: auto; bottom: 230px; max-width: 70vw; font-size: 0.8em; }
+  .cap { padding: 3px 8px; }
+  .objectives { max-width: 52vw; font-size: 0.78em; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .captions { bottom: 120px; max-width: 46vw; }
+  body.touch-on .minimap { top: 52px; right: 120px; width: 96px; height: 66px; }
+  .team { top: 8px; right: 110px; flex-direction: row; }
+  body.touch-on .emotes { top: 40%; }
+}
+body.touch-on .waiting { bottom: 250px; }
+@media (orientation: portrait) { body.touch-on .minimap { top: auto; bottom: 330px; right: 8px; } }

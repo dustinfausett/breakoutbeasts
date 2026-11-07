@@ -50,7 +50,7 @@ export class Input {
       e.preventDefault();
       const r = stickEl.getBoundingClientRect();
       cx = r.left + r.width / 2; cy = r.top + r.height / 2; R = r.width / 2;
-      active = e.pointerId; stickEl.setPointerCapture(e.pointerId);
+      active = e.pointerId; try { stickEl.setPointerCapture(e.pointerId); } catch { /* synthetic or already-ended pointer */ }
       move(e);
     });
     const move = (e) => {
@@ -67,7 +67,7 @@ export class Input {
     const btn = (id, key) => {
       const b = root.querySelector(id);
       const up = () => { this.touch[key] = false; b.classList.remove('down'); };
-      b.addEventListener('pointerdown', (e) => { e.preventDefault(); b.setPointerCapture(e.pointerId); this.touch[key] = true; b.classList.add('down'); });
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch { /* ignore */ } this.touch[key] = true; b.classList.add('down'); });
       for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, up);
       b.addEventListener('contextmenu', (e) => e.preventDefault());
     };

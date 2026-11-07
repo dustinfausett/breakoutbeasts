@@ -161,7 +161,8 @@ if (isMain) {
   const port = Number(process.env.PORT) || 8080;
   const host = process.env.HOST || '0.0.0.0';
   const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim()) : null;
-  createServer({ port, host, allowedOrigins }).then(({ port: p }) => {
+  const roomOptions = process.env.BB_STAFF === '0' ? { staff: false } : {};
+  createServer({ port, host, allowedOrigins, roomOptions }).then(({ port: p }) => {
     console.log(`Breakout Beasts! server running at http://localhost:${p}  (WebSocket path /ws)`);
   });
 }

@@ -68,7 +68,7 @@ function caption(text, cls = '', sound = false) {
   d.className = 'cap ' + cls + (sound ? ' sound' : '');
   d.textContent = text;
   box.appendChild(d);
-  while (box.children.length > 4) box.firstChild.remove();
+  while (box.children.length > (innerWidth < 760 || innerHeight < 520 ? 2 : 4)) box.firstChild.remove();
   setTimeout(() => d.remove(), sound ? 2200 : 4200);
 }
 
@@ -257,6 +257,12 @@ function onSnap(msg) {
   const first = !w.snap;
   w.applySnap(msg, performance.now());
   if (first) app.renderer.redrawAll();
+  if (AUTOPILOT || params.get('test') === '1') {
+    // test hook: digest of shared (non-personal) state per tick, for cross-client consistency checks
+    const h = window.__bb.history || (window.__bb.history = {});
+    h[msg.tick] = JSON.stringify([msg.g, msg.os, msg.cr, msg.pl.map((p) => [p.id, p.x, p.y, p.s]), msg.st, msg.obj.rescue, msg.obj.power.parts.map((p) => p.step)]);
+    const ks = Object.keys(h); if (ks.length > 200) delete h[ks[0]];
+  }
   for (const ev of msg.ev || []) handleEvent(ev);
   if (!app.hintShown && w.snap.me) {
     const me = w.me();
@@ -353,6 +359,15 @@ function updateHUD() {
   if (o.keys.active && !o.keys.done) for (const k of o.keys.keys) h += `<div class="sub ${k.holder ? 'done' : ''}">${k.holder ? '✓' : '·'} Key ${k.i + 1}: ${k.holder ? esc(k.holder) + ' is holding it' : 'nobody yet'}</div>`;
   h += `<div class="o ${o.exit.done ? 'done' : ''}">${ck(o.exit.done)}Everyone through the Moonleaf Gate${o.exit.open ? `: ${o.exit.inZone}/${o.exit.need} there` : ''}</div>`;
   h += '</div>';
+  let now = '';
+  const myPart = o.power.parts.find((p) => p.pid === app.myId && !p.done);
+  if (me && (me.s & PF.IN_ENC) && myEnc) now = myEnc.hint;
+  else if (o.exit.open) now = 'Everyone to the Moonleaf Gate!';
+  else if (o.keys.active) now = `Hold the exit keys together (${o.keys.keys.filter((k) => k.holder).length}/${o.keys.need})`;
+  else if (myPart) now = myPart.steps[myPart.step]?.label || '';
+  else if (!o.rescue.done) now = `Free caged animals (${o.rescue.n}/${o.rescue.need})`;
+  else if (!o.power.done) now = 'Help teammates restore power';
+  h += `<div class="now">➤ ${esc(now)}</div>`;
   const box = $('#objectives');
   if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; $('#obj-h').onclick = () => box.classList.toggle('collapsed'); }
 
@@ -396,6 +411,7 @@ function updateHUD() {
     const cd = pm ? pm.cd : 0;
     $('#ab-fill').style.height = Math.round((1 - cd) * 100) + '%';
     $('#ab-state').textContent = cd > 0 ? 'Recharging…' : 'Ready · Space';
+    $('#tbtn-sp').style.background = cd > 0 ? `conic-gradient(rgba(255,227,106,0.95) ${Math.round((1 - cd) * 360)}deg, rgba(120,110,90,0.85) 0)` : '';
   }
 }
 
@@ -450,7 +466,10 @@ function drawMinimap(markers) {
 
 function buildEmotes() {
   const box = $('#emotes'); box.innerHTML = '';
-  EMOTES.forEach((t, i) => { const b = document.createElement('button'); b.className = 'btn small'; b.textContent = `${i + 1} ${t}`; b.tabIndex = -1; b.addEventListener('click', () => app.link?.send({ t: 'emote', i })); box.appendChild(b); });
+  const tog = document.createElement('button'); tog.className = 'btn small emote-toggle'; tog.textContent = '💬 Say'; tog.tabIndex = -1;
+  tog.addEventListener('click', () => box.classList.toggle('open')); box.appendChild(tog);
+  $('#objectives').classList.toggle('collapsed', document.body.classList.contains('touch-on') || innerWidth < 760);
+  EMOTES.forEach((t, i) => { const b = document.createElement('button'); b.className = 'btn small'; b.textContent = `${i + 1} ${t}`; b.tabIndex = -1; b.addEventListener('click', () => { app.link?.send({ t: 'emote', i }); box.classList.remove('open'); }); box.appendChild(b); });
 }
 
 // ---------------- loop ----------------
@@ -668,5 +687,6 @@ function boot() {
 }
 
 window.__bb.dropConnection = () => app.link?.dropForTest?.();
+window.__bb.input = input;
 window.__bb.state = () => ({ screen: app.screen, overlay: app.overlay, inGame: app.inGame, myId: app.myId, lobby: app.lobby, snap: app.world?.snap ? { tick: app.world.snap.tick, phase: app.world.snap.phase, obj: app.world.snap.obj, pl: app.world.snap.pl, st: app.world.snap.st, g: app.world.snap.g, tv: app.world.snap.tv } : null, results: app.results, conn: app.connState });
 boot();

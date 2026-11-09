@@ -12,6 +12,13 @@ export { bayEnterSteps, bayExitSteps } from './bays.js';
 export const TICK = 0.05;
 const INTERACT_RANGE = 1.15;
 const GRACE = 5;
+const LARGE_ANIMALS = new Set(['elephant', 'giraffe', 'zebra']);
+export const ALERT_SECONDS = 180;
+
+export function staffProfile(cfg, alerted) {
+  return alerted ? { ...cfg, range: cfg.range * (cfg.alertRangeScale || 1.2), halfAngle: cfg.halfAngle + (cfg.alertAngleExtra || .16),
+    patrolSpeed: cfg.alertSpeed || 1.9, investigateSpeed: cfg.alertSpeed || 1.9 } : cfg;
+}
 
 // player status bit flags (for compact snapshots)
 export const PF = { HIDDEN: 1, SHELL: 2, SLIDE: 4, SPRINT: 8, GRACE: 16, CAUGHT: 32, UNDER: 64, HOP: 128, HOLD: 256, LOOKOUT: 512, WOBBLE: 1024, IN_ENC: 2048, ESCAPED: 4096, EXIT: 8192 };
@@ -42,6 +49,9 @@ export class Game {
     this.tick = 0;
     this.phase = 'play';
     this.stats = { captures: 0, rescued: 0 };
+    this.alertUntil = 0;
+    this.checks = [];
+    this.fortification = new Map();
     this.keysT = 0;
     this.nid = 1000;
 
@@ -99,7 +109,8 @@ export class Game {
       input: { mx: 0, my: 0, sp: false, e: false }, prevSp: false, prevE: false, lastSeq: 0,
       carry: null, shell: false, slide: null, sprintT: 0, noiseT: 0, cd: 0, cdMax: 1, grace: 0, capturedT: 0,
       under: null, hop: null, hold: null, lookout: 0, wobble: 0, onBeam: false, safe: null,
-      escaped: false, hidden: false, inExit: false, moving: false, msgCool: 0, everCaught: 0,
+      escaped: false, hidden: false, exposed: false, prepared: false, materials: 0, cageKeys: 0, ramCool: 0,
+      inExit: false, moving: false, msgCool: 0, everCaught: 0,
     };
   }
 
@@ -146,7 +157,7 @@ export class Game {
       if (g.state !== 0) continue;
       for (const [x, y] of g.tiles) { const i = this.idx(x, y); this.entSolid[i] = 1; if (g.vis === 'solid') this.entVis[i] = 1; }
     }
-    for (const o of this.objects) this.entSolid[this.idx(o.x, o.y)] = 1;
+    for (const o of this.objects) if (!['escapeBuild','escapeDig'].includes(o.kind)) this.entSolid[this.idx(o.x, o.y)] = 1;
     for (const c of this.crates) { const i = this.idx(c.x, c.y); this.entSolid[i] = 1; this.entVis[i] = 1; }
   }
 
@@ -217,6 +228,14 @@ export class Game {
     for (const pid of this.order) this._stepPlayer(this.players.get(pid), dt);
     this._stepGates(dt);
     this._stepParts();
+    const due = this.checks.filter(c=>c.due<=this.time);
+    this.checks = this.checks.filter(c=>c.due>this.time);
+    for (const c of due) {
+      const s=this.staff.find(s=>s.id===c.staff);
+      if(s && s.state!=='chase' && s.state!=='cheer'){
+        s.state='investigate';s.goal=c.goal;s.path=null;s.look=0;
+      }
+    }
     for (const s of this.staff) this._stepStaff(s, dt);
     for (const n of this.npcs) this._stepNpc(n, dt);
     for (const o of this.objects) if (o.cool > 0) o.cool -= dt;
@@ -306,7 +325,14 @@ export class Game {
       this.emit({ k: 'splash', x: p.x, y: p.y });
       this.msg(p, 'Whoa! Too wobbly. Hold Space to steady yourself on beams.');
     }
-    p.hidden = t === T.BUSH && !p.slide;
+    // Entering cover while watched does not make the animal disappear.
+    const watched = this.staff.some(s => this.canSee(s, p));
+    const bushCover = t === T.BUSH && (!LARGE_ANIMALS.has(p.animal) || DIR_LIST.some(d => this.tileAt(tx + DIRS[d][0], ty + DIRS[d][1]) === T.BUSH));
+    const cover = (bushCover && !p.slide) || p.shell;
+    if (!cover) p.exposed = false;
+    else if (watched && !p.hidden) p.exposed = true;
+    else if (!watched) p.exposed = false;
+    p.hidden = cover && !p.exposed;
     const inEnc = this.inOwnEnclosure(p);
     if (!inEnc && !p.escaped) { p.escaped = true; this.emit({ k: 'escaped', pid: p.id, name: p.name }); }
     p.inExit = this.inRect(p.x, p.y, this.zoo.exitZone);
@@ -329,6 +355,7 @@ export class Game {
 
   _continueHold(p, inp, dt) {
     const h = p.hold;
+    if (h.kind==='ram' && Math.hypot(inp.mx||0,inp.my||0)>.15) {p.hold=null;return;}
     const held = h.btn === 'sp' ? inp.sp : inp.e;
     if (!held) {
       if (h.kind === 'chew') this.chew.set(h.key, h.t);
@@ -342,9 +369,22 @@ export class Game {
     }
     if (h.t >= h.need) {
       p.hold = null;
-      if (h.kind === 'chew') {
+      if (h.kind === 'ram') {
+        const gate = this.gate(h.gate);
+        if (gate && !gate.state && gate.tiles.some(([x,y]) => dist(p.x,p.y,x+.5,y+.5)<1.65)) this._ramGate(p,gate);
+      } else if (h.kind === 'steal') {
+        const s = this.staff.find(s => s.id === h.staff);
+        if (s && this._canSteal(p, s)) {
+          p.cageKeys++; s.keyCool = this.time + 12;
+          this.emit({ k: 'msg', pid: p.id, text: 'Key stolen! Use it at a gold cage lock. Guards carry spare keys — return later for another.' });
+        }
+      } else if (h.kind === 'craft') {
+        const o = this.obj(h.obj);
+        if (o) this._finishCraft(p, o);
+      } else if (h.kind === 'chew') {
         this.chew.delete(h.key);
         this.setTile(h.x, h.y, T.DEBRIS);
+        this._rescueAtTile(h.x,h.y,p);
         this.emit({ k: 'chewed', x: h.x, y: h.y });
         this.rebuildBlock();
       } else if (h.kind === 'dig') {
@@ -371,6 +411,13 @@ export class Game {
     const dirs = this.dirOrder(p);
     const nb = (d, n = 1) => [px + DIRS[d][0] * n, py + DIRS[d][1] * n];
     if (p.capturedT > 0 || p.under || p.hop || p.slide) return null;
+    if (this.inOwnEnclosure(p) && !p.prepared) return { text: 'Hold E at your salvage bench to prepare your escape first', idle: true };
+    if (['elephant', 'giraffe', 'zebra'].includes(a)) {
+      const gate = this.gates.find(g => g.kind === 'main' && !g.state && g.tiles.some(([x,y]) => dist(p.x,p.y,x+.5,y+.5)<1.65));
+      if (gate) return { text: `Hold Space to charge gate hit (${gate.hits || 0}/${3 + (this.fortification.get(gate.enc) || 0)})`, run: () => {
+        p.hold = {kind:'ram',btn:'sp',gate:gate.id,t:0,need:1.2};
+      } };
+    }
     switch (a) {
       case 'redpanda': {
         for (const d of dirs) {
@@ -441,7 +488,7 @@ export class Game {
       case 'zebra': {
         for (const d of dirs) {
           const [x1, y1] = nb(d);
-          if (this.tileAt(x1, y1) === T.LOOSE) return { text: 'Kick planks', run: () => { p.face = d; this.setTile(x1, y1, T.DEBRIS); this.rebuildBlock(); this.emit({ k: 'kick', x: x1, y: y1 }); this.noise(x1 + 0.5, y1 + 0.5, 6, p); } };
+          if (this.tileAt(x1, y1) === T.LOOSE) return { text: 'Kick planks', run: () => { p.face = d; this.setTile(x1, y1, T.DEBRIS); this._rescueAtTile(x1,y1,p); this.rebuildBlock(); this.emit({ k: 'kick', x: x1, y: y1 }); this.noise(x1 + 0.5, y1 + 0.5, 6, p); } };
         }
         if (p.cd > 0) return { text: 'Sprint recharging', idle: true };
         return { text: 'Sprint (noisy!)', run: () => { p.sprintT = 1.6; p.cd = 5; p.cdMax = 5; p.noiseT = 0.5; this.emit({ k: 'sprint', pid: p.id }); this.noise(p.x, p.y, 5, p); } };
@@ -507,6 +554,8 @@ export class Game {
   interactTarget(p) {
     if (p.capturedT > 0 || p.under || p.hop || p.slide) return null;
     const [px, py] = this.ptile(p);
+    const guard = this.staff.find(s => this._canSteal(p, s));
+    if (guard) return { text: 'Hold E to steal a cage key from behind', run: () => { p.hold = { kind: 'steal', btn: 'e', staff: guard.id, t: 0, need: .3 }; } };
     // tunnels
     if (this.tileAt(px, py) === T.BURROW) {
       const b = this.burrows.find((bb) => bb.dug && ((bb.a[0] === px && bb.a[1] === py) || (bb.b[0] === px && bb.b[1] === py)));
@@ -544,12 +593,25 @@ export class Game {
 
   _objectInteraction(p, o) {
     switch (o.kind) {
+      case 'supplies':
+        return { text: !p.prepared ? 'Hold E: salvage and prepare your escape' : `Hold E: collect a building bundle (${p.materials}/2)`, run: () => {
+          p.hold = { kind: 'craft', btn: 'e', obj: o.id, t: 0, need: .8 };
+        } };
+      case 'escapeBuild':
+      case 'escapeDig': {
+        if (o.kind === 'escapeDig' && ['elephant','giraffe','zebra'].includes(p.animal)) return { text: 'Too large for this tunnel — build a ramp or ram the gate', idle: true };
+        if (o.state) return o.kind === 'escapeDig' ? { text: 'Travel through your dug tunnel', run: () => { p.under = { t: 0, dur: .7, to: o.outside.map(v=>v+.5) }; } } : { text: 'Walk over the stacked ramp at the fence', idle: true };
+        if (!p.prepared) return { text: 'Prepare at a salvage bench first', idle: true };
+        if (p.materials < 2) return { text: 'Collect two bundles at a salvage bench first', idle: true };
+        return { text: o.kind === 'escapeBuild' ? 'Hold E: stack bundles into a climbing ramp' : 'Hold E: craft a stick and dig under the fence', run: () => { p.hold = { kind:'craft', btn:'e', obj:o.id,t:0,need:o.kind === 'escapeDig'?3:2 }; } };
+      }
       case 'lever': {
         if (o.reach === 'high' && p.animal !== 'giraffe') return { text: 'Too high to reach — a giraffe could!', idle: true };
         if (o.reach === 'water' && p.animal !== 'flamingo') return { text: 'Out of reach across the water', idle: true };
         if (o.reach === 'bars' && p.animal !== 'monkey') return { text: 'Behind bars — a monkey could reach it', idle: true };
         const g = o.action.open ? this.gate(o.action.open) : null;
         if (g && g.state !== 0 && !o.action.timed) return { text: o.keeper ? 'Gate already open' : 'Already switched on', idle: true };
+        if (o.keeper && !p.cageKeys) return { text: 'Locked: sneak behind a guard and hold E to steal a key', idle: true };
         if (o.hold > 0) return { text: `Hold to pull ${o.label.toLowerCase()}`, run: () => { p.hold = { kind: 'lever', btn: 'e', obj: o.id, t: 0, need: o.hold }; } };
         return { text: `Pull ${o.label.toLowerCase()}`, run: () => this._activate(p, o) };
       }
@@ -558,6 +620,7 @@ export class Game {
         return { text: 'Hold to turn the crank', run: () => { p.hold = { kind: 'crank', btn: 'e', obj: o.id, t: 0, need: o.hold }; this.emit({ k: 'crank', x: o.x, y: o.y }); } };
       case 'logpile':
         if (p.animal !== 'beaver') return { text: 'Only a beaver knows what to do with these logs', idle: true };
+        if (o.source && this.tileAt(...o.source)===T.WOOD) return {text:'Chew down the timber below this pile first (hold Space)',idle:true};
         if (p.carry) return { text: 'Paws full', idle: true };
         return { text: 'Pick up a log', run: () => { p.carry = 'wood'; this.emit({ k: 'pickup', pid: p.id }); this.msg(p, 'Got a log! Press Space at bridge posts to build.'); } };
       case 'cage': {
@@ -614,6 +677,11 @@ export class Game {
   _partForBay(bay) { return this.parts.find((pt) => pt.bay === bay); }
 
   _activate(p, o) {
+    if (o.keeper) {
+      if (this.gate(o.action.open)?.state) return;
+      if (!p.cageKeys) return;
+      p.cageKeys--;
+    }
     const a = o.action || {};
     if (a.open) {
       const g = this.gate(a.open);
@@ -624,11 +692,13 @@ export class Game {
       else if (g && g.state === 1) g.timer = a.dur;
     }
     o.state = 1;
+    if(o.oneShot){this._removeObject(o.id);this.rebuildBlock();}
     this.emit({ k: 'lever', x: o.x, y: o.y });
   }
 
   openGate(g, by) {
     g.state = 1;
+    if (g.kind === 'side' && g.enc != null && by) this._rescueEnclosure(g.enc,by);
     this.rebuildBlock();
     const [x, y] = g.tiles[0];
     this.emit({ k: 'gate', x, y, open: true });
@@ -750,7 +820,67 @@ export class Game {
   }
 
   // ---------- noise & staff ----------
-  noise(x, y, r, src) {
+  _canSteal(p,s) {
+    return p.active && !p.capturedT && !p.under && !p.hop && dist(p.x,p.y,s.x,s.y)<1.9 &&
+      Math.abs(angleDiff(Math.atan2(p.y-s.y,p.x-s.x),s.dir))>Math.PI/2 &&
+      !this.staff.some(g=>this.canSee(g,p)) && this.time >= (s.keyCool || 0) && s.state !== 'chase' &&
+      lineOfSight(s.x,s.y,p.x,p.y,(x,y)=>this.visionBlocked(x,y));
+  }
+
+  _finishCraft(p,o) {
+    if (dist(p.x,p.y,o.x+.5,o.y+.5)>INTERACT_RANGE) return;
+    if (o.kind==='supplies') {
+      if (!p.prepared) { p.prepared=true; this.msg(p,'Escape kit prepared! Use your animal ability, or collect two bundles here for a ramp or digging stick.'); }
+      else { p.materials=Math.min(2,p.materials+1); this.msg(p,`Building bundles: ${p.materials}/2. Visit a ramp or soil site at the front corners.`); }
+    } else if (!o.state && p.materials>=2) {
+      p.materials-=2;o.state=1;
+      if (o.kind==='escapeBuild') { this.setTile(...o.wall,T.PATH);this.rebuildBlock(); }
+      this.msg(p,o.kind==='escapeBuild'?'Ramp stacked! Walk across the fence behind it.':'Tunnel dug! Press E here to travel.');
+      this._rescueEnclosure(o.enc,p);
+    }
+  }
+
+  _rescueAtTile(x,y,p) {
+    const enc=this.zoo.enclosures.find(e=>this.inRect(x+.5,y+.5,e.rect)&&(x===e.rect[0]||x===e.rect[2]||y===e.rect[1]||y===e.rect[3]));
+    if(enc)this._rescueEnclosure(enc.index,p);
+  }
+
+  _rescueEnclosure(enc,p) {
+    const npc=this.npcs.find(n=>n.enc===enc && n.state==='caged');
+    if(npc){npc.state='leaving';npc.path=null;this.stats.rescued++;this.emit({k:'rescue',animal:npc.animal,by:p.name});}
+  }
+
+  _raiseAlert() {
+    const wasAlert = this.time < this.alertUntil;
+    this.alertUntil = this.time + ALERT_SECONDS;
+    if (!wasAlert) this.emit({k:'securityalert'});
+  }
+
+  _ramGate(p,gate) {
+    gate.hits = (gate.hits || 0) + 1;
+    const needed = 3 + (this.fortification.get(gate.enc) || 0);
+    const delay = Math.max(.5, 4 - (gate.hits - 1) * 1.5);
+    this.noise(p.x,p.y,8+gate.hits*5,p,delay);
+    this.emit({k:'gatehit',x:p.x,y:p.y,hits:gate.hits,needed});
+    this.msg(p,`Gate hit ${gate.hits}/${needed}. Guard response in ${delay}s — release Space and charge again!`);
+    if (gate.hits >= needed) {
+      gate.broken = true;
+      gate.breakSerial = (gate.breakSerial || 0) + 1;
+      this.openGate(gate,p);
+    }
+  }
+
+  _radio(s,p) {
+    this._raiseAlert();
+    for (const guard of this.staff) {
+      guard.state='chase';guard.target=p.id;guard.lastSeen=[p.x,p.y];guard.lost=0;
+      guard.path=null;guard.repath=0;guard.alert=1;
+    }
+    this.emit({k:'alert',id:s.id,pid:p.id,x:s.x,y:s.y});
+    this.emit({k:'radio',pid:p.id});
+  }
+
+  noise(x, y, r, src, delay = 0) {
     this.emit({ k: 'noise', x, y, r });
     for (const s of this.staff) {
       if (s.state === 'chase' || s.state === 'cheer') continue;
@@ -758,7 +888,10 @@ export class Game {
         const tx = Math.floor(x), ty = Math.floor(y);
         const goal = this._nearestStaffTile(tx, ty);
         if (!goal) continue;
-        s.state = 'investigate'; s.goal = goal; s.path = null; s.look = 0; s.alert = Math.max(s.alert, 0.2);
+        if (delay > 0) {
+          this.checks.push({staff:s.id,goal,due:this.time+delay});
+        } else { s.state = 'investigate'; s.goal = goal; s.path = null; s.look = 0; }
+        s.noiseLevel=(s.noiseLevel||0)+1; s.noiseUntil=this.time+8; s.alert=Math.min(1,.2+s.noiseLevel*.2);
         this.emit({ k: 'investigate', id: s.id });
       }
     }
@@ -782,7 +915,7 @@ export class Game {
 
   canSee(s, p) {
     const d = dist(s.x, s.y, p.x, p.y);
-    const cfg = this.zoo.staff;
+    const cfg = staffProfile(this.zoo.staff, this.time < this.alertUntil);
     if (d > cfg.range) return false;
     if (d > 1.1) {
       const ang = Math.atan2(p.y - s.y, p.x - s.x);
@@ -792,11 +925,21 @@ export class Game {
   }
 
   detectable(p) {
-    return p.active && p.connected && !p.hidden && !p.shell && p.grace <= 0 && p.capturedT <= 0 && !p.under && !p.inExit && !this.inOwnEnclosure(p);
+    return p.active && p.connected && !p.hidden && !(p.shell && !p.exposed) && p.grace <= 0 && p.capturedT <= 0 && !p.under && !p.inExit && !this.inOwnEnclosure(p);
   }
 
   _stepStaff(s, dt) {
-    const cfg = this.zoo.staff;
+    const cfg = staffProfile(this.zoo.staff, this.time < this.alertUntil);
+    for (const g of this.gates) {
+      if (!g.broken || !g.state || (s.inspected || {})[g.id] === g.breakSerial) continue;
+      const knownEscape = this.npcs.some(n=>n.enc===g.enc && n.state!=='caged') ||
+        [...this.players.values()].some(p=>p.enc===g.enc && p.escaped && !this.inOwnEnclosure(p));
+      if (knownEscape && g.tiles.some(([x,y])=>this.canSee(s,{x:x+.5,y:y+.5}))) {
+        (s.inspected ||= {})[g.id]=g.breakSerial;
+        this._raiseAlert();
+        this.emit({k:'damagefound',id:s.id});
+      }
+    }
     if (s.state === 'cheer') { s.cheer -= dt; if (s.cheer <= 0) { s.state = 'return'; s.path = null; } return; }
     // vision
     let seen = null, sd = Infinity;
@@ -804,10 +947,14 @@ export class Game {
       if (!this.detectable(p)) continue;
       if (this.canSee(s, p)) { const d = dist(s.x, s.y, p.x, p.y); if (d < sd) { sd = d; seen = p; } }
     }
+    if (seen && (s.state !== 'chase' || s.target !== seen.id)) { this._radio(s,seen); return; }
     if (s.state === 'chase') {
       const t = this.players.get(s.target);
       const visible = t && this.detectable(t) && this.canSee(s, t);
-      if (visible) { s.lastSeen = [t.x, t.y]; s.lost = 0; } else s.lost += dt;
+      if (visible) {
+        this._raiseAlert();
+        for(const guard of this.staff) if(guard.target===t.id){guard.lastSeen=[t.x,t.y];guard.lost=0;}
+      } else s.lost += dt;
       if (!t || !this.detectable(t) || s.lost > 2.0) {
         const ls = s.lastSeen ? this._nearestStaffTile(Math.floor(s.lastSeen[0]), Math.floor(s.lastSeen[1])) : null;
         s.state = ls ? 'investigate' : 'return'; s.goal = ls; s.path = null; s.look = 0; s.target = null; s.alert = 0.5;
@@ -824,28 +971,14 @@ export class Game {
         // close enough: move directly
         this._staffMoveDirect(s, t.x, t.y, cfg.chaseSpeed * dt);
       } else this._followPath(s, cfg.chaseSpeed * dt);
-      if (t && dist(s.x, s.y, t.x, t.y) < 0.75) this._capture(s, t);
+      if (visible && t && dist(s.x, s.y, t.x, t.y) < 0.75) this._capture(s, t);
       return;
     }
-    // suspicion meter
-    if (seen) {
-      const rate = cfg.detectRate * (0.55 + 1.3 * (1 - sd / cfg.range));
-      s.alert = Math.min(1, s.alert + rate * dt);
-      s.suspect = seen.id;
-      const ang = Math.atan2(seen.y - s.y, seen.x - s.x);
-      s.dir += angleDiff(ang, s.dir) * Math.min(1, dt * 4);
-      if (s.alert >= 1) {
-        s.state = 'chase'; s.target = seen.id; s.lastSeen = [seen.x, seen.y]; s.lost = 0; s.path = null; s.repath = 0;
-        this.emit({ k: 'alert', id: s.id, pid: seen.id, x: s.x, y: s.y });
-        return;
-      }
-      if (s.alert > 0.15) { if (s.state !== 'suspicious') { s.prevState = s.state; s.state = 'suspicious'; this.emit({ k: 'suspicious', id: s.id }); } return; }
-    } else {
-      s.alert = Math.max(0, s.alert - 0.45 * dt);
-      if (s.state === 'suspicious' && s.alert < 0.1) { s.state = s.prevState === 'investigate' ? 'investigate' : 'return'; s.path = null; }
-      if (s.state === 'suspicious') { return; }
+    // Noise raises attention; visual sightings above always trigger a radio chase immediately.
+    if(this.time>(s.noiseUntil||0)){
+      s.alert=Math.max(0,s.alert-.45*dt);
+      if(s.alert===0)s.noiseLevel=0;
     }
-    if (s.state === 'suspicious') return;
 
     if (s.state === 'investigate') {
       if (!s.goal) { s.state = 'return'; s.path = null; return; }
@@ -927,15 +1060,44 @@ export class Game {
     p.carry = null;
   }
 
+  _resetEnclosure(enc) {
+    const e=this.zoo.enclosures[enc], z=this.zoo;
+    this.fortification.set(enc,(this.fortification.get(enc)||0)+1);
+    for(let y=e.rect[1];y<=e.rect[3];y++)for(let x=e.rect[0];x<=e.rect[2];x++){
+      this.setTile(x,y,z.tiles[this.idx(x,y)]);
+      this.chew.delete(this.idx(x,y));
+    }
+    this.objects=this.objects.filter(o=>o.enc!==enc);
+    this.objects.push(...z.objects.filter(o=>o.enc===enc).map(o=>({...o,state:0,cool:0})));
+    for(const g of this.gates.filter(g=>g.enc===enc)){
+      g.state=0;g.timer=0;g.hits=0;g.broken=false;
+    }
+    for(const c of this.crates)if(this.inRect(c.home[0]+.5,c.home[1]+.5,e.rect)){c.x=c.home[0];c.y=c.home[1];}
+    for(const b of this.burrows)if(this.inRect(b.a[0]+.5,b.a[1]+.5,e.rect)){
+      b.dug=false;
+      for(const [x,y] of [b.a,b.b])this.setTile(x,y,z.tiles[this.idx(x,y)]);
+    }
+    this.defsVersion++;this.rebuildBlock();
+    for(const q of this.players.values()) {
+      const h=q.hold;
+      if(h && (this.obj(h.obj)?.enc===enc || this.gate(h.gate)?.enc===enc ||
+        (h.x!=null && this.inRect(h.x+.5,h.y+.5,e.rect)))) q.hold=null;
+      if(q.active && this.inRect(q.x,q.y,e.rect)){q.hold=null;this._unstick(q);}
+    }
+  }
+
   _returnToEnclosure(p) {
     const e = this.zoo.enclosures[p.enc];
+    this._resetEnclosure(p.enc);
+    p.prepared=false;p.materials=0;p.hold=null;p.hidden=false;p.exposed=false;
+    p.hop=null;p.under=null;p.slide=null;p.shell=false;p.sprintT=0;
     p.x = e.spawn[0] + 0.5; p.y = e.spawn[1] + 0.5;
     p.grace = GRACE;
     p.wobble = 0; p.onBeam = false; p.safe = [p.x, p.y];
     const g = this.gate(e.mainGate);
     if (g && g.state === 1) this.closeGate(g);
     this._unstick(p);
-    this.msg(p, 'Caught! You were returned to your enclosure. Escape again, or ask a teammate to pull your keeper lever.');
+    this.msg(p, 'Caught! You were returned to your enclosure. Escape again, or ask a teammate to steal a key and unlock your cage.');
   }
 
   // ---------- NPCs ----------
@@ -1047,9 +1209,10 @@ export class Game {
       pd: this.plates.map((p) => (p.down ? 1 : 0)),
       pl: this.order.map((id) => {
         const p = this.players.get(id);
-        return { id, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
+        return { id, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
       }),
-      st: this.staff.map((s) => ({ x: r2(s.x), y: r2(s.y), d: r2(s.dir), s: STAFF_STATES.indexOf(s.state), al: r2(s.alert) })),
+      security: Math.max(0,Math.ceil(this.alertUntil-this.time)),
+      st: this.staff.map((s) => ({ ar:this.time<this.alertUntil, x: r2(s.x), y: r2(s.y), d: r2(s.dir), s: STAFF_STATES.indexOf(s.state), al: r2(s.alert) })),
       np: this.npcs.map((n) => ({ a: n.animal, x: r2(n.x), y: r2(n.y), s: n.state, f: n.face })),
       lookout,
       obj: this.objectives(),
@@ -1086,6 +1249,7 @@ export class Game {
 
 // exported for the client (vision cones)
 export function visionPolygon(world, s, cfg, rays = 18) {
+  cfg = staffProfile(cfg,s.ar);
   const pts = [[s.x, s.y]];
   for (let i = 0; i <= rays; i++) {
     const a = s.d - cfg.halfAngle + (2 * cfg.halfAngle * i) / rays;

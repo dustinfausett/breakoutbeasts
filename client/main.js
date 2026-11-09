@@ -282,9 +282,13 @@ function handleEvent(ev) {
     case 'msg': caption(ev.text); break;
     case 'gate': if (nearMe(ev.x, ev.y)) { audio.play(ev.open ? 'gate' : 'gateClose'); caption(ev.open ? '[Clank] A gate swings open' : '[Clang] A gate slams shut', '', true); } break;
     case 'alert': audio.play('alert'); caption(`[Whistle!] A keeper spotted ${ev.pid === app.myId ? 'you' : nameOf(ev.pid)}! Run and hide!`, 'alert'); break;
+    case 'gatehit': audio.play('clang'); caption(`[Bang!] Gate hit ${ev.hits}/${ev.needed}. Keepers are coming to check!`, 'alert'); break;
+    case 'securityalert': caption('Zoo alert for 3 minutes: keepers see farther and walk faster!', 'alert'); break;
+    case 'damagefound': caption('A keeper found a broken gate and raised the alarm!', 'alert'); break;
+    case 'radio': caption('[Radio] Loose animal spotted! All keepers are converging. Break line of sight before hiding.', 'alert'); break;
     case 'suspicious': if (app.world && nearMe(app.world.snap.st[ev.id]?.x || 0, app.world.snap.st[ev.id]?.y || 0, 9)) { audio.play('suspicious'); caption('[Hmm?] A keeper noticed something…', '', true); } break;
     case 'investigate': break;
-    case 'capture': audio.play('capture'); caption(mine ? 'You were caught! Back to your enclosure…' : `${ev.name} was caught! Pull their keeper lever to free them.`, 'alert'); break;
+    case 'capture': audio.play('capture'); caption(mine ? 'You were caught! Back to your enclosure…' : `${ev.name} was caught! Steal a key for their cage or build an escape ramp.`, 'alert'); break;
     case 'rescue': audio.play('rescue'); { const o = app.world?.snap?.obj.rescue; caption(`${ANIMALS[ev.animal].name} is free!${o ? ` (${o.n}/${o.need} needed)` : ''}`, 'good'); } break;
     case 'escaped': audio.play('rescue'); caption(mine ? 'You escaped your enclosure!' : `${ev.name} escaped!`, 'good'); break;
     case 'chewed': audio.play('crunch'); caption('[Crunch] Wood chewed through', '', true); break;
@@ -343,10 +347,11 @@ function updateHUD() {
   const s = w.snap, o = s.obj, me = w.me();
   const ck = (d) => `<span class="mark">${d ? '✓' : '○'}</span>`;
   let h = `<h4 tabindex="0" id="obj-h">Moonleaf Zoo — Objectives</h4><div class="detail">`;
+  if(s.security>0) h += `<div class="o">⚠ Zoo alert: ${Math.floor(s.security/60)}:${String(s.security%60).padStart(2,'0')} · wider vision, faster keepers</div>`;
   const myEnc = me ? w.zoo.enclosures.find((e) => e.animal === me.a) : null;
   h += `<div class="o ${o.escape.done ? 'done' : ''}">${ck(o.escape.done)}Escape your enclosures${o.escape.done ? ' — done' : ''}</div>`;
   if (!o.escape.done) for (const p of o.escape.players) h += `<div class="sub ${p.escaped ? 'done' : ''} ${p.name === me?.n ? 'me' : ''}">${p.escaped ? '✓' : '·'} ${esc(p.name)} (${ANIMALS[p.animal].name})${p.escaped ? ' is out' : p.name === me?.n && myEnc ? ': ' + myEnc.hint : ''}</div>`;
-  h += `<div class="o ${o.rescue.done ? 'done' : ''}">${ck(o.rescue.done)}Free caged animals: ${o.rescue.n}/${o.rescue.need}${o.rescue.done ? ' — done' : ' (hold E at yellow keeper levers)'}</div>`;
+  h += `<div class="o ${o.rescue.done ? 'done' : ''}">${ck(o.rescue.done)}Free caged animals: ${o.rescue.n}/${o.rescue.need}${o.rescue.done ? ' — done' : ' (steal guard keys for locks, or build escape ramps)'}</div>`;
   const pd = o.power.parts.filter((p) => p.done).length;
   h += `<div class="o ${o.power.done ? 'done' : ''}">${ck(o.power.done)}Restore power in the Maintenance Yard: ${pd}/${o.power.parts.length} fuses</div>`;
   if (!o.power.done) for (const p of o.power.parts) {
@@ -507,8 +512,8 @@ function gameTick() {
 function clientView() {
   const w = app.world, s = w.snap, d = w.defs, me = w.me();
   return {
-    world: w, zoo: w.zoo,
-    me: { id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
+    world: w, zoo: w.zoo, staff:s.st,
+    me: { id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
     obj: s.obj,
     objects: d.objects.map((o, i) => ({ ...o, state: s.os[i] })),
     gates: d.gates.map((g, i) => ({ ...g, state: Number(s.g[i]) })),
@@ -698,5 +703,6 @@ function boot() {
 
 window.__bb.dropConnection = () => app.link?.dropForTest?.();
 window.__bb.input = input;
+window.__bb.botState = () => app.bot ? {script:app.bot.scriptName,step:app.bot.si,current:app.bot.script?.[app.bot.si],recent:app.bot.log.slice(-4)} : null;
 window.__bb.state = () => ({ screen: app.screen, overlay: app.overlay, inGame: app.inGame, myId: app.myId, lobby: app.lobby, snap: app.world?.snap ? { tick: app.world.snap.tick, phase: app.world.snap.phase, obj: app.world.snap.obj, pl: app.world.snap.pl, st: app.world.snap.st, g: app.world.snap.g, tv: app.world.snap.tv } : null, results: app.results, conn: app.connState });
 boot();

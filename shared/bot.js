@@ -3,9 +3,9 @@
 // test mode (?autopilot=1) so end-to-end tests drive the real client and network path.
 
 import { canOccupy } from './physics.js';
-import { bfs, dist } from './util.js';
+import { bfs, dist, angleDiff, lineOfSight } from './util.js';
 import { bayEnterSteps, bayExitSteps } from './bays.js';
-import { PF } from './game.js';
+import { PF, staffProfile } from './game.js';
 
 const DIRV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
@@ -13,8 +13,8 @@ const DIRV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 export function viewFromGame(game, pid) {
   const p = game.players.get(pid);
   return {
-    world: game, zoo: game.zoo,
-    me: { id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, enc: p.enc },
+    world: game, zoo: game.zoo, staff:game.staff.map(s=>({x:s.x,y:s.y,d:s.dir,ar:game.time<game.alertUntil})),
+    me: { id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, materials: p.materials, enc: p.enc },
     obj: game.objectives(),
     objects: game.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, index: o.index, bay: o.bay, keeper: o.keeper, enc: o.enc, state: o.state })),
     gates: game.gates.map((g) => ({ id: g.id, state: g.state, enc: g.enc, kind: g.kind })),
@@ -106,13 +106,26 @@ export class Autopilot {
     if (!v.obj.rescue.done) {
       const caged = v.npcs.map((n, i) => ({ ...n, i })).filter((n) => n.state === 'caged');
       if (caged.length) {
+        // Keep a chosen rescue route until it finishes or another player frees that cage.
+        // Re-ranking distances every snapshot made clients oscillate between two cages.
+        if (this.script && this.si < this.script.length) {
+          if (this.scriptName.startsWith('supplies-')) return;
+          if (this.scriptName.startsWith('rescue-')) {
+            const target = v.objects.find(o => o.id === this.scriptName.slice(7));
+            if (target && caged.some(n => n.enc === target.enc)) return;
+          }
+        }
         const order = Math.max(0, v.activeIds.indexOf(me.id));
-        // choose the closest-by-path lever, spreading teammates out
-        const levers = caged.map((n) => v.objects.find((o) => o.kind === 'lever' && o.keeper && o.enc === n.enc)).filter(Boolean);
-        levers.sort((a, b) => dist(me.x, me.y, a.x, a.y) - dist(me.x, me.y, b.x, b.y));
-        const lever = levers[order % levers.length];
-        const front = v.zoo.enclosures[lever.enc].front === 'down' ? 1 : -1;
-        return this.setScript('rescue-' + lever.id, [{ go: [lever.x + 1, lever.y + front * 0] }, { face: 'left' }, { holdE: 1.3 }, { wait: 0.2 }]);
+        // Choose a nearby ramp and spread teammates across the remaining cages.
+        const ramps = caged.map(n=>v.objects.find(o=>o.kind==='escapeBuild' && o.enc===n.enc)).filter(Boolean);
+        ramps.sort((a,b)=>dist(me.x,me.y,a.x,a.y)-dist(me.x,me.y,b.x,b.y));
+        const ramp=ramps[order % ramps.length];
+        const enc=v.zoo.enclosures[ramp.enc], front=enc.front==='down'?1:-1;
+        if((me.materials||0)<2){
+          const bench=v.objects.filter(o=>o.kind==='supplies' && (o.y===13||o.y===43)).sort((a,b)=>dist(me.x,me.y,a.x,a.y)-dist(me.x,me.y,b.x,b.y))[0];
+          return this.setScript('supplies-'+bench.id+'-'+(me.materials||0),[{go:[bench.x,bench.y+(bench.y===13?1:-1)]},{holdE:1.1},{wait:.1}]);
+        }
+        return this.setScript('rescue-'+ramp.id,[{go:[ramp.x,ramp.y+front]},{holdE:2.3},{wait:.2}]);
       }
     }
     // keys
@@ -132,10 +145,21 @@ export class Autopilot {
 
   _inRect(x, y, r) { return x >= r[0] && x < r[2] + 1 && y >= r[1] && y < r[3] + 1; }
 
+  _danger(v,x,y) {
+    const enc=v.zoo.enclosures[v.me.enc];
+    if(this._inRect(x+.5,y+.5,enc.rect))return false;
+    return (v.staff||[]).some(s=>{
+      const dx=x+.5-s.x,dy=y+.5-s.y,d=Math.hypot(dx,dy);
+      const cfg=staffProfile(v.zoo.staff,s.ar);
+      return d<=cfg.range+.6 && (d<1.4||Math.abs(angleDiff(Math.atan2(dy,dx),s.d))<cfg.halfAngle+.15) &&
+        lineOfSight(s.x,s.y,x+.5,y+.5,(a,b)=>v.world.visionBlocked(a,b));
+    });
+  }
+
   _pathTo(v, goalFn) {
     const me = v.me;
     return bfs(v.world.w, v.world.h, Math.floor(me.x), Math.floor(me.y), goalFn,
-      (x, y) => canOccupy(v.world, me.animal, x + 0.5, y + 0.5, null), 8000);
+      (x, y) => !this._danger(v,x,y) && canOccupy(v.world, me.animal, x + 0.5, y + 0.5, null), 8000);
   }
 
   _runStep(v, dt) {
@@ -153,13 +177,15 @@ export class Autopilot {
         this.pathGoal = gx + ',' + gy;
         this.stuckT = 0;
         if (!this.path) {
-          if (this.st > 3) { next(); }
+          // A guard may temporarily block the safe route. Wait rather than skipping
+          // the waypoint and trying to hold a distant switch forever.
           return null;
         }
       }
       // pop reached nodes
       while (this.path.length && dist(me.x, me.y, this.path[0][0] + 0.5, this.path[0][1] + 0.5) < 0.12) this.path.shift();
       const tgt = this.path.length ? this.path[0] : [gx, gy];
+      if(this._danger(v,...tgt)){this.path=null;return null;}
       const dx = tgt[0] + 0.5 - me.x, dy = tgt[1] + 0.5 - me.y;
       const d = Math.hypot(dx, dy) || 1;
       // stuck detection

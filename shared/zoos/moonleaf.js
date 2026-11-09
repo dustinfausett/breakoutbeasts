@@ -152,7 +152,7 @@ const ENCLOSURES = {
       '###W##GG######',
       'PPPPPPPPPkPPPP',
     ],
-    hint: 'Grab a log from the pile (E), build a bridge on the posts (Space), then chew through the wooden door (hold Space).',
+    hint: 'Chew down the timber below the log pile (hold Space), then grab a log (E), build a bridge on the posts (Space), then chew through the wooden door (hold Space).',
     solution: [{ go: [4, 2] }, { face: 'up' }, { e: 1 }, { go: [3, 8] }, { face: 'down' }, { space: 1 }, { wait: 1.2 }, { go: [3, 9] }, { face: 'down' }, { holdSpace: 2.2 }, { go: [3, 11] }],
   },
   meerkat: {
@@ -290,32 +290,58 @@ export function buildMoonleaf() {
       });
     });
     const mainGate = addGate({ kind: 'main', vis: 'bars', tiles: mainTiles, enc: idx, label: def.name + ' gate' });
-    const keeperId = addObj({ kind: 'lever', reach: 'normal', hold: 1.0, x: keeper[0], y: keeper[1], action: { open: mainGate }, enc: idx, keeper: true, label: 'Keeper lever' });
+    const keeperId = addObj({ kind: 'lever', reach: 'normal', hold: 1.0, x: keeper[0], y: keeper[1], action: { open: mainGate }, enc: idx, keeper: true, label: 'Cage key lock' });
+    addObj({kind:'supplies',x:keeper[0]-1,y:keeper[1],enc:idx,label:'Public salvage bench'});
     if (high) addObj({ kind: 'lever', reach: 'high', hold: 0, x: high[0], y: high[1], action: { open: mainGate }, enc: idx, label: 'High switch' });
     let sideGate = null;
     if (sideTiles.length) {
       const kind = animal === 'tortoise' ? 'timed' : 'side';
       sideGate = addGate({ kind, vis: animal === 'flamingo' ? 'bars' : 'solid', tiles: sideTiles, enc: idx, label: 'Side door' });
     }
+    if (animal === 'monkey' || animal === 'giraffe') {
+      const spot=toWorld(animal==='monkey'?9:4,10);set(...spot,T.FLOOR);
+      sideGate=addGate({kind:'side',vis:'bars',tiles:[spot],enc:idx,label:'Ability service hatch'});
+      if(animal==='monkey'){
+        const lock=objects.find(o=>o.id===keeperId);lock.x++;
+        addObj({kind:'lever',reach:'bars',hold:0,x:keeper[0],y:keeper[1],action:{open:sideGate},enc:idx,oneShot:true,label:'Service hatch latch'});
+      }else objects.find(o=>o.reach==='high'&&o.enc===idx).action={open:sideGate};
+    }
     if (plate) plates.push({ id: 'p' + (nid++), x: plate[0], y: plate[1], heavy: true, gate: sideGate });
     if (crate) crates.push({ id: 'c' + (nid++), x: crate[0], y: crate[1], home: [...crate] });
     if (lever) addObj({ kind: 'lever', reach: 'normal', hold: 0, x: lever[0], y: lever[1], action: { timed: sideGate, dur: 1.3 }, enc: idx, label: 'Gate lever' });
     if (wsw) addObj({ kind: 'lever', reach: 'water', hold: 0, x: wsw[0], y: wsw[1], action: { open: sideGate }, enc: idx, label: 'Lagoon switch' });
-    if (logpile) addObj({ kind: 'logpile', x: logpile[0], y: logpile[1], enc: idx, label: 'Log pile' });
+    if (logpile) {
+      const source=toWorld(4,2);set(...source,T.WOOD);
+      addObj({ kind: 'logpile', x: logpile[0], y: logpile[1], enc: idx, source, label: 'Chewed timber pile' });
+    }
     if (soil && soilx) burrows.push({ id: 'b' + (nid++), a: soil, b: soilx });
     const [rx0, ry0] = toWorld(0, 0); const [rx1, ry1] = toWorld(13, 10);
     const [sx, sy] = toWorld(11, 11);
     decor.push({ kind: 'sign', x: sx, y: sy, text: def.name });
-    const solution = def.solution.map((s) => {
+    // Supply bench at the spawn: prepare first, then use the animal's own route.
+    const bench = [spawn[0], spawn[1] + (bottom ? 1 : -1)];
+    set(...bench, T.GRASS);
+    addObj({ kind: 'supplies', x: bench[0], y: bench[1], enc: idx, label: 'Salvage bench' });
+    const build = toWorld(1, 10), wall = toWorld(1, 10), outside = toWorld(1, 11);
+    set(...outside, T.PATH);
+    set(...toWorld(1,9),T.GRASS);
+    // A shore path lets the monkey reach the ramp site without swimming the moat.
+    if (animal === 'monkey') for(let y=3;y<=9;y++)set(...toWorld(1,y),T.GRASS);
+    addObj({ kind: 'escapeBuild', x: build[0], y: build[1], enc: idx, label: 'Stack a ramp', wall, outside });
+    const dig = toWorld(12, 10), digOut = toWorld(12, 11);
+    set(...toWorld(12,9),T.GRASS); set(...digOut, T.PATH);
+    addObj({ kind: 'escapeDig', x: dig[0], y: dig[1], enc: idx, label: 'Dig with a stick', outside: digOut });
+    const solution = [{ go: spawn }, { holdE: 1.2 }, ...(animal==='beaver'?[{go:toWorld(4,3)},{face:dirMap('up')},{holdSpace:2.2}]:[]), ...def.solution.map((s) => {
       const o = { ...s };
       if (s.go) o.go = toWorld(...s.go);
       if (s.face) o.face = dirMap(s.face);
       if (s.moveFor) o.moveFor = [dirMap(s.moveFor[0]), s.moveFor[1]];
       if (s.beam) o.beam = [dirMap(s.beam[0]), x0 + s.beam[1]];
       return o;
-    });
+    })];
     enclosures.push({
-      index: idx, animal, name: def.name, theme: def.theme, hint: def.hint,
+      index: idx, animal, name: def.name, theme: def.theme,
+      hint: 'First hold E at the salvage bench beside your starting spot to prepare. ' + def.hint + ' Alternative: collect two more bundles at the bench, then hold E at the ramp site in the front-left corner. Small animals can craft a digging stick at the front-right soil site. Large animals can charge a hit on the main gate by holding Space — every hit is louder!',
       rect: [Math.min(rx0, rx1), Math.min(ry0, ry1), Math.max(rx0, rx1), Math.max(ry0, ry1)],
       spawn, mainGate, keeper: keeperId, sideGate, front: bottom ? 'up' : 'down', solution,
     });
@@ -449,7 +475,7 @@ export function buildMoonleaf() {
     gates, objects, plates, crates, burrows, decor, enclosures, bays, sockets, keys,
     exitGate, exitZone: [77, 24, 79, 32], staffRoutes, hideout,
     requiredRescues: 3,
-    staff: { patrolSpeed: 1.9, chaseSpeed: 3.4, investigateSpeed: 2.6, range: 5.5, halfAngle: 0.72, detectRate: 1.0 },
+    staff: { patrolSpeed: 1.5, chaseSpeed: 2.2, alertSpeed: 1.9, investigateSpeed: 1.55, range: 5.5, halfAngle: 0.72, detectRate: 1.0 },
     intro: 'Moonleaf Zoo is quiet tonight. Slip out of your enclosure, free your friends, restore power in the maintenance yard and slip through the Moonleaf Gate together.',
   };
 }

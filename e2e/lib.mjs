@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 let pw;
 try { pw = require('playwright'); } catch { pw = require('@playwright/test'); }
-export const { chromium, devices } = pw;
+export const { devices } = pw;
+export const chromium = { launch: (options = {}) => pw.chromium.launch({ ...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}), ...options }) };
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const SHOTS = path.join(ROOT, 'e2e', 'screenshots');

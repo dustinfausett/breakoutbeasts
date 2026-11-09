@@ -83,7 +83,16 @@ export async function run({ players = 4, staff = false } = {}) {
     await waitFor(async () => (await state(victim)).conn === 'open' && !(await host.isVisible('#waiting')), { what: 'reconnect', timeout: 20000 });
     R.ok('the dropped client reconnects automatically and the banner clears', true);
     // finish
-    const res = await waitFor(async () => (await state(host)).results, { timeout: 400000, interval: 1000, what: 'mission complete' }).catch((e) => { R.ok('online mission completes', false, e.message); return null; });
+    let lastReport=0;
+    const res = await waitFor(async () => {
+      const s=await state(host);
+      if(Date.now()-lastReport>20000){
+        lastReport=Date.now();
+        const bots=await Promise.all(pages.map(p=>p.evaluate(()=>window.__bb.botState?.())));
+        console.log('Mission progress',JSON.stringify({tick:s.snap?.tick,rescued:s.snap?.obj.rescue.n,powered:s.snap?.obj.power.done,exitOpen:s.snap?.obj.exit.open,players:s.snap?.pl.map(p=>({animal:p.a,x:p.x,y:p.y})),bots}));
+      }
+      return s.results;
+    }, { timeout: 400000, interval: 1000, what: 'mission complete' }).catch((e) => { R.ok('online mission completes', false, e.message); return null; });
     if (res) {
       const all = await Promise.all(pages.map((p) => state(p)));
       R.ok('online team completes the mission; every client shows the same results', all.every((s) => JSON.stringify(s.results) === JSON.stringify(res)), `time ${res.time}s`);

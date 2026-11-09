@@ -254,6 +254,11 @@ export class Renderer {
       const [sx, sy] = toS(d.x + 0.5, d.y);
       label(d.text, sx, sy - 2 * S, '#ffe9b0');
     }
+    for(const o of w.defs.objects){
+      if(!['supplies','escapeBuild','escapeDig'].includes(o.kind)||Math.hypot(o.x+.5-me.x,o.y+.5-me.y)>3)continue;
+      const [sx,sy]=toS(o.x+.5,o.y);
+      label(o.kind==='supplies'?'Salvage · hold E':o.kind==='escapeBuild'?'Ramp site · hold E':'Soil site · hold E',sx,sy-3*S,'#ffe9b0');
+    }
     for (const p of players) {
       if (p.s & PF.UNDER) continue;
       const [sx, sy] = toS(p.x, p.y);
@@ -266,6 +271,7 @@ export class Renderer {
       else if (!p.con) tag += ' (offline)';
       label(tag, sx, top, mine ? '#ffe36a' : '#ffffff');
       if (p.c) label(p.c === 'wood' ? 'carrying log' : 'carrying fuse', sx, top - fs * 1.35, '#ffd27a');
+      if (mine) label(`Cage keys: ${p.ck || 0} · Bundles: ${p.supplies || 0}/2`, sx, top - fs * 2.7, '#ffe36a');
     }
     for (const b of this.bubbles) {
       const p = players.find((q) => q.id === b.pid); if (!p) continue;
@@ -276,6 +282,7 @@ export class Renderer {
       const [sx, sy] = toS(s.x, s.y);
       if (s.s === 2) label('!', sx, sy - 16 * S, '#fff', '#d8342a');
       else if (s.s === 5) label('Gotcha!', sx, sy - 16 * S, '#fff', '#8a2a8a');
+      else if (s.ar) label('ALERT', sx, sy - 16 * S, '#1a1a1a', '#ffad48');
       else if (s.al > 0.05 || s.s === 1 || s.s === 3) {
         const icon = s.s === 3 ? '?' : '?';
         label(icon + ' ' + Math.round(s.al * 100) + '%', sx, sy - 16 * S, '#1a1a1a', s.al > 0.6 ? '#ff9a3a' : '#ffd23a');
@@ -367,7 +374,26 @@ export class Renderer {
   _drawObject(ctx, o, state, ctxs) {
     const ox = o.x * TS, oy = o.y * TS;
     switch (o.kind) {
+      case 'supplies':
+        ctx.fillStyle='#89542e';ctx.fillRect(ox+1,oy+6,14,8);
+        ctx.fillStyle='#e4b773';ctx.fillRect(ox,oy+4,16,3);
+        ctx.fillStyle='#c6d6d0';ctx.fillRect(ox+5,oy,2,7);break;
+      case 'escapeBuild':
+        ctx.fillStyle=state?'#c49757':'#8d774e';
+        for(let i=0;i<(state?4:1);i++)ctx.fillRect(ox+i*3,oy+12-i*3,15-i*3,3);
+        ctx.strokeStyle='#ffe36a';ctx.strokeRect(ox,oy,16,16);break;
+      case 'escapeDig':
+        ctx.fillStyle=state?'#25221b':'#80603c';ctx.fillRect(ox+2,oy+6,12,8);
+        ctx.fillStyle='#d2ab70';ctx.fillRect(ox+10,oy+1,2,10);break;
       case 'lever': {
+        if (o.keeper) {
+          ctx.fillStyle = '#4a4a52'; ctx.fillRect(ox+2,oy+4,12,12);
+          ctx.strokeStyle = state ? '#78dc89' : '#f2c63a'; ctx.lineWidth=2;
+          ctx.strokeRect(ox+5,oy+1,6,7);
+          ctx.fillStyle = state ? '#78dc89' : '#f2c63a';ctx.fillRect(ox+4,oy+7,8,7);
+          ctx.fillStyle='#24242b';ctx.fillRect(ox+7,oy+9,2,4);
+          break;
+        }
         const on = state === 1;
         if (o.reach === 'high') { ctx.fillStyle = '#3a3a44'; ctx.fillRect(ox + 3, oy - 6, 10, 10); ctx.fillStyle = '#f2c63a'; ctx.fillRect(ox + 6, oy - 10, 4, 3); }
         else if (o.reach === 'water') { ctx.fillStyle = '#5a4a3a'; ctx.fillRect(ox + 6, oy + 4, 4, 12); ctx.fillStyle = '#3a3a44'; ctx.fillRect(ox + 3, oy + 1, 10, 7); }

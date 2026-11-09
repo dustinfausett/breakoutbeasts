@@ -83,10 +83,8 @@ so rebuild after changing the game.
 Menus can be operated with the keyboard alone (Tab, Enter and arrow keys).
 
 **The mission at Moonleaf Zoo**
-1. **Escape your enclosure.** Each animal starts in its own habitat with a small puzzle that
-   teaches its ability. The tip at the start, and the objectives panel, tell you what to do.
-2. **Free caged animals.** Hold **E** at the yellow keeper lever outside an enclosure gate.
-   Three animals must be freed. Freed animals run to the Animal Hideout in the courtyard.
+1. **Escape your enclosure.** Hold **E** at the salvage bench next to your starting spot to prepare an escape kit, then solve your animal’s ability puzzle. The beaver must chew timber down, pick up its log, build a bridge, and chew the exit barrier. Alternative for every animal: gather two bundles at the bench and build a ramp at the front-left fence site. Smaller animals can instead use the front-right soil site to craft a stick and dig a tunnel; press E there again to travel. Elephants, giraffes and zebras can ram the main gate three times with Space. Hits must be separated by 1.2 seconds, and every hit carries farther and increases keeper attention. These materials are reusable in supply but consumed when building.
+2. **Free caged animals.** Sneak behind an unwatched keeper and hold **E** to steal a cage key. Spend it by holding **E** at a gold cage lock. Keys replenish on each keeper after 12 seconds. Alternatively, gather two bundles at a salvage bench and build an escape ramp from outside a cage. Beaver chewing and zebra kicking can also break suitable enclosure barriers. Three animals must be freed. Freed animals run to the Animal Hideout in the courtyard.
 3. **Restore power.** In the Maintenance Yard, each player has their own bay. The bay door is
    rebuilt to need *that player's* ability. Get in, flip the breaker (when playing as a team),
    take the fuse and plug it into the generator.
@@ -111,14 +109,13 @@ Menus can be operated with the keyboard alone (Tab, Enter and arrow keys).
 | Flamingo | Hard | Wades ponds, stretches across water to switches, balances on beams | Wobbles on beams unless you hold Space |
 
 **Keepers.** Keepers patrol fixed routes with flashlight cones. Walls, hedges, trees and
-crates block their view. Fences do not. When a keeper sees you, a **? %** meter fills. At 100%
-they shout **!** and give chase. To escape, break their line of sight, hide in a bush, or
+crates block their view. Fences do not. When a keeper sees a loose animal, they immediately raise **!**, radio its position, and every keeper converges. Noise increases the **? %** attention indicator without granting sight through walls. Keepers normally walk at 1.5 tiles/second, walk at 1.9 on alert, and run at 2.2 in pursuit. Nine animals are faster than their pursuit speed; the tortoise is slower. A confirmed sighting puts the zoo on alert for three minutes after the latest sighting. Alert vision is 20% longer and its cone is about 18 degrees wider. To escape, break their line of sight before hiding in a bush, or
 rattle a noisy bin to send them somewhere else. Keepers ignore animals inside their own
 enclosure.
 
 **Getting caught.** You are returned to your enclosure and keepers ignore you for 5 seconds.
-Everything the team finished stays finished. You can escape again, or a teammate can pull your
-keeper lever.
+Everything the team finished stays finished. You can escape again, or a teammate can unlock your
+cage using a stolen key, or build an escape ramp.
 
 **If a teammate disconnects,** everyone sees a "Waiting for …" banner, and that player's part of
 the puzzle pauses. They have 45 seconds to reconnect; reloading the page reconnects
@@ -146,8 +143,7 @@ of exit keys shrinks to match the remaining team.
   teams. **All 385 possible teams of 1–4 animals** were played through to completion
   automatically.
 - **Keepers:** they patrol, become suspicious, investigate noises, chase, catch and return to
-  patrol. They have directional vision cones with line-of-sight checks and show a warning
-  before full detection. Players can hide, and bins work as distractions.
+  patrol. They have directional vision cones with line-of-sight checks and radio sightings immediately; noise raises attention. Players can hide, and bins work as distractions.
 - **Online:** an authoritative server, 5-letter room codes, invite links, a 4-player limit,
   duplicate animals blocked, readiness, host-only start, host hand-over, reconnection with a
   grace period, clear "room full", "not found" and "connection lost" messages, smoothing of
@@ -170,7 +166,7 @@ of exit keys shrinks to match the remaining team.
 ### Known limitations
 - Keepers are deliberately forgiving in this first zoo. Difficulty tuning has only been tried
   by automated players, not by real playtesters.
-- The autopilot does not sneak, so automated runs with keepers include captures. The game still
+- The autopilot avoids visible flashlight cones, but automated runs with keepers can still include captures. The game still
   completes.
 
 ---
@@ -185,7 +181,7 @@ This runs the Node unit and integration tests, about 2–3 minutes:
   its own ability and its effect is checked (for example, chewing produces debris and only a
   beaver can chew); every animal finishes the zoo solo; players cannot pass walls or closed
   gates; movement is validated; keepers cannot see through walls or hedges but can see through
-  bars; hidden or shelled animals are not seen; suspicion comes before a chase; capture, the
+  bars; hidden or shelled animals are not seen; visual sightings trigger an immediate radio chase; capture, the
   grace period and teammate release work; noise is investigated; part and key counts scale with
   the team; the exit requires every active player; disconnect adaptation keeps progress; the
   tortoise gate really needs the shell.
@@ -363,3 +359,27 @@ in code in `client/sprites.js`. All sound effects and music are synthesized at r
 Web Audio API in `client/audio.js`. No third-party art, audio or fonts are used, so there are no
 attribution requirements. The only runtime dependency is the [`ws`](https://github.com/websockets/ws)
 library (MIT license).
+
+## Escape and stealth update
+
+Run `npm ci`, then `npm start` (port 8080, or set `PORT`). Use **Create Online Room** and share the five-letter code; friends choose **Join a Room**, select different animals, and mark ready. The host starts the shared mission. Downloaded single-file HTML supports solo only. Online friends need the same hosted server, such as a single Railway service with WebSocket support.
+
+The current escape alternatives use salvage bundles and a stepped ramp rather than freeform physics-based object stacking. Tunnel sites are fixed; arbitrary digging is not implemented. Native ability routes remain distinct. Guard-held cage keys are separate from the cooperative exit-key stations. Changes in this workspace do not update Railway until committed and pushed to its deployment branch.
+
+Browser tests can use an existing Chrome installation via `CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e`. Otherwise install Playwright and its Chromium browser as described above.
+
+### Validation notes for the escape update
+
+Real browser checks completed two-player and four-player online missions, including room codes, readiness, synchronized snapshots, reconnection, and lobby return. Phone portrait, landscape, and tablet checks passed. A solo monkey mission completed with keepers active and replay worked. An earlier full solo tortoise browser run exceeded the seven-minute test limit: its automated player could skip a temporarily blocked safe waypoint and then try to hold a distant exit station. That navigation bug is fixed and covered by a regression test; a complete tortoise mission with the final automated player has been verified in the simulation, but a full browser rerun remains outstanding. Human difficulty tuning is still needed.
+
+## Guard alert and enclosure security
+
+- A sighting refreshes a zoo-wide 180-second alert timer. Wider cones, faster alert walking and the remaining timer appear in the client. Pursuit uses the faster running speed. Losing sight still sends keepers to the last known location; they do not learn hidden positions.
+- Heavy animals must hold Space for 1.2 seconds for each gate strike. Releasing early or moving cancels the charge. A continuous hold produces one strike; release and charge again to strike again. Each strike makes a bang, increases nearby attention, and schedules an investigation. Response delays shrink from 4 seconds to 2.5, then 1, then a minimum of 0.5 seconds. Travel time still depends on where the guard is.
+- Capture repairs that player's enclosure: gates, chewed barriers, bridges, ramps, tunnels, crates and latches return to their starting state. The animal must prepare again. Gates need three charged strikes initially, four after the first capture, five after the second, and so on. Other enclosures and completed mission objectives are preserved.
+- A keeper who sees a broken gate and has evidence that its animal escaped raises the alert even without seeing the animal. Each keeper reports a given break once; the same unrepaired gate does not keep the timer alive forever.
+- Small animals can hide in a single bush. Elephants, giraffes and zebras need at least two edge-connected bush tiles. Diagonally touching bushes do not count. Being watched still prevents entering hiding; the tortoise's shell remains a separate ability.
+
+Focused regression coverage is in `test/security.test.js`; `node e2e/security.mjs` tests charging, sound captions, repairs, the alert HUD and bush cover in Chromium. It is also included in `npm run test:e2e`.
+
+Validation for the guard-security update: all 78 Node tests passed, including all 385 team compositions and the live WebSocket mission test. All 8 focused security browser checks passed, along with the mobile suite and the two-player browser mission. Four-player browser room creation, readiness, synchronization and reconnect checks passed; its full autoplay stalled while navigating the maintenance yard. That long run was stopped, so full four-player browser completion and the subsequent solo browser suite are not claimed for this update.

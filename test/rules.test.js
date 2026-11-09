@@ -143,10 +143,12 @@ test('staff vision: blocked by walls/hedges, sees through bars, misses hidden an
   // hidden in a bush
   tilesFence.setTile(24, 14, T.BUSH); s2.dir = 0;
   tilesFence._postMove(p2, 0);
-  assert.ok(p2.hidden && !tilesFence.detectable(p2), 'hidden animals are not detectable');
+  assert.ok(!p2.hidden, 'entering cover in view does not hide an animal');
+  s2.dir=Math.PI;tilesFence.setTile(25,14,T.BUSH);tilesFence._postMove(p2,0);
+  assert.ok(p2.hidden && !tilesFence.detectable(p2),'unwatched cover conceals animals');
 });
 
-test('suspicion builds before detection, then chase, capture, grace and teammate release', () => {
+test('immediate radio alert, chase, capture, grace and keyed teammate release', () => {
   const g = new Game({ players: [{ id: 'a', name: 'A', animal: 'zebra' }, { id: 'b', name: 'B', animal: 'monkey' }], options: { staff: true } });
   g.staff.slice(1).forEach((s) => { s.x = 2.5; s.y = 2.5; s.route = [[2, 2]]; s.wp = 0; }); // park other keepers out of the way
   const s = g.staff[0];
@@ -154,12 +156,11 @@ test('suspicion builds before detection, then chase, capture, grace and teammate
   const a = g.players.get('a'); a.escaped = true; a.x = 46.5; a.y = 14.5;
   const b = g.players.get('b'); b.escaped = true; b.x = 30.5; b.y = 28.5;
   const evs = [];
-  let sawSuspicious = false;
+  g.step(TICK);evs.push(...g.drainEvents());
+  assert.ok(g.staff.every(guard=>guard.state==='chase'&&guard.target==='a'),'all guards converge immediately');
   for (let i = 0; i < 200 && a.capturedT <= 0; i++) {
     g.step(TICK); const e = g.drainEvents(); evs.push(...e);
-    if (s.state === 'suspicious') sawSuspicious = true;
   }
-  assert.ok(sawSuspicious, 'staff became suspicious first');
   assert.ok(evs.some((e) => e.k === 'alert'), 'alert raised before capture');
   assert.ok(evs.some((e) => e.k === 'capture' && e.pid === 'a'), 'zebra captured');
   for (let i = 0; i < 30; i++) g.step(TICK);
@@ -168,7 +169,9 @@ test('suspicion builds before detection, then chase, capture, grace and teammate
   assert.ok(a.grace > 0, 'grace period active');
   assert.ok(a.escaped, 'escape progress kept');
   assert.equal(g.gate(enc.mainGate).state, 0, 'enclosure gate closed');
-  // teammate releases via keeper lever
+  // Key use is checked separately; here validate capture recovery with a keyed teammate.
+  b.cageKeys=1;
+  // teammate releases via cage lock
   const lever = g.obj(enc.keeper);
   b.x = lever.x + 1.5; b.y = lever.y + 0.5; b.face = 'left';
   g.setInput('b', { e: true });

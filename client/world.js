@@ -49,7 +49,7 @@ export class ClientWorld {
       if (s.g[i] !== '0') return;
       for (const [x, y] of g.tiles) { const k = y * this.w + x; this.entSolid[k] = 1; if (g.vis === 'solid') this.entVis[k] = 1; }
     });
-    for (const o of d.objects) this.entSolid[o.y * this.w + o.x] = 1;
+    for (const o of d.objects) if (!['escapeBuild','escapeDig'].includes(o.kind)) this.entSolid[o.y * this.w + o.x] = 1;
     for (const [x, y] of s.cr) { const k = y * this.w + x; this.entSolid[k] = 1; this.entVis[k] = 1; }
   }
 

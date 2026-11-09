@@ -1,6 +1,7 @@
 // Authoritative game simulation for one mission. Runs on the server for online rooms and in the
 // browser for solo play, so both modes share exactly the same rules.
 
+import { makeKeepers, zooKeeperCount } from './staff.js';
 import { initControlRoom, controlPublic, controlPersonal, enterControlRoom, controlAction, stepControlRoom } from './control-room.js';
 import { T, tileBlocksVision, animalCanEnter, staffCanEnter, npcCanEnter, crateCanEnter, DIRS, DIR_LIST } from './tiles.js';
 import { ANIMALS } from './animals.js';
@@ -78,10 +79,7 @@ export class Game {
     this.requiredRescues = Math.min(z.requiredRescues, this.npcs.length);
 
     // staff
-    this.staff = this.options.staff ? z.staffRoutes.map((r, i) => {
-      const [sx, sy] = r.route[r.start];
-      return { id: i, x: sx + 0.5, y: sy + 0.5, dir: 0, route: r.route, wp: r.start, state: 'patrol', alert: 0, target: null, path: null, repath: 0, lastSeen: null, lost: 0, look: 0, suspect: null, cheer: 0, stuck: 0 };
-    }) : [];
+    this.staff = this.options.staff ? makeKeepers([...z.staffRoutes,...(z.extraStaffRoutes||[])],zooKeeperCount(players.length)) : [];
 
     // cooperative power puzzle, scaled to team size
     this.team = this.order.length >= 2;
@@ -378,7 +376,7 @@ export class Game {
     const inEnc = this.inOwnEnclosure(p);
     if (!inEnc && !p.escaped) { p.escaped = true; this.emit({ k: 'escaped', pid: p.id, name: p.name }); }
     p.inExit = this.inRect(p.x, p.y, this.zoo.exitZone);
-    if(p.inExit && this.gate(this.zoo.exitGate).state)p.muzzled=false;
+    if(p.inExit && this.gate(this.zoo.exitGate)?.state)p.muzzled=false;
   }
 
   _stepSlide(p, dt) {
@@ -420,7 +418,7 @@ export class Game {
         const s = this.staff.find(s => s.id === h.staff);
         if (s && this._canSteal(p, s)) {
           p.cageKeys=1; s.keyCool = this.time + 12;
-          this.emit({ k: 'msg', pid: p.id, text: 'Key stolen! Use it at a gold cage lock. Guards carry spare keys — return later for another.' });
+          this.emit({ k: 'msg', pid: p.id, text: this.zooId==='parking'?'Car keys stolen! Find the gold getaway wagon and hold E at its door.':'Key stolen! Reuse it at enclosure locks until you are captured.' });
         }
       } else if (h.kind === 'craft') {
         const o = this.obj(h.obj);

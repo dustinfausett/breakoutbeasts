@@ -1,3 +1,4 @@
+import { mountVehiclePanel, updateVehiclePanel } from './vehicle-panel.js';
 // Breakout Beasts! client controller: menus, lobby, HUD, game loop, audio and captions.
 
 import { mountControlPanel, updateControlPanel, addPanelChat } from './control-panel.js';
@@ -191,6 +192,7 @@ function onMessage(msg) {
     case 'lobby': {
       const prev = app.lobby;
       app.lobby = msg;
+      if(app.overlay==='complete'&&app.results)onEnd(app.results);
       if (app.screen === 'animals') buildAnimals();
       if (app.screen === 'lobby') renderLobby();
       if (msg.phase === 'lobby' && app.inGame) leaveGameView(true);
@@ -232,6 +234,7 @@ function connStatus(state, info) {
 
 // ---------------- game ----------------
 function enterGame(msg) {
+  updateVehiclePanel(null);
   app.world = new ClientWorld(msg.zoo);
   app.world.myId = app.myId;
   app.renderer.setWorld(app.world);
@@ -247,6 +250,7 @@ function enterGame(msg) {
 }
 
 function leaveGameView(toLobby) {
+  updateVehiclePanel(null);
   app.inGame = false;
   updateControlPanel(null);
   app.world = null;
@@ -325,6 +329,8 @@ function handleEvent(ev) {
     case 'adapt': caption('Tasks adjusted for the remaining team. Finished work was kept.', 'good'); break;
     case 'unlock': audio.play('pickup'); break;
     case 'keyturn': audio.play('click'); break;
+    case 'carunlock': caption(`${ev.name} unlocked the getaway wagon! Everyone aboard.`, 'good');break;
+    case 'carstolen': caption('Getaway wagon stolen! The crew is ready for its next adventure.', 'good');break;
     case 'complete': audio.play('complete'); break;
     case 'blocked': caption('A keeper bumped into a shell and turned around!', 'good'); break;
     case 'fusereturn': caption('The dropped fuse went back to its bay.', ''); break;
@@ -333,12 +339,16 @@ function handleEvent(ev) {
 }
 
 function onEnd(res) {
+  updateVehiclePanel(null);
   updateControlPanel(null);
   app.results = res;
   input.releaseAll();
   const mins = Math.floor(res.time / 60), secs = String(res.time % 60).padStart(2, '0');
+  $('#complete-h').textContent=res.stage==='parking'?'Car stolen!':'Zoo escaped!';
+  $('#complete .tagline').textContent=res.stage==='parking'?'The whole crew has a getaway wagon.':'You escaped the zoo. The parking lot is next.';
+  const continueButton=document.querySelector('[data-act="continue"]');continueButton.hidden=res.next!=='parking';continueButton.disabled=app.lobby?.hostId!==app.myId;
   $('#complete-stats').innerHTML = `<p><b>${esc(res.zoo)}</b> escaped in <b>${mins}:${secs}</b></p>
-    <p>Animals freed: <b>${res.rescued}/${res.total}</b>${res.rescued === res.total ? ' — every animal is free! ★' : ''}</p>
+    ${res.stage==='parking'?'<p>Getaway wagon stolen · every animal has a car responsibility.</p>':`<p>Animals freed: <b>${res.rescued}/${res.total}</b>${res.rescued === res.total ? ' — every animal is free! ★' : ''}</p>`}
     <p>Times caught: <b>${res.captures}</b>${res.captures === 0 ? ' — perfectly sneaky! ★' : ''}</p>
     <div class="players">${res.players.map((p) => `<span><img src="${portraitURL(p.animal)}" alt="">${esc(p.name)}${p.active ? '' : ' (left)'}</span>`).join('')}</div>`;
   const isHost = app.lobby?.hostId === app.myId;
@@ -346,7 +356,7 @@ function onEnd(res) {
   document.querySelector('[data-act="replay"]').hidden = !isHost;
   document.querySelector('[data-act="to-lobby"]').hidden = !isHost;
   document.querySelector('[data-act="to-lobby"]').textContent = solo ? 'Choose another animal' : 'Return to lobby';
-  $('#complete-msg').textContent = isHost ? '' : 'Waiting for the host to play again or return to the lobby…';
+  $('#complete-msg').textContent = isHost ? '' : 'Waiting for the host to continue, play again, or return to the lobby…';
   overlay('complete');
 }
 
@@ -355,7 +365,12 @@ function updateHUD() {
   const w = app.world; if (!w || !w.snap) return;
   const s = w.snap, o = s.obj, me = w.me();
   const ck = (d) => `<span class="mark">${d ? '✓' : '○'}</span>`;
-  let h = `<h4 tabindex="0" id="obj-h">Moonleaf Zoo — Objectives</h4><div class="detail">`;
+  let h='';
+  if(o.stage==='parking'){
+    const lot=o.parking;
+    h=`<h4 tabindex="0" id="obj-h">Parking Lot — Steal a car</h4><div class="detail"><div class="o">${ck(lot.keys.length>0||lot.unlocked)}Sneak behind a keeper and hold E to steal car keys.</div><div class="o">${ck(lot.unlocked)}Unlock the gold getaway wagon.</div><div class="o">${ck(lot.inCar===lot.need)}Get the whole crew aboard: ${lot.inCar}/${lot.need}</div><div class="o">${ck(o.exit.done)}Operate your car controls together.</div><div class="now">${lot.unlocked?'Everyone into the gold wagon!':'Hide among cars and planted islands. Keepers carry the keys.'}</div><div class="sub">${lot.keepers} keepers are searching the lot.</div></div>`;
+  }else{
+  h = `<h4 tabindex="0" id="obj-h">Moonleaf Zoo — Objectives</h4><div class="detail">`;
   if(s.permanent) h += '<div class="o">⚠ HIGH ALERT · tranquilizers enabled until the zoo escape ends</div>';
   if(s.security>0) h += `<div class="o">⚠ Zoo alert: ${Math.floor(s.security/60)}:${String(s.security%60).padStart(2,'0')} · wider vision, faster keepers</div>`;
   const myEnc = me ? w.zoo.enclosures.find((e) => e.animal === me.a) : null;
@@ -383,6 +398,7 @@ function updateHUD() {
   else if (!o.rescue.done) now = `Free caged animals (${o.rescue.n}/${o.rescue.need})`;
   else if (!o.power.done) now = 'Help teammates restore power';
   h += `<div class="now">➤ ${esc(now)}</div>`;
+  }
   const box = $('#objectives');
   if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; $('#obj-h').onclick = () => box.classList.toggle('collapsed'); }
 
@@ -397,6 +413,8 @@ function updateHUD() {
     else if (p.s & PF.IN_ENC) st = p.s & PF.ESCAPED ? 'Back in enclosure' : 'In enclosure';
     else if (p.s & PF.HIDDEN) st = 'Hidden';
     else if (p.s & PF.SHELL) st = 'In shell';
+    if(o.stage==='parking'&&(p.s&PF.IN_ENC))st='At service exit';
+    if(p.car)st='Aboard getaway wagon';
     if(p.mu)st+=' · MUZZLED';
     if (p.c) st += p.c === 'wood' ? ' · log' : ' · fuse';
     if (p.s & PF.GRACE) st += ' · safe';
@@ -415,6 +433,7 @@ function updateHUD() {
   // prompts
   const pm = s.me;
   updateControlPanel(pm?.control||null);
+  updateVehiclePanel(pm?.vehicle||null);
   let ph = '';
   if (pm) {
     if (pm.pe) ph += `<div class="prompt ${pm.pe.ok ? '' : 'no'}"><kbd>E</kbd> ${esc(pm.pe.t)}</div>`;
@@ -468,6 +487,7 @@ function gameTick() {
   if (app.bot && w.snap.me) inp = app.bot.update(clientView(), TICK);
   else inp = (app.overlay && app.overlay !== 'complete') ? { mx: 0, my: 0, sp: false, e: false } : input.state();
   if (app.overlay === 'complete') inp = { mx: 0, my: 0, sp: false, e: false };
+  if(inp.vehicle)app.link?.send({t:'vehicle',...inp.vehicle});
   if(inp.panel)app.link?.send({t:'panel',...inp.panel});
   if(AUTOPILOT&&w.snap.me?.control?.instruction&&performance.now()-app.lastRelay>500){
     const c=w.snap.me.control.instruction;app.lastRelay=performance.now();
@@ -485,7 +505,8 @@ function clientView() {
   return {
     panel:s.me?.control,teamClues:Object.values(app.teamClues),
     world: w, zoo: w.zoo, staff:s.st,
-    me: { id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
+    vehicle:s.me?.vehicle,
+    me: { keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
     obj: s.obj,
     objects: d.objects.map((o, i) => ({ ...o, state: s.os[i] })),
     gates: d.gates.map((g, i) => ({ ...g, state: Number(s.g[i]) })),
@@ -581,6 +602,7 @@ function act(name, el) {
     case 'pause': openPause(); break;
     case 'resume': closePause(); break;
     case 'quit': toTitle(); break;
+    case 'continue': app.link?.send({t:'continue'});break;
     case 'replay': app.link?.send({ t: 'replay' }); break;
     case 'to-lobby': app.link?.send({ t: 'toLobby' }); break;
     case 'to-title': toTitle(); break;
@@ -643,6 +665,7 @@ function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 async function boot() {
   try {
     mountControlPanel(msg=>app.link?.send(msg));
+    mountVehiclePanel(msg=>app.link?.send(msg));
     await loadImages();
     buildSprites();
     getZoo('moonleaf');

@@ -65,6 +65,13 @@ export class Renderer {
     const g = this.mctx;
     for (const d of this.world.zoo.decor) {
       const ox = d.x * TS, oy = d.y * TS;
+      if(d.kind==='parkedCar'){
+        const width=d.w*16,height=d.h*16;g.fillStyle='#101b25';g.fillRect(ox+3,oy+4,width-6,height-6);
+        g.fillStyle=d.color;g.fillRect(ox+5,oy,width-10,height);g.fillStyle='#253c50';g.fillRect(ox+18,oy+4,width-36,height-8);
+        g.fillStyle='#85adb8';g.fillRect(ox+19,oy+5,8,height-10);g.fillRect(ox+width-27,oy+5,8,height-10);
+        g.fillStyle='#121621';for(const x of [8,width-16])for(const y of [-2,height-4])g.fillRect(ox+x,oy+y,8,6);
+        g.fillStyle='#ffdf92';g.fillRect(ox+width-8,oy+5,4,7);g.fillRect(ox+width-8,oy+height-12,4,7);continue;
+      }
       if(d.kind==='controlHouse'&&!IMAGES.terrain){g.fillStyle='#394d59';g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle='#57717c';for(let y=0;y<d.h;y++)g.fillRect(ox,oy+y*16,d.w*16,2);continue;}
       if(d.kind==='controlHouse'){for(let y=0;y<d.h;y++)for(let x=0;x<d.w;x++)atlasDraw(g,IMAGES.terrain,13,4,4,ox+x*16,oy+y*16,16,16);continue;}
       const prop={bench:6,lamp:5,sign:7}[d.kind];if(prop!==undefined&&objectArt(g,prop,ox-2,oy-8,20,24))continue;
@@ -234,7 +241,7 @@ export class Renderer {
     const ents = [];
     for (const n of npcs) ents.push({ y: n.y, draw: () => this._drawAnimal(ctx, n.a, n.x, n.y, n.f || 'down', n.mv, 0, now, { npc: true, state: n.s }) });
     for (const p of players) {
-      if (p.s & PF.UNDER) continue;
+      if (p.car || (p.s & PF.UNDER)) continue;
       ents.push({ y: p.y, draw: () => this._drawPlayer(ctx, p, now) });
     }
     for (const s of staff) ents.push({ y: s.y, draw: () => this._drawStaff(ctx, s, now) });
@@ -284,7 +291,7 @@ export class Renderer {
       label(o.kind==='supplies'?'Salvage · hold E':o.kind==='escapeBuild'?'Ramp site · hold E':'Soil site · hold E',sx,sy-3*S,'#ffe9b0');
     }
     for (const p of players) {
-      if (p.s & PF.UNDER) continue;
+      if (p.car || (p.s & PF.UNDER)) continue;
       if(this.settings.hard && p.id===me.id)continue;
       const [sx, sy] = toS(p.x, p.y);
       const top = sy - 18 * S;
@@ -297,7 +304,7 @@ export class Renderer {
       label(tag, sx, top, mine ? '#ffe36a' : '#ffffff');
       if(p.mu)label('MUZZLED',sx,top-fs*1.35,'#ffb796');
       if (p.c) label(p.c === 'wood' ? 'carrying log' : 'carrying fuse', sx, top - fs * 1.35, '#ffd27a');
-      if (mine) label(`Cage keys: ${p.ck || 0} · Bundles: ${p.supplies || 0}/2`, sx, top - fs * 2.7, '#ffe36a');
+      if (mine) label(this.world.zoo.id==='parking'?`Car keys: ${p.ck||0}`:`Cage keys: ${p.ck || 0} · Bundles: ${p.supplies || 0}/2`, sx, top - fs * 2.7, '#ffe36a');
     }
     for (const b of this.bubbles) {
       const p = players.find((q) => q.id === b.pid); if (!p) continue;
@@ -339,7 +346,7 @@ export class Renderer {
       ctx.setTransform(1,0,0,1,0,0);
       const [sx,sy]=toS(me.x,me.y);
       label(me.n+(me.mu?' · MUZZLED':''),sx,sy-18*S,'#ffe36a');
-      label(`Cage keys: ${me.ck||0} · Bundles: ${me.supplies||0}/2`,sx,sy-18*S-fs*1.4,'#ffe36a');
+      label(this.world.zoo.id==='parking'?`Car keys: ${me.ck||0}`:`Cage keys: ${me.ck||0} · Bundles: ${me.supplies||0}/2`,sx,sy-18*S-fs*1.4,'#ffe36a');
     }
     ctx.setTransform(1,0,0,1,0,0);
   }
@@ -380,6 +387,7 @@ export class Renderer {
       if(state){ctx.fillStyle='#8affae';ctx.fillRect(ox+12,oy+10,2,2);}return;
     }
     switch (o.kind) {
+      case 'vehicle': ctx.fillStyle=state?'#83d88b':'#e4ba55';ctx.fillRect(ox+3,oy+4,10,8);ctx.fillStyle='#17232b';ctx.fillRect(ox+7,oy+6,2,4);break;
       case 'controlDoor':
         ctx.fillStyle=state?'#182b29':'#745737';ctx.fillRect(ox+1,oy,14,16);ctx.strokeStyle='#bba56b';ctx.strokeRect(ox+1,oy,14,16);ctx.fillStyle='#ffe4a0';ctx.font='bold 8px monospace';ctx.textAlign='center';ctx.fillText(String.fromCharCode(65+o.index),ox+8,oy+10);break;
       case 'supplies':

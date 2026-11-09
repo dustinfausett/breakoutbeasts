@@ -12,6 +12,7 @@ export function runMission(animals, { staff = false, maxTime = 900, seed = 7, on
       const p = game.players.get(b.pid);
       if (!p.active) return;
       const inp = b.update(viewFromGame(game, b.pid), TICK);
+      if(inp.vehicle)game.vehicleAction(b.pid,inp.vehicle);
       if(inp.panel)game.controlAction(b.pid,inp.panel);
       game.setInput(b.pid, inp);
     });

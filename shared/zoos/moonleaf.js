@@ -493,6 +493,12 @@ export function buildMoonleaf() {
     id: 'moonleaf', name: 'Moonleaf Zoo', w: W, h: H, tiles, theme, themes: THEMES, staffMask,
     gates, objects, plates, crates, burrows, decor, enclosures, bays, sockets, keys,
     exitGate, exitZone: [77, 24, 79, 32], staffRoutes, hideout,
+    extraStaffRoutes: [
+      {route:[[8,14],[28,14]],start:0},{route:[[50,14],[72,14]],start:0},
+      {route:[[8,42],[30,42]],start:0},{route:[[48,42],[72,42]],start:0},
+      {route:[[33,28],[33,33],[47,33],[47,24]],start:0},
+      {route:[[60,23],[73,23],[73,35],[60,35]],start:0},
+    ],
     requiredRescues: 3,
     staff: { patrolSpeed: 1.5, chaseSpeed: 2.2, alertSpeed: 1.9, investigateSpeed: 1.55, range: 5.5, halfAngle: 0.72, detectRate: 1.0 },
     intro: 'Moonleaf Zoo is quiet tonight. Slip out of your enclosure, free your friends, restore power in the maintenance yard and slip through the Moonleaf Gate together.',

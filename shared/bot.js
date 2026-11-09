@@ -14,10 +14,11 @@ const DIRV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 export function viewFromGame(game, pid) {
   const p = game.players.get(pid);
   return {
+    vehicle:game.zooId==='parking'?game.personal(pid)?.vehicle:null,
     panel:controlPersonal(game,pid),
     teamClues:p.inControlRoom?game.activePlayers().map(q=>controlPersonal(game,q.id)?.instruction).filter(Boolean):[],
     world: game, zoo: game.zoo, staff:game.staff.map(s=>({x:s.x,y:s.y,d:s.dir,ar:game.time<game.alertUntil})),
-    me: { id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, materials: p.materials, enc: p.enc },
+    me: { keys:p.cageKeys,id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, materials: p.materials, enc: p.enc },
     obj: game.objectives(),
     objects: game.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, index: o.index, bay: o.bay, keeper: o.keeper, enc: o.enc, state: o.state, public:!!o.public, stand:o.stand })),
     gates: game.gates.map((g) => ({ id: g.id, state: g.state, enc: g.enc, kind: g.kind })),
@@ -45,6 +46,7 @@ export class Autopilot {
   update(v, dt) {
     const me = v.me;
     const idle = { mx: 0, my: 0, sp: false, e: false };
+    if(v.obj.stage==='parking')return this._parkingUpdate(v,dt);
     if(v.panel){
       if(v.panel.ready&&!v.panel.powered&&v.panel.phase==='arming')return {...idle,panel:{op:'power'}};
       const clue=(v.teamClues||[]).find(c=>c.target===me.id&&c.index===v.panel.done);
@@ -61,6 +63,27 @@ export class Autopilot {
     this._plan(v);
     if (!this.script) return idle;
     return this._runStep(v, dt) || idle;
+  }
+
+  _parkingUpdate(v,dt){
+    const idle={mx:0,my:0,e:false,sp:false};
+    if(v.vehicle){
+      if(v.vehicle.inCar<v.vehicle.need||v.vehicle.team.some(p=>!p.connected))return idle;
+      const job=v.vehicle.controls.find(c=>c.value!==c.goal);return job?{...idle,vehicle:{control:job.id,value:job.goal}}:idle;
+    }
+    if(v.me.flags&PF.CAUGHT){this.script=null;return idle;}
+    if(v.obj.parking.unlocked||v.me.keys){
+      const car=v.objects.find(o=>o.kind==='vehicle');
+      if(!this.scriptName.startsWith('car-')||!this.script||this.si>=this.script.length)this.setScript('car-enter',[{go:car.stand},{e:1},{wait:.2}]);
+      return this._runStep(v,dt)||idle;
+    }
+    const guard=[...v.staff].sort((a,b)=>dist(v.me.x,v.me.y,a.x,a.y)-dist(v.me.x,v.me.y,b.x,b.y))[0];if(!guard)return idle;
+    const x=guard.x-Math.cos(guard.d)*1.3,y=guard.y-Math.sin(guard.d)*1.3;
+    if(dist(v.me.x,v.me.y,guard.x,guard.y)<1.8&&Math.abs(angleDiff(Math.atan2(v.me.y-guard.y,v.me.x-guard.x),guard.d))>Math.PI/2){
+      const d=dist(v.me.x,v.me.y,x,y);this.script=null;return {...idle,e:true,mx:d>.2?(x-v.me.x)/Math.max(1,d)*.3:0,my:d>.2?(y-v.me.y)/Math.max(1,d)*.3:0};
+    }
+    if(!this.script||this.si>=this.script.length||this.st>2)this.setScript('car-key',[{go:[Math.floor(x),Math.floor(y)]},{wait:.2}]);
+    return this._runStep(v,dt)||idle;
   }
 
   _plan(v) {

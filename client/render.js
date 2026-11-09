@@ -142,8 +142,8 @@ export class Renderer {
       if (pb.id === w.myId && view.local) { x = view.local.x; y = view.local.y; }
       return { ...pb, x, y, f: pb.id === w.myId && view.local ? view.local.face : pb.f };
     }).filter((p) => p.act);
-    let staff = sB.st.map((sb, i) => { const sa = sA.st[i] || sb; return { ...sb, x: lerp(sa.x, sb.x, k), y: lerp(sa.y, sb.y, k), d: lerpAngle(sa.d, sb.d, k) }; });
-    let npcs = sB.np.map((nb, i) => { const na = sA.np[i] || nb; return { ...nb, x: lerp(na.x, nb.x, k), y: lerp(na.y, nb.y, k) }; });
+    let staff = sB.st.map((sb, i) => { const sa = sA.st[i] || sb; return { ...sb, mv:Math.hypot(sb.x-sa.x,sb.y-sa.y)>.005, x: lerp(sa.x, sb.x, k), y: lerp(sa.y, sb.y, k), d: lerpAngle(sa.d, sb.d, k) }; });
+    let npcs = sB.np.map((nb, i) => { const na = sA.np[i] || nb; return { ...nb, mv:Math.hypot(nb.x-na.x,nb.y-na.y)>.005, x: lerp(na.x, nb.x, k), y: lerp(na.y, nb.y, k) }; });
     const crates = sB.cr.map((cb, i) => { const ca = sA.cr[i] || cb; return [lerp(ca[0], cb[0], Math.min(1, k * 1.5)), lerp(ca[1], cb[1], Math.min(1, k * 1.5))]; });
 
     // camera
@@ -231,7 +231,7 @@ export class Renderer {
 
     // characters sorted by y
     const ents = [];
-    for (const n of npcs) ents.push({ y: n.y, draw: () => this._drawAnimal(ctx, n.a, n.x, n.y, n.f || 'down', true, 0, now, { npc: true, state: n.s }) });
+    for (const n of npcs) ents.push({ y: n.y, draw: () => this._drawAnimal(ctx, n.a, n.x, n.y, n.f || 'down', n.mv, 0, now, { npc: true, state: n.s }) });
     for (const p of players) {
       if (p.s & PF.UNDER) continue;
       ents.push({ y: p.y, draw: () => this._drawPlayer(ctx, p, now) });
@@ -435,8 +435,10 @@ export class Renderer {
 
   _sprite(id, face, moving, now) {
     const set = SPRITES[id];
-    const frame = moving && !this.settings.reducedMotion ? Math.floor(now / 140) % 2 : 0;
-    return (face === 'left' ? set.l : set.r)[frame];
+    const direction=face==='left'?'l':'r',frames=set[direction];
+    if(!moving||this.settings.reducedMotion)return set.idle?.[direction]||frames[0];
+    const interval=id==='tortoise'?200:id==='staff'?115:140;
+    return frames[Math.floor(now/interval)%frames.length];
   }
 
   _drawAnimal(ctx, animal, x, y, face, moving, wobble, now, opts = {}) {
@@ -475,7 +477,7 @@ export class Renderer {
 
   _drawStaff(ctx, s, now) {
     if(s.s===6){const image=SPRITES.staffDown.r[0];ctx.drawImage(image,s.x*TS-16,s.y*TS-14,32,22);return;}
-    this._drawAnimal(ctx,'staff',s.x,s.y,Math.cos(s.d)<0?'left':'right',true,0,now);
+    this._drawAnimal(ctx,'staff',s.x,s.y,Math.cos(s.d)<0?'left':'right',s.mv,0,now);
   }
 
   _drawLighting(players, staff, toS, now) {

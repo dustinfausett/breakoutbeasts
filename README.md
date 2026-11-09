@@ -411,3 +411,10 @@ The original generated PNG artwork in `client/assets/` replaces the small actor 
 Run `npm run test:e2e -- "control house"` for eight real clients joining, separate entrances, private instructions, chat, timer failure, and all forty panel tasks unlocking the exit. `npm run build:single` embeds the art and code for offline solo play; online rooms require the running server.
 
 Validation for the eight-player update: 102/102 Node tests passed, including all 1,012 animal-team combinations and a live WebSocket mission. The eight-client control-house browser test passed 15/15 checks; wild-feature regression passed 13/13 and mobile passed 24/24. The single-file build succeeded and started a solo beaver game over localhost with no browser errors. Direct `file://` opening is blocked by this test environment’s browser policy. The eight-client control-house test prepares completed power/rescue prerequisites to isolate the final puzzle; full missions for every team composition are exercised in the simulation. Full eight-player browser autoplay from enclosure to exit was not run.
+
+
+## Walking animation
+
+All ten animals and the human keeper now have four generated walking poses, mirrored for leftward movement. Movement animates their limbs instead of shifting a single still picture. Freed NPC animals and keepers animate only when their snapshot positions change. Idle poses, portraits and unconscious keepers remain still. Reduced motion disables the walk cycle; tortoises use a slower cadence. The new original artwork and atlas crop layout are documented in `client/assets/README.md`.
+
+Validation: `npm run test:e2e -- animation` passed all six checks for frame coverage, distinct poses, looping, leftward movement, idle poses and reduced motion. Phone portrait, landscape and tablet checks passed 24/24. `npm run build:single` includes both walking sheets.

@@ -2,7 +2,7 @@
 // only while rendering; collision and vision continue to use the shared tile map.
 export const IMAGES={};
 export async function loadImages(){
- await Promise.all(['logo','actors','terrain','objects','panel'].map(async name=>{
+ await Promise.all(['logo','actors','terrain','objects','panel','walk-animals-a','walk-animals-b'].map(async name=>{
   const image=new Image();image.src=window.__BB_ASSETS__?.[name]||`assets/${name}.png`;
   await image.decode();IMAGES[name]=image;
   document.documentElement.style.setProperty(`--${name}-art`,`url("${image.src}")`);

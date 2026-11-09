@@ -1,4 +1,4 @@
-// Original pixel art for Breakout Beasts!, defined as character grids and drawn in code.
+// Generated actor and walking atlases, with original code-drawn fallback art.
 // All art in this file is original to this project (no external assets).
 
 import { IMAGES, atlasDraw, objectArt } from './assets.js';
@@ -289,8 +289,18 @@ export function buildSprites() {
     ids.forEach((id,index)=>{
       const idle=document.createElement('canvas');idle.width=96;idle.height=96;
       const g=idle.getContext('2d');g.imageSmoothingEnabled=false;atlasDraw(g,IMAGES.actors,index,4,3,0,0,96,96);
-      const walk=document.createElement('canvas');walk.width=96;walk.height=96;walk.getContext('2d').drawImage(idle,0,-2);
-      SPRITES[id]={r:[idle,walk],l:[flip(idle),flip(walk)]};
+      const sheet=IMAGES[index<6?'walk-animals-a':'walk-animals-b'];
+      const row=index<6?index:index-6;
+      const frames=sheet&&id!=='staffDown'?Array.from({length:4},(_,frame)=>{
+        const canvas=document.createElement('canvas');canvas.width=96;canvas.height=96;
+        const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+        // The second generated atlas has hand-spaced rows; crop the actual
+        // strips so neighbouring heads and feet never bleed into a frame.
+        const bounds=index<6?[row*sheet.height/6,(row+1)*sheet.height/6]:[[0,260],[270,540],[560,775],[780,1060],[1065,1402]][row];
+        const sw=sheet.width/4,sh=bounds[1]-bounds[0],scale=Math.min(96/sw,96/sh);
+        ctx.drawImage(sheet,frame*sw,bounds[0],sw,sh,(96-sw*scale)/2,96-sh*scale,sw*scale,sh*scale);return canvas;
+      }):[idle];
+      SPRITES[id]={r:frames,l:frames.map(flip),idle:{r:idle,l:flip(idle)}};
     });
     SPRITES.shell=SPRITES.tortoise;SPRITES.penguinSlide=SPRITES.penguin;return;
   }

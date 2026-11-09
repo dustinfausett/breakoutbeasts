@@ -22,7 +22,7 @@ export function staffProfile(cfg, alerted) {
 
 // player status bit flags (for compact snapshots)
 export const PF = { HIDDEN: 1, SHELL: 2, SLIDE: 4, SPRINT: 8, GRACE: 16, CAUGHT: 32, UNDER: 64, HOP: 128, HOLD: 256, LOOKOUT: 512, WOBBLE: 1024, IN_ENC: 2048, ESCAPED: 4096, EXIT: 8192 };
-export const STAFF_STATES = ['patrol', 'suspicious', 'chase', 'investigate', 'return', 'cheer'];
+export const STAFF_STATES = ['patrol', 'suspicious', 'chase', 'investigate', 'return', 'cheer', 'unconscious'];
 
 export class Game {
   constructor({ zooId = 'moonleaf', players, seed = 1, options = {} }) {
@@ -49,6 +49,8 @@ export class Game {
     this.tick = 0;
     this.phase = 'play';
     this.stats = { captures: 0, rescued: 0 };
+    this.permanentAlert = false;
+    this.darts = [];
     this.alertUntil = 0;
     this.checks = [];
     this.fortification = new Map();
@@ -109,6 +111,7 @@ export class Game {
       input: { mx: 0, my: 0, sp: false, e: false }, prevSp: false, prevE: false, lastSeq: 0,
       carry: null, shell: false, slide: null, sprintT: 0, noiseT: 0, cd: 0, cdMax: 1, grace: 0, capturedT: 0,
       under: null, hop: null, hold: null, lookout: 0, wobble: 0, onBeam: false, safe: null,
+      muzzled:false, biteCool:0, prevB:false, flinch:0,
       escaped: false, hidden: false, exposed: false, prepared: false, materials: 0, cageKeys: 0, ramCool: 0,
       inExit: false, moving: false, msgCool: 0, everCaught: 0,
     };
@@ -178,7 +181,7 @@ export class Game {
     if (!p) return;
     const mx = Number.isFinite(inp.mx) ? Math.max(-1, Math.min(1, inp.mx)) : 0;
     const my = Number.isFinite(inp.my) ? Math.max(-1, Math.min(1, inp.my)) : 0;
-    p.input = { mx, my, sp: !!inp.sp, e: !!inp.e };
+    p.input = { mx, my, sp: !!inp.sp, e: !!inp.e, b:!!inp.b };
     if (Number.isFinite(inp.seq)) p.lastSeq = inp.seq;
   }
 
@@ -237,6 +240,7 @@ export class Game {
       }
     }
     for (const s of this.staff) this._stepStaff(s, dt);
+    this._stepDarts(dt);
     for (const n of this.npcs) this._stepNpc(n, dt);
     for (const o of this.objects) if (o.cool > 0) o.cool -= dt;
     this._stepKeysAndExit(dt);
@@ -248,6 +252,8 @@ export class Game {
     const inp = p.connected ? p.input : { mx: 0, my: 0, sp: false, e: false };
     const spEdge = inp.sp && !p.prevSp;
     const eEdge = inp.e && !p.prevE;
+    const bEdge = inp.b && !p.prevB;
+    p.prevB=!!inp.b;p.biteCool=Math.max(0,p.biteCool-dt);p.flinch=Math.max(0,p.flinch-dt);
     p.prevSp = inp.sp; p.prevE = inp.e;
     p.cd = Math.max(0, p.cd - dt);
     p.grace = Math.max(0, p.grace - dt);
@@ -257,7 +263,7 @@ export class Game {
     p.moving = false;
 
     if (p.capturedT > 0) {
-      p.capturedT -= dt;
+      p.capturedT = Math.max(0,p.capturedT-dt);
       if (p.capturedT <= 0) this._returnToEnclosure(p);
       return;
     }
@@ -276,24 +282,27 @@ export class Game {
     }
     if (p.slide) { this._stepSlide(p, dt); this._postMove(p, dt); return; }
 
+    if(p.flinch>0)return;
+    if(bEdge)this._bite(p);
     // continue holds
     if (p.hold) this._continueHold(p, inp, dt);
 
     if (!p.hold) {
       if (spEdge) this._useAbility(p);
-      if (eEdge) this._interact(p);
+      if (eEdge || (inp.e && this.staff.some(s=>this._canSteal(p,s)))) this._interact(p);
     }
 
     // movement
     const wants = Math.hypot(inp.mx, inp.my) > 0.15;
-    if (p.hold && wants) {
+    if (p.hold && wants && p.hold.kind !== 'steal') {
       if (p.hold.kind === 'chew') this.chew.set(p.hold.key, p.hold.t);
       p.hold = null;
     }
-    if (!p.shell && !p.hold && !p.slide && !p.hop && !p.under && wants) {
+    if (!p.shell && (!p.hold || p.hold.kind==='steal') && !p.slide && !p.hop && !p.under && wants) {
       const steady = p.animal === 'flamingo' && inp.sp;
       const bx = p.x, by = p.y;
-      walkStep(this, p, inp.mx, inp.my, dt, steady);
+      const sneak=p.hold?.kind==='steal'?.45:1;
+      walkStep(this, p, inp.mx*sneak, inp.my*sneak, dt, steady);
       const moved = Math.hypot(p.x - bx, p.y - by);
       p.moving = moved > 0.001;
       if (p.sprintT > 0 && p.moving) {
@@ -336,6 +345,7 @@ export class Game {
     const inEnc = this.inOwnEnclosure(p);
     if (!inEnc && !p.escaped) { p.escaped = true; this.emit({ k: 'escaped', pid: p.id, name: p.name }); }
     p.inExit = this.inRect(p.x, p.y, this.zoo.exitZone);
+    if(p.inExit && this.gate(this.zoo.exitGate).state)p.muzzled=false;
   }
 
   _stepSlide(p, dt) {
@@ -361,6 +371,7 @@ export class Game {
       if (h.kind === 'chew') this.chew.set(h.key, h.t);
       p.hold = null; return;
     }
+    if(h.kind==='steal'){const s=this.staff.find(s=>s.id===h.staff);if(!s||!this._canSteal(p,s)){p.hold=null;this.msg(p,'Stay close and out of sight to steal the key.');return;}}
     h.t += dt;
     if (h.kind === 'key') {
       const key = this.obj(h.obj);
@@ -464,6 +475,7 @@ export class Game {
         for (const d of dirs) {
           const [x1, y1] = nb(d);
           if (this.tileAt(x1, y1) === T.WOOD) {
+            if(p.muzzled)return {text:'Muzzled: a teammate must bite off your muzzle before you can chew',idle:true};
             const key = this.idx(x1, y1);
             return { text: 'Hold to chew', run: () => { p.face = d; p.hold = { kind: 'chew', btn: 'sp', key, x: x1, y: y1, t: this.chew.get(key) || 0, need: 1.8 }; this.emit({ k: 'chew', x: x1, y: y1 }); } };
           }
@@ -554,8 +566,15 @@ export class Game {
   interactTarget(p) {
     if (p.capturedT > 0 || p.under || p.hop || p.slide) return null;
     const [px, py] = this.ptile(p);
+    if(p.muzzled){
+      const friend=this.npcs.find(n=>n.state==='free' && dist(p.x,p.y,n.x,n.y)<1.35 &&
+        lineOfSight(p.x,p.y,n.x,n.y,(x,y)=>this.visionBlocked(x,y)));
+      if(friend)return {text:`Ask ${ANIMALS[friend.animal].name} to bite off your muzzle`,run:()=>{
+        p.muzzled=false;this.emit({k:'muzzleoff',pid:p.id,name:p.name});
+      }};
+    }
     const guard = this.staff.find(s => this._canSteal(p, s));
-    if (guard) return { text: 'Hold E to steal a cage key from behind', run: () => { p.hold = { kind: 'steal', btn: 'e', staff: guard.id, t: 0, need: .3 }; } };
+    if (guard) return { text: 'Hold E to steal a cage key from behind', run: () => { p.hold = { kind: 'steal', btn: 'e', staff: guard.id, t: 0, need: .9 }; } };
     // tunnels
     if (this.tileAt(px, py) === T.BURROW) {
       const b = this.burrows.find((bb) => bb.dug && ((bb.a[0] === px && bb.a[1] === py) || (bb.b[0] === px && bb.b[1] === py)));
@@ -821,10 +840,57 @@ export class Game {
 
   // ---------- noise & staff ----------
   _canSteal(p,s) {
-    return p.active && !p.capturedT && !p.under && !p.hop && dist(p.x,p.y,s.x,s.y)<1.9 &&
-      Math.abs(angleDiff(Math.atan2(p.y-s.y,p.x-s.x),s.dir))>Math.PI/2 &&
-      !this.staff.some(g=>this.canSee(g,p)) && this.time >= (s.keyCool || 0) && s.state !== 'chase' &&
+    const unconscious=(s.downUntil||0)>this.time;
+    return p.active && p.capturedT<=0 && !p.under && !p.hop && !p.shell && dist(p.x,p.y,s.x,s.y)<1.9 &&
+      (unconscious || Math.abs(angleDiff(Math.atan2(p.y-s.y,p.x-s.x),s.dir))>Math.PI/2) &&
+      !this.staff.some(g=>this.canSee(g,p)) && this.time >= (s.keyCool || 0) && (unconscious || s.state !== 'chase') &&
       lineOfSight(s.x,s.y,p.x,p.y,(x,y)=>this.visionBlocked(x,y));
+  }
+
+  _bite(p) {
+    if(p.biteCool>0 || p.capturedT>0 || p.under || p.hop || p.slide || p.shell)return;
+    if(p.muzzled){this.msg(p,'Your muzzle prevents biting. A teammate can bite it off.');return;}
+    const [fx,fy]=DIRS[p.face];
+    const near=q=>dist(p.x,p.y,q.x,q.y)<1.35 && (q.x-p.x)*fx+(q.y-p.y)*fy>-.1 &&
+      lineOfSight(p.x,p.y,q.x,q.y,(x,y)=>this.visionBlocked(x,y));
+    const friend=this.activePlayers().find(q=>q!==p && q.connected && q.capturedT<=0 && !q.under && near(q));
+    p.biteCool=1.2;p.hold=null;
+    if(friend){
+      if(friend.muzzled){friend.muzzled=false;this.emit({k:'muzzleoff',pid:friend.id,name:friend.name});}
+      else {friend.flinch=.3;this.emit({k:'nip',pid:friend.id});}
+      return;
+    }
+    const s=this.staff.find(q=>near(q) && !(q.downUntil>this.time));
+    if(s){
+      s.downUntil=this.time+30;s.state='unconscious';s.target=null;s.path=null;
+      this.permanentAlert=true;this._raiseAlert();
+      this.noise(s.x,s.y,12,p);
+      this.emit({k:'bitten',id:s.id,pid:p.id,x:s.x,y:s.y});
+      return;
+    }
+    const npc=this.npcs.find(near);
+    if(npc){npc.flinch=.5;this.emit({k:'nip',x:npc.x,y:npc.y});}
+  }
+
+  _fireDart(s,p,cfg) {
+    if(!this.permanentAlert || (s.dartReady||0)>this.time || !this.detectable(p) || !this.canSee(s,p))return;
+    const dx=p.x-s.x,dy=p.y-s.y,len=Math.hypot(dx,dy)||1;
+    this.darts.push({id:this.newId('dart'),guard:s.id,x:s.x,y:s.y,dx:dx/len,dy:dy/len,left:cfg.range});
+    s.dartReady=this.time+2.5;
+    this.emit({k:'dartfired',x:s.x,y:s.y});
+  }
+
+  _stepDarts(dt) {
+    this.darts=this.darts.filter(d=>{
+      let travel=Math.min(8*dt,d.left);
+      while(travel>0){
+        const step=Math.min(.1,travel);travel-=step;d.left-=step;d.x+=d.dx*step;d.y+=d.dy*step;
+        if(this.visionBlocked(Math.floor(d.x),Math.floor(d.y)))return false;
+        const p=this.activePlayers().find(p=>p.capturedT<=0 && !p.under && p.grace<=0 && !this.inOwnEnclosure(p) && dist(d.x,d.y,p.x,p.y)<.4);
+        if(p){const s=this.staff.find(s=>s.id===d.guard);if(s){p.muzzled=true;this._capture(s,p);this.emit({k:'tranquilized',pid:p.id,name:p.name});}return false;}
+      }
+      return d.left>0;
+    });
   }
 
   _finishCraft(p,o) {
@@ -852,7 +918,7 @@ export class Game {
 
   _raiseAlert() {
     const wasAlert = this.time < this.alertUntil;
-    this.alertUntil = this.time + ALERT_SECONDS;
+    this.alertUntil = this.permanentAlert ? Infinity : this.time + ALERT_SECONDS;
     if (!wasAlert) this.emit({k:'securityalert'});
   }
 
@@ -873,6 +939,7 @@ export class Game {
   _radio(s,p) {
     this._raiseAlert();
     for (const guard of this.staff) {
+      if(guard.downUntil>this.time)continue;
       guard.state='chase';guard.target=p.id;guard.lastSeen=[p.x,p.y];guard.lost=0;
       guard.path=null;guard.repath=0;guard.alert=1;
     }
@@ -883,7 +950,7 @@ export class Game {
   noise(x, y, r, src, delay = 0) {
     this.emit({ k: 'noise', x, y, r });
     for (const s of this.staff) {
-      if (s.state === 'chase' || s.state === 'cheer') continue;
+      if (s.state === 'chase' || s.state === 'cheer' || s.downUntil>this.time) continue;
       if (dist(s.x, s.y, x, y) <= r) {
         const tx = Math.floor(x), ty = Math.floor(y);
         const goal = this._nearestStaffTile(tx, ty);
@@ -914,6 +981,7 @@ export class Game {
   }
 
   canSee(s, p) {
+    if(s.downUntil>this.time)return false;
     const d = dist(s.x, s.y, p.x, p.y);
     const cfg = staffProfile(this.zoo.staff, this.time < this.alertUntil);
     if (d > cfg.range) return false;
@@ -930,6 +998,8 @@ export class Game {
 
   _stepStaff(s, dt) {
     const cfg = staffProfile(this.zoo.staff, this.time < this.alertUntil);
+    if(s.downUntil>this.time){s.state='unconscious';return;}
+    if(s.state==='unconscious'){s.state='return';s.path=null;}
     for (const g of this.gates) {
       if (!g.broken || !g.state || (s.inspected || {})[g.id] === g.breakSerial) continue;
       const knownEscape = this.npcs.some(n=>n.enc===g.enc && n.state!=='caged') ||
@@ -947,6 +1017,7 @@ export class Game {
       if (!this.detectable(p)) continue;
       if (this.canSee(s, p)) { const d = dist(s.x, s.y, p.x, p.y); if (d < sd) { sd = d; seen = p; } }
     }
+    if(seen)this._fireDart(s,seen,cfg);
     if (seen && (s.state !== 'chase' || s.target !== seen.id)) { this._radio(s,seen); return; }
     if (s.state === 'chase') {
       const t = this.players.get(s.target);
@@ -1087,6 +1158,7 @@ export class Game {
   }
 
   _returnToEnclosure(p) {
+    p.capturedT=0;
     const e = this.zoo.enclosures[p.enc];
     this._resetEnclosure(p.enc);
     p.prepared=false;p.materials=0;p.hold=null;p.hidden=false;p.exposed=false;
@@ -1109,6 +1181,7 @@ export class Game {
   }
 
   _stepNpc(n, dt) {
+    if(n.flinch>0){n.flinch-=dt;return;}
     if (n.state === 'caged') {
       n.wait -= dt;
       if (n.path && n.path.length) { this._npcFollow(n, 1.1 * dt); return; }
@@ -1209,9 +1282,11 @@ export class Game {
       pd: this.plates.map((p) => (p.down ? 1 : 0)),
       pl: this.order.map((id) => {
         const p = this.players.get(id);
-        return { id, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
+        return { id, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, mu:!!p.muzzled, ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
       }),
-      security: Math.max(0,Math.ceil(this.alertUntil-this.time)),
+      permanent:this.permanentAlert,
+      darts:this.darts.map(d=>({x:r2(d.x),y:r2(d.y),dx:d.dx,dy:d.dy})),
+      security: this.permanentAlert ? -1 : Math.max(0,Math.ceil(this.alertUntil-this.time)),
       st: this.staff.map((s) => ({ ar:this.time<this.alertUntil, x: r2(s.x), y: r2(s.y), d: r2(s.dir), s: STAFF_STATES.indexOf(s.state), al: r2(s.alert) })),
       np: this.npcs.map((n) => ({ a: n.animal, x: r2(n.x), y: r2(n.y), s: n.state, f: n.face })),
       lookout,

@@ -111,8 +111,6 @@ h3 { font-size: 1.1em; color: var(--leaf); }
 .team .tm small { display: block; color: #d8d4c8; }
 .team .tm.me { border-color: #ffe36a; }
 .menu-btn { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); }
-.minimap { position: absolute; right: 8px; bottom: 120px; width: 162px; height: 112px; border: 2px solid #000; border-radius: 4px; image-rendering: pixelated; background: #000; opacity: 0.92; }
-.minimap.hide { display: none; }
 .prompts { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
 .prompt { background: var(--hud-bg); border: 2px solid #000; border-radius: 6px; padding: 6px 12px; white-space: nowrap; }
 .prompt kbd, .help-grid kbd { background: #f6ead0; color: #2a1d10; border-radius: 4px; padding: 0 6px; font-weight: 800; border: 2px solid #2a1d10; }
@@ -134,7 +132,6 @@ body.reduced * { animation: none !important; transition: none !important; }
 /* touch */
 .touch { display: none; }
 body.touch-on .touch { display: block; }
-body.touch-on .minimap { bottom: auto; top: 60px; width: 120px; height: 83px; }
 body.touch-on .ability { bottom: auto; top: 150px; }
 body.touch-on .emotes { bottom: 180px; }
 .stick { position: absolute; left: 24px; bottom: 28px; width: 140px; height: 140px; border-radius: 50%; background: rgba(255,255,255,0.12); border: 3px solid rgba(255,255,255,0.4); touch-action: none; }
@@ -192,9 +189,9 @@ body.touch-on .ability { display: none; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
   .captions { bottom: 120px; max-width: 46vw; }
-  body.touch-on .minimap { top: 52px; right: 120px; width: 96px; height: 66px; }
   .team { top: 8px; right: 110px; flex-direction: row; }
   body.touch-on .emotes { top: 40%; }
 }
 body.touch-on .waiting { bottom: 250px; }
-@media (orientation: portrait) { body.touch-on .minimap { top: auto; bottom: 330px; right: 8px; } }
+
+.pixel-logo{width:min(100%,540px);max-height:215px;object-fit:contain;image-rendering:pixelated;display:block;margin:auto}.logo{line-height:0;margin:0 0 8px}.mode-pick{justify-content:center;font-size:.85em}.tbtn-b{right:24px;bottom:188px;background:#f7bc7b}@media(max-height:550px),(max-width:600px){.pixel-logo{max-height:145px}.tbtn-b{right:16px;bottom:142px;width:68px;height:68px}}

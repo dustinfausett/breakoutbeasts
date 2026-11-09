@@ -1,11 +1,11 @@
 // Breakout Beasts! client controller: menus, lobby, HUD, game loop, audio and captions.
 
+import { LOGO_URL } from './logo.js';
 import { ANIMALS, ANIMAL_IDS } from './shared/animals.js';
 import { getZoo } from './shared/zoos/index.js';
 import { PF, TICK } from './shared/game.js';
 import { EMOTES } from './shared/room.js';
 import { Autopilot } from './shared/bot.js';
-import { T } from './shared/tiles.js';
 import { buildSprites, portraitURL } from './sprites.js';
 import { Renderer } from './render.js';
 import { ClientWorld } from './world.js';
@@ -18,7 +18,7 @@ const params = new URLSearchParams(location.search);
 const AUTOPILOT = params.get('autopilot') === '1';
 
 // ---------------- settings ----------------
-const DEFAULTS = { music: 40, sfx: 70, mute: false, motion: false, captions: true, bigtext: false, touch: 'auto' };
+const DEFAULTS = { music: 40, sfx: 70, mute: false, motion: false, captions: true, bigtext: false, hard: false, touch: 'auto' };
 function loadSettings() { try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('bb-settings') || '{}') }; } catch { return { ...DEFAULTS }; } }
 function saveSettings() { try { localStorage.setItem('bb-settings', JSON.stringify(settings)); } catch { /* storage unavailable */ } }
 const settings = loadSettings();
@@ -29,7 +29,7 @@ const app = {
   screen: 'loading', overlay: null, link: null, mode: null, myId: null, lobby: null,
   world: null, renderer: null, pickAnimal: null, inGame: false, results: null, paused: false,
   seq: 0, tickAcc: 0, lastFrame: performance.now(), hudT: 0, footT: 0, bot: null, connState: 'open',
-  minimapBase: null, showMinimap: true, lastNotice: '', hintShown: false,
+  lastNotice: '', hintShown: false,
 };
 const input = new Input();
 const audio = new Audio();
@@ -58,7 +58,8 @@ function applySettings() {
   document.body.classList.toggle('bigtext', settings.bigtext);
   const touchOn = settings.touch === 'on' || (settings.touch === 'auto' && (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window));
   document.body.classList.toggle('touch-on', touchOn);
-  if (app.renderer) app.renderer.settings.reducedMotion = settings.motion;
+  if (app.renderer) {app.renderer.settings.reducedMotion = settings.motion;app.renderer.settings.hard=settings.hard;}
+  $('#title-hard').checked=settings.hard;$('#join-hard').checked=settings.hard;
 }
 
 function caption(text, cls = '', sound = false) {
@@ -74,13 +75,15 @@ function caption(text, cls = '', sound = false) {
 
 // ---------------- title ----------------
 function buildTitle() {
+  document.querySelectorAll('.pixel-logo').forEach(img=>img.src=LOGO_URL);
   const parade = $('#title-parade');
   parade.innerHTML = '';
   for (const id of ANIMAL_IDS) { const img = document.createElement('img'); img.src = portraitURL(id); img.alt = ''; parade.appendChild(img); }
-  try { $('#name').value = localStorage.getItem('bb-name') || ''; } catch { /* */ }
+  try { $('#name').value = localStorage.getItem('bb-name') || '';$('#join-name').value=$('#name').value; } catch { /* */ }
 }
-function myName() {
-  const n = $('#name').value.trim();
+function myName(source='#name') {
+  const n = $(source).value.trim();
+  $('#name').value=n;$('#join-name').value=n;
   try { localStorage.setItem('bb-name', n); } catch { /* */ }
   return n;
 }
@@ -234,7 +237,6 @@ function enterGame(msg) {
   app.results = null; app.paused = false; app.hintShown = false;
   app.inGame = true;
   app.bot = AUTOPILOT ? new Autopilot(app.myId) : null;
-  buildMinimapBase();
   buildEmotes();
   overlay(null);
   show('hud');
@@ -264,11 +266,7 @@ function onSnap(msg) {
     const ks = Object.keys(h); if (ks.length > 200) delete h[ks[0]];
   }
   for (const ev of msg.ev || []) handleEvent(ev);
-  if (!app.hintShown && w.snap.me) {
-    const me = w.me();
-    const enc = w.zoo.enclosures.find((e) => e.animal === me?.a);
-    if (enc) { caption('Escape tip: ' + enc.hint, 'good'); app.hintShown = true; }
-  }
+
 }
 
 function nameOf(pid) { return app.world?.snap?.pl.find((p) => p.id === pid)?.n || 'Someone'; }
@@ -282,8 +280,13 @@ function handleEvent(ev) {
     case 'msg': caption(ev.text); break;
     case 'gate': if (nearMe(ev.x, ev.y)) { audio.play(ev.open ? 'gate' : 'gateClose'); caption(ev.open ? '[Clank] A gate swings open' : '[Clang] A gate slams shut', '', true); } break;
     case 'alert': audio.play('alert'); caption(`[Whistle!] A keeper spotted ${ev.pid === app.myId ? 'you' : nameOf(ev.pid)}! Run and hide!`, 'alert'); break;
+    case 'bitten': audio.play('crunch');caption('Keeper knocked out! High alert and tranquilizer darts are enabled for the rest of this escape.', 'alert');break;
+    case 'muzzleoff': audio.play('rescue');caption(`${ev.name} is free of their muzzle!`, 'good');break;
+    case 'tranquilized': audio.play('capture');caption(`${ev.name} was tranquilized and muzzled. A teammate can bite off the muzzle with B.`, 'alert');break;
+    case 'dartfired': if(nearMe(ev.x,ev.y,10))caption('[Pfft!] Tranquilizer dart!', 'alert');break;
+    case 'nip': audio.play('chew');break;
     case 'gatehit': audio.play('clang'); caption(`[Bang!] Gate hit ${ev.hits}/${ev.needed}. Keepers are coming to check!`, 'alert'); break;
-    case 'securityalert': caption('Zoo alert for 3 minutes: keepers see farther and walk faster!', 'alert'); break;
+    case 'securityalert': caption(app.world?.snap?.permanent?'HIGH ALERT: keepers are armed for the rest of this escape!':'Zoo alert for 3 minutes: keepers see farther and walk faster!', 'alert'); break;
     case 'damagefound': caption('A keeper found a broken gate and raised the alarm!', 'alert'); break;
     case 'radio': caption('[Radio] Loose animal spotted! All keepers are converging. Break line of sight before hiding.', 'alert'); break;
     case 'suspicious': if (app.world && nearMe(app.world.snap.st[ev.id]?.x || 0, app.world.snap.st[ev.id]?.y || 0, 9)) { audio.play('suspicious'); caption('[Hmm?] A keeper noticed something…', '', true); } break;
@@ -304,7 +307,7 @@ function handleEvent(ev) {
     case 'tunnel': audio.play('tunnel'); break;
     case 'shell': audio.play('shell'); break;
     case 'jam': audio.play('gate'); caption('Gate jammed open by a shell!', 'good'); break;
-    case 'lookout': audio.play('lookout'); caption(`${mine ? 'You are' : ev.name + ' is'} on lookout — all keepers revealed for 6 seconds!`, 'good'); break;
+    case 'lookout': audio.play('lookout'); caption(`${mine ? 'You are' : ev.name + ' is'} on lookout — watch for keepers and tell your team what you see!`, 'good'); break;
     case 'sprint': audio.play('sprint'); break;
     case 'pickup': if (mine) audio.play('pickup'); break;
     case 'socket': audio.play('power'); { const o = app.world?.snap?.obj.power; if (o) caption(`Fuse plugged in! (${o.parts.filter((p) => p.done).length}/${o.parts.length})`, 'good'); } break;
@@ -347,10 +350,11 @@ function updateHUD() {
   const s = w.snap, o = s.obj, me = w.me();
   const ck = (d) => `<span class="mark">${d ? '✓' : '○'}</span>`;
   let h = `<h4 tabindex="0" id="obj-h">Moonleaf Zoo — Objectives</h4><div class="detail">`;
+  if(s.permanent) h += '<div class="o">⚠ HIGH ALERT · tranquilizers enabled until the zoo escape ends</div>';
   if(s.security>0) h += `<div class="o">⚠ Zoo alert: ${Math.floor(s.security/60)}:${String(s.security%60).padStart(2,'0')} · wider vision, faster keepers</div>`;
   const myEnc = me ? w.zoo.enclosures.find((e) => e.animal === me.a) : null;
   h += `<div class="o ${o.escape.done ? 'done' : ''}">${ck(o.escape.done)}Escape your enclosures${o.escape.done ? ' — done' : ''}</div>`;
-  if (!o.escape.done) for (const p of o.escape.players) h += `<div class="sub ${p.escaped ? 'done' : ''} ${p.name === me?.n ? 'me' : ''}">${p.escaped ? '✓' : '·'} ${esc(p.name)} (${ANIMALS[p.animal].name})${p.escaped ? ' is out' : p.name === me?.n && myEnc ? ': ' + myEnc.hint : ''}</div>`;
+  if (!o.escape.done) for (const p of o.escape.players) h += `<div class="sub ${p.escaped ? 'done' : ''} ${p.name === me?.n ? 'me' : ''}">${p.escaped ? '✓' : '·'} ${esc(p.name)} (${ANIMALS[p.animal].name})${p.escaped ? ' is out' : ''}</div>`;
   h += `<div class="o ${o.rescue.done ? 'done' : ''}">${ck(o.rescue.done)}Free caged animals: ${o.rescue.n}/${o.rescue.need}${o.rescue.done ? ' — done' : ' (steal guard keys for locks, or build escape ramps)'}</div>`;
   const pd = o.power.parts.filter((p) => p.done).length;
   h += `<div class="o ${o.power.done ? 'done' : ''}">${ck(o.power.done)}Restore power in the Maintenance Yard: ${pd}/${o.power.parts.length} fuses</div>`;
@@ -387,6 +391,7 @@ function updateHUD() {
     else if (p.s & PF.IN_ENC) st = p.s & PF.ESCAPED ? 'Back in enclosure' : 'In enclosure';
     else if (p.s & PF.HIDDEN) st = 'Hidden';
     else if (p.s & PF.SHELL) st = 'In shell';
+    if(p.mu)st+=' · MUZZLED';
     if (p.c) st += p.c === 'wood' ? ' · log' : ' · fuse';
     if (p.s & PF.GRACE) st += ' · safe';
     t += `<div class="tm ${p.id === app.myId ? 'me' : ''}"><img src="${portraitURL(p.a)}" alt=""><div><b>${esc(p.n)}</b><small>${st}</small></div></div>`;
@@ -407,6 +412,8 @@ function updateHUD() {
   if (pm) {
     if (pm.pe) ph += `<div class="prompt ${pm.pe.ok ? '' : 'no'}"><kbd>E</kbd> ${esc(pm.pe.t)}</div>`;
     if (pm.ps && (pm.ps.ok || !pm.pe)) ph += `<div class="prompt ${pm.ps.ok ? '' : 'no'}"><kbd>Space</kbd> ${esc(pm.ps.t)}</div>`;
+    if(me?.mu)ph+='<div class="prompt no">Muzzled: no biting or chewing. A teammate can bite it off; ask a rescued friend with E.</div>';
+    else ph+='<div class="prompt"><kbd>B</kbd> Bite / remove a friend’s muzzle</div>';
     if (pm.grace > 0) ph += `<div class="prompt">Keepers ignore you for ${Math.ceil(pm.grace)}s</div>`;
   } else if (app.inGame) ph = '<div class="prompt">You are watching the mission</div>';
   if ($('#prompts').dataset.h !== ph) { $('#prompts').innerHTML = ph; $('#prompts').dataset.h = ph; }
@@ -420,54 +427,6 @@ function updateHUD() {
   }
 }
 
-function markersFor() {
-  const w = app.world; const s = w.snap; if (!s || !w.defs) return [];
-  const o = s.obj; const me = w.me(); if (!me || !s.me) return [];
-  const out = [];
-  if (me.s & PF.IN_ENC) return out;
-  const near = (list, n) => list.sort((a, b) => Math.hypot(a.x - me.x, a.y - me.y) - Math.hypot(b.x - me.x, b.y - me.y)).slice(0, n);
-  if (o.exit.open) { out.push({ x: 78, y: 28, color: '#7aff8a', label: 'Exit' }); return out; }
-  if (me.c && me.c.startsWith('fuse:')) {
-    const socks = w.defs.objects.map((ob, i) => ({ ...ob, st: s.os[i] })).filter((ob) => ob.kind === 'socket' && !ob.st);
-    out.push(...near(socks, 1).map((ob) => ({ x: ob.x, y: ob.y, color: '#7af0ff', label: 'Generator' })));
-    return out;
-  }
-  const part = o.power.parts.find((p) => p.pid === app.myId && !p.done);
-  if (part) { const b = w.defs.bays[part.bay - 1]; out.push({ x: b.x + 2, y: b.y + 8, color: '#7af0ff', label: 'Your bay' }); }
-  if (!o.rescue.done) {
-    const caged = new Set(s.np.filter((n) => n.s === 'caged').map((n) => n.a));
-    const levers = w.zoo.enclosures.filter((e) => caged.has(e.animal)).map((e) => { const ob = w.defs.objects.find((x) => x.id === e.keeper); return ob ? { x: ob.x, y: ob.y } : null; }).filter(Boolean);
-    out.push(...near(levers, 2).map((l) => ({ ...l, color: '#ff9ad0', label: 'Free an animal' })));
-  }
-  if (o.keys.active) {
-    const order = s.pl.filter((p) => p.act).map((p) => p.id).indexOf(app.myId);
-    const k = o.keys.keys[order] || o.keys.keys.find((kk) => !kk.holder);
-    if (k) out.push({ x: k.x, y: k.y, color: '#ffe36a', label: 'Exit key' });
-  }
-  // captured teammates
-  for (const p of s.pl) if (p.id !== app.myId && p.act && (p.s & PF.IN_ENC) && (p.s & PF.ESCAPED)) {
-    const enc = w.zoo.enclosures.find((e) => e.animal === p.a); const ob = w.defs.objects.find((x) => x.id === enc.keeper);
-    if (ob && s.g[w.defs.gates.findIndex((g) => g.id === enc.mainGate)] === '0') out.push({ x: ob.x, y: ob.y, color: '#ff7a6a', label: 'Free ' + p.n });
-  }
-  return out;
-}
-
-const MINI_COL = { [T.WALL]: '#55535c', [T.HEDGE]: '#1d4424', [T.TREE]: '#1d4424', [T.PATH]: '#9a8a72', [T.WATER]: '#2f5f9a', [T.POND]: '#4f8fb0', [T.ICE]: '#cfe0ec', [T.FLOOR]: '#6a7a5a', [T.EXIT]: '#e8d090', [T.BUSH]: '#2e7a3a', [T.MACHINE]: '#3a3e44', [T.GRASS]: '#33582c' };
-function buildMinimapBase() {
-  const w = app.world, z = w.zoo;
-  const c = document.createElement('canvas'); c.width = z.w * 2; c.height = z.h * 2;
-  const g = c.getContext('2d');
-  for (let y = 0; y < z.h; y++) for (let x = 0; x < z.w; x++) { g.fillStyle = MINI_COL[w.tiles[y * z.w + x]] || '#5a6a4a'; g.fillRect(x * 2, y * 2, 2, 2); }
-  app.minimapBase = c;
-}
-function drawMinimap(markers) {
-  const c = $('#minimap'); const g = c.getContext('2d'); const w = app.world; if (!w?.snap || !app.minimapBase) return;
-  g.imageSmoothingEnabled = false;
-  g.drawImage(app.minimapBase, 0, 0);
-  for (const m of markers) { g.fillStyle = m.color; g.fillRect(m.x * 2 - 2, m.y * 2 - 2, 5, 5); }
-  if (w.snap.lookout) for (const s of w.snap.st) { g.fillStyle = s.s === 2 ? '#ff3a2a' : '#ffd23a'; g.fillRect(s.x * 2 - 2, s.y * 2 - 2, 4, 4); }
-  for (const p of w.snap.pl) { if (!p.act) continue; g.fillStyle = p.id === app.myId ? '#ffffff' : ANIMALS[p.a].color; g.fillRect(p.x * 2 - 2, p.y * 2 - 2, 4, 4); if (p.id === app.myId) { g.strokeStyle = '#000'; g.strokeRect(p.x * 2 - 3, p.y * 2 - 3, 6, 6); } }
-}
 
 function buildEmotes() {
   const box = $('#emotes'); box.innerHTML = '';
@@ -485,10 +444,9 @@ function frame(now) {
     app.tickAcc += dt;
     while (app.tickAcc >= TICK) { app.tickAcc -= TICK; gameTick(); }
     const local = app.world.localPos(now);
-    const markers = markersFor();
-    app.renderer.draw(now, dt, { local, markers });
+    app.renderer.draw(now, dt, { local });
     app.hudT -= dt;
-    if (app.hudT <= 0) { app.hudT = 0.1; updateHUD(); if (app.showMinimap) drawMinimap(markers); }
+    if (app.hudT <= 0) { app.hudT = 0.1; updateHUD(); }
     // footsteps
     const me = app.world.me();
     if (me && me.mv) { app.footT -= dt; if (app.footT <= 0) { audio.play('foot'); app.footT = me.a === 'tortoise' ? 0.6 : 0.3; } }
@@ -504,7 +462,7 @@ function gameTick() {
   else inp = (app.overlay && app.overlay !== 'complete') ? { mx: 0, my: 0, sp: false, e: false } : input.state();
   if (app.overlay === 'complete') inp = { mx: 0, my: 0, sp: false, e: false };
   app.seq++;
-  const msg = { t: 'in', s: app.seq, mx: Math.round(inp.mx * 100) / 100, my: Math.round(inp.my * 100) / 100, sp: inp.sp ? 1 : 0, e: inp.e ? 1 : 0 };
+  const msg = { t: 'in', s: app.seq, mx: Math.round(inp.mx * 100) / 100, my: Math.round(inp.my * 100) / 100, sp: inp.sp ? 1 : 0, e: inp.e ? 1 : 0, b:inp.b?1:0 };
   app.link?.send(msg);
   w.predictStep({ seq: app.seq, mx: msg.mx, my: msg.my });
 }
@@ -530,7 +488,7 @@ const OFFLINE_MSG = 'Online rooms need the game server. This downloaded copy pla
 
 async function startOnline(kind, code) {
   if (OFFLINE_FILE) { const where = kind === 'create' ? '#title-msg' : '#join-msg'; show(kind === 'create' ? 'title' : 'join'); $(where).textContent = OFFLINE_MSG; return; }
-  const name = myName();
+  const name = myName(kind==='join'?'#join-name':'#name');
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.mode = 'online'; app.lobby = null; app.pickAnimal = null;
   const link = new OnlineLink(onMessage, connStatus);
@@ -569,7 +527,7 @@ function act(name, el) {
   switch (name) {
     case 'solo': $('#title-msg').textContent = ''; startSolo(); break;
     case 'create': $('#title-msg').textContent = ''; startOnline('create'); break;
-    case 'join': $('#join-msg').textContent = ''; show('join'); break;
+    case 'join': $('#join-msg').textContent = ''; $('#join-name').value=$('#name').value; show('join'); break;
     case 'join-go': {
       const code = $('#join-code').value.trim().toUpperCase();
       if (code.length < 4) { $('#join-msg').textContent = 'Enter the 5-letter room code.'; return; }
@@ -649,18 +607,19 @@ input.onKey = (code, e) => {
   }
   if (app.inGame && !app.overlay && e.target?.tagName !== 'INPUT') {
     if (/^Digit[1-6]$/.test(code)) { app.link?.send({ t: 'emote', i: Number(code.slice(5)) - 1 }); return true; }
-    if (code === 'KeyM') { app.showMinimap = !app.showMinimap; $('#minimap').classList.toggle('hide', !app.showMinimap); return true; }
   }
   if (!app.inGame) audio.unlock();
   return false;
 };
 
 // settings UI
+for(const id of ['#title-hard','#join-hard'])$(id).addEventListener('input',e=>{settings.hard=e.target.checked;applySettings();saveSettings();});
 function syncSettingsUI() {
+  $('#set-hard').checked=settings.hard;
   $('#set-music').value = settings.music; $('#set-sfx').value = settings.sfx; $('#set-mute').checked = settings.mute;
   $('#set-motion').checked = settings.motion; $('#set-captions').checked = settings.captions; $('#set-bigtext').checked = settings.bigtext; $('#set-touch').value = settings.touch;
 }
-for (const [id, key, type] of [['#set-music', 'music', 'n'], ['#set-sfx', 'sfx', 'n'], ['#set-mute', 'mute', 'b'], ['#set-motion', 'motion', 'b'], ['#set-captions', 'captions', 'b'], ['#set-bigtext', 'bigtext', 'b'], ['#set-touch', 'touch', 's']]) {
+for (const [id, key, type] of [['#set-hard','hard','b'], ['#set-music', 'music', 'n'], ['#set-sfx', 'sfx', 'n'], ['#set-mute', 'mute', 'b'], ['#set-motion', 'motion', 'b'], ['#set-captions', 'captions', 'b'], ['#set-bigtext', 'bigtext', 'b'], ['#set-touch', 'touch', 's']]) {
   $(id).addEventListener('input', (e) => { settings[key] = type === 'n' ? Number(e.target.value) : type === 'b' ? e.target.checked : e.target.value; applySettings(); saveSettings(); if (key === 'sfx') audio.play('click'); });
 }
 

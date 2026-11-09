@@ -36,9 +36,9 @@ export const ANIMALS = {
   giraffe: {
     id: 'giraffe', name: 'Giraffe', difficulty: 'Medium', speed: 4.3,
     ability: 'High Reach & Lookout',
-    abilityText: 'Reaches switches mounted high on walls and looks out over walls to spot every keeper.',
+    abilityText: 'Reaches switches mounted high on walls and calls a lookout warning to the team.',
     limitText: 'Too tall for low tunnels and burrows.',
-    controls: 'Press Space near a high switch to flip it. Press Space anywhere else to look out and reveal keepers for the team.',
+    controls: 'Press Space near a high switch to flip it. Press Space anywhere else to look out and warn your team to watch for keepers.',
     color: '#e0a73c',
   },
   penguin: {

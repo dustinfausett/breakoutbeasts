@@ -2,6 +2,7 @@
 
 import { SPRITES, drawTile } from './sprites.js';
 import { T } from './shared/tiles.js';
+import { animalCanSee } from './shared/vision.js';
 import { PF, visionPolygon } from './shared/game.js';
 import { lerp, lerpAngle } from './world.js';
 import { ANIMALS } from './shared/animals.js';
@@ -132,14 +133,14 @@ export class Renderer {
     const sA = ip.a, sB = ip.b, k = ip.k;
     const snap = w.snap;
     // positions
-    const players = sB.pl.map((pb) => {
+    let players = sB.pl.map((pb) => {
       const pa = sA.pl.find((q) => q.id === pb.id) || pb;
       let x = lerp(pa.x, pb.x, k), y = lerp(pa.y, pb.y, k);
       if (pb.id === w.myId && view.local) { x = view.local.x; y = view.local.y; }
       return { ...pb, x, y, f: pb.id === w.myId && view.local ? view.local.face : pb.f };
     }).filter((p) => p.act);
-    const staff = sB.st.map((sb, i) => { const sa = sA.st[i] || sb; return { ...sb, x: lerp(sa.x, sb.x, k), y: lerp(sa.y, sb.y, k), d: lerpAngle(sa.d, sb.d, k) }; });
-    const npcs = sB.np.map((nb, i) => { const na = sA.np[i] || nb; return { ...nb, x: lerp(na.x, nb.x, k), y: lerp(na.y, nb.y, k) }; });
+    let staff = sB.st.map((sb, i) => { const sa = sA.st[i] || sb; return { ...sb, x: lerp(sa.x, sb.x, k), y: lerp(sa.y, sb.y, k), d: lerpAngle(sa.d, sb.d, k) }; });
+    let npcs = sB.np.map((nb, i) => { const na = sA.np[i] || nb; return { ...nb, x: lerp(na.x, nb.x, k), y: lerp(na.y, nb.y, k) }; });
     const crates = sB.cr.map((cb, i) => { const ca = sA.cr[i] || cb; return [lerp(ca[0], cb[0], Math.min(1, k * 1.5)), lerp(ca[1], cb[1], Math.min(1, k * 1.5))]; });
 
     // camera
@@ -157,7 +158,23 @@ export class Renderer {
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#0b1020';
     ctx.fillRect(0, 0, W, H);
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle='#050b10';ctx.fillRect(0,0,W,H);
     ctx.setTransform(S, 0, 0, S, -cx * S, -cy * S);
+    ctx.save();
+    const visible=(x,y)=>!this.settings.hard || animalCanSee(w,{x:me.x,y:me.y,face:me.f},x,y);
+    if(this.settings.hard){
+      ctx.beginPath();
+      const lx=Math.max(0,Math.floor(cx/TS)-1), ly=Math.max(0,Math.floor(cy/TS)-1);
+      const hx=Math.min(w.w-1,Math.ceil((cx+viewW)/TS)), hy=Math.min(w.h-1,Math.ceil((cy+viewH)/TS));
+      for(let y=ly;y<=hy;y++)for(let x=lx;x<=hx;x++){
+        if((Math.floor(me.x)===x&&Math.floor(me.y)===y)||visible(x+.5,y+.5))ctx.rect(x*TS,y*TS,TS,TS);
+      }
+      ctx.clip();
+      players=players.filter(p=>p.id===me.id||visible(p.x,p.y));
+      staff=staff.filter(s=>visible(s.x,s.y));
+      npcs=npcs.filter(n=>visible(n.x,n.y));
+    }
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.map, 0, 0);
 
@@ -220,6 +237,9 @@ export class Renderer {
     ents.sort((a, b) => a.y - b.y);
     for (const e of ents) e.draw();
 
+    for(const d of snap.darts||[])if(visible(d.x,d.y)){
+      ctx.strokeStyle='#c5ff6b';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(d.x*TS,d.y*TS);ctx.lineTo((d.x-d.dx*.3)*TS,(d.y-d.dy*.3)*TS);ctx.stroke();
+    }
     // particles
     for (const f of this.fx) {
       const a = 1 - f.t / f.life;
@@ -248,7 +268,7 @@ export class Renderer {
     };
     // signs near the player
     for (const d of w.zoo.decor) {
-      if (d.kind !== 'sign') continue;
+      if (d.kind !== 'sign' || !visible(d.x+.5,d.y+.5)) continue;
       const dd = Math.hypot(d.x + 0.5 - me.x, d.y + 0.5 - me.y);
       if (dd > 5) continue;
       const [sx, sy] = toS(d.x + 0.5, d.y);
@@ -261,6 +281,7 @@ export class Renderer {
     }
     for (const p of players) {
       if (p.s & PF.UNDER) continue;
+      if(this.settings.hard && p.id===me.id)continue;
       const [sx, sy] = toS(p.x, p.y);
       const top = sy - 18 * S;
       const mine = p.id === w.myId;
@@ -270,6 +291,7 @@ export class Renderer {
       else if (p.s & PF.SHELL) tag += ' (shell)';
       else if (!p.con) tag += ' (offline)';
       label(tag, sx, top, mine ? '#ffe36a' : '#ffffff');
+      if(p.mu)label('MUZZLED',sx,top-fs*1.35,'#ffb796');
       if (p.c) label(p.c === 'wood' ? 'carrying log' : 'carrying fuse', sx, top - fs * 1.35, '#ffd27a');
       if (mine) label(`Cage keys: ${p.ck || 0} · Bundles: ${p.supplies || 0}/2`, sx, top - fs * 2.7, '#ffe36a');
     }
@@ -282,6 +304,7 @@ export class Renderer {
       const [sx, sy] = toS(s.x, s.y);
       if (s.s === 2) label('!', sx, sy - 16 * S, '#fff', '#d8342a');
       else if (s.s === 5) label('Gotcha!', sx, sy - 16 * S, '#fff', '#8a2a8a');
+      else if(s.s===6)label('Zzz',sx,sy-10*S,'#b8e7ff');
       else if (s.ar) label('ALERT', sx, sy - 16 * S, '#1a1a1a', '#ffad48');
       else if (s.al > 0.05 || s.s === 1 || s.s === 3) {
         const icon = s.s === 3 ? '?' : '?';
@@ -305,43 +328,16 @@ export class Renderer {
         ctx.strokeStyle = '#7aff8a'; ctx.beginPath(); ctx.arc(sx, sy - 8 * S, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pm.hold.p); ctx.stroke();
       }
     }
-    // staff markers through walls during lookout
-    if (snap.lookout) {
-      for (const s of staff) {
-        const [sx, sy] = toS(s.x, s.y);
-        if (sx < 0 || sy < 0 || sx > W || sy > H) this._edgeArrow(ctx, sx, sy, W, H, '#ffd23a', 'Keeper');
-        else { ctx.strokeStyle = '#ffd23a'; ctx.lineWidth = 2; ctx.strokeRect(sx - 9 * S, sy - 16 * S, 18 * S, 20 * S); }
-      }
-    }
-    // objective markers
-    for (const m of view.markers || []) {
-      const [sx, sy] = toS(m.x + 0.5, m.y + 0.5);
-      if (sx < 0 || sy < 0 || sx > W || sy > H) this._edgeArrow(ctx, sx, sy, W, H, m.color || '#7af0ff', m.label);
-      else if (!this.settings.reducedMotion || true) {
-        const bob = this.settings.reducedMotion ? 0 : Math.sin(now / 250) * 2 * S;
-        ctx.fillStyle = m.color || '#7af0ff';
-        ctx.beginPath(); ctx.moveTo(sx, sy - 9 * S + bob); ctx.lineTo(sx - 4 * S, sy - 15 * S + bob); ctx.lineTo(sx + 4 * S, sy - 15 * S + bob); ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = '#0a0e1e'; ctx.lineWidth = 2; ctx.stroke();
-      }
-    }
-  }
-
-  _edgeArrow(ctx, sx, sy, W, H, color, text) {
-    const cx = W / 2, cy = H / 2;
-    const ang = Math.atan2(sy - cy, sx - cx);
-    const m = 40 * this.dpr;
-    const ex = Math.max(m, Math.min(W - m, cx + Math.cos(ang) * W)), ey = Math.max(m, Math.min(H - m, cy + Math.sin(ang) * H));
-    ctx.save(); ctx.translate(ex, ey); ctx.rotate(ang);
-    const s = 9 * this.dpr;
-    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s, -s * 0.8); ctx.lineTo(-s * 0.5, 0); ctx.lineTo(-s, s * 0.8); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#0a0e1e'; ctx.lineWidth = 2; ctx.stroke();
     ctx.restore();
-    if (text) {
-      ctx.font = `bold ${Math.round(11 * this.dpr)}px sans-serif`; ctx.textAlign = 'center';
-      const tx = ex - Math.cos(ang) * 22 * this.dpr, ty = ey - Math.sin(ang) * 22 * this.dpr;
-      ctx.fillStyle = 'rgba(10,14,30,0.75)'; const tw = ctx.measureText(text).width + 8; ctx.fillRect(tx - tw / 2, ty - 8 * this.dpr, tw, 15 * this.dpr);
-      ctx.fillStyle = color; ctx.textBaseline = 'middle'; ctx.fillText(text, tx, ty);
+    if(this.settings.hard){
+      ctx.setTransform(S,0,0,S,-cx*S,-cy*S);
+      this._drawPlayer(ctx,me,now);
+      ctx.setTransform(1,0,0,1,0,0);
+      const [sx,sy]=toS(me.x,me.y);
+      label(me.n+(me.mu?' · MUZZLED':''),sx,sy-18*S,'#ffe36a');
+      label(`Cage keys: ${me.ck||0} · Bundles: ${me.supplies||0}/2`,sx,sy-18*S-fs*1.4,'#ffe36a');
     }
+    ctx.setTransform(1,0,0,1,0,0);
   }
 
   _drawGate(ctx, g, state) {
@@ -459,6 +455,7 @@ export class Renderer {
     ctx.beginPath(); ctx.ellipse(p.x * TS, p.y * TS + 5, 7, 3, 0, 0, Math.PI * 2); ctx.stroke();
     this._drawAnimal(ctx, id, p.x, y, face, p.mv || (p.s & PF.SPRINT), (p.s & PF.WOBBLE) ? Math.min(1, p.wb * 1.5) : 0, now);
     ctx.globalAlpha = 1;
+    if(p.mu){ctx.fillStyle='#aeb8b9';ctx.fillRect(Math.round(p.x*TS+(face==='left'?-8:1)),Math.round(y*TS-5),7,5);ctx.fillStyle='#3f4f55';for(let i=1;i<7;i+=2)ctx.fillRect(Math.round(p.x*TS+(face==='left'?-8:1)+i),Math.round(y*TS-5),1,5);}
     if (p.s & PF.HIDDEN) { ctx.fillStyle = 'rgba(46,122,58,0.7)'; ctx.fillRect(Math.round(p.x * TS - 8), Math.round(p.y * TS - 2), 16, 8); }
     if (p.s & PF.CAUGHT) { ctx.strokeStyle = '#e8e8e8'; ctx.lineWidth = 0.5; for (let i = -8; i <= 8; i += 3) { ctx.beginPath(); ctx.moveTo(p.x * TS + i, p.y * TS - 12); ctx.lineTo(p.x * TS + i + 4, p.y * TS + 6); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x * TS - 8, p.y * TS - 10 + i + 8); ctx.lineTo(p.x * TS + 8, p.y * TS - 12 + i + 8); ctx.stroke(); } }
     if ((p.s & PF.SPRINT) && !this.settings.reducedMotion) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; for (let i = 0; i < 3; i++) ctx.fillRect(Math.round(p.x * TS - 12 - i * 3), Math.round(p.y * TS - 6 + i * 3), 6, 1); }
@@ -467,6 +464,7 @@ export class Renderer {
   }
 
   _drawStaff(ctx, s, now) {
+    if(s.s===6){ctx.fillStyle='#3b5276';ctx.fillRect(s.x*TS-10,s.y*TS-3,15,6);ctx.fillStyle='#ddb08e';ctx.fillRect(s.x*TS+5,s.y*TS-4,6,6);ctx.fillStyle='#17273d';ctx.fillRect(s.x*TS-12,s.y*TS-2,4,4);return;}
     const face = Math.cos(s.d) < 0 ? 'left' : 'right';
     const moving = s.s !== 1 && s.s !== 5;
     const img = this._sprite('staff', face, moving, now);

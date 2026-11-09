@@ -45,7 +45,7 @@ test('steal a key from behind, spend it at a locked cage, and reject a watched t
  assert.ok(g._canSteal(p,s));s.dir=Math.PI;assert.equal(g._canSteal(p,s),false);s.dir=0;
  const lock=g.obj(g.zoo.enclosures.find(e=>e.animal==='zebra').keeper);
  assert.equal(g._objectInteraction(p,lock).idle,true,'no key means no switch shortcut');
- g._interact(p);for(let i=0;i<8;i++)if(p.hold)g._continueHold(p,{e:true},TICK);
+ g._interact(p);for(let i=0;i<22;i++)if(p.hold)g._continueHold(p,{e:true},TICK);
  assert.equal(p.cageKeys,1);assert.equal(g._canSteal(p,s),false,'key theft has a replenishment delay');
  p.x=lock.x+1.5;p.y=lock.y+.5;g._interact(p);for(let i=0;i<22;i++)if(p.hold)g._continueHold(p,{e:true},TICK);
  assert.equal(p.cageKeys,0);assert.equal(g.gate(lock.action.open).state,1);
@@ -53,7 +53,7 @@ test('steal a key from behind, spend it at a locked cage, and reject a watched t
 
 test('a failed theft is cancelled when the guard turns or walks away',()=>{
  const [g,p]=setup('redpanda',true);g.staff=g.staff.slice(0,1);const s=g.staff[0];s.x=40.5;s.y=14.5;s.dir=0;p.x=39.1;p.y=14.5;g._interact(p);s.dir=Math.PI;
- for(let i=0;i<8;i++)if(p.hold)g._continueHold(p,{e:true},TICK);assert.equal(p.cageKeys,0);
+ for(let i=0;i<22;i++)if(p.hold)g._continueHold(p,{e:true},TICK);assert.equal(p.cageKeys,0);
 });
 
 test('a teammate can build an outside ramp to rescue an NPC without using a gate key',()=>{

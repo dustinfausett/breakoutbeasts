@@ -45,6 +45,9 @@ export async function run() {
       await page.waitForTimeout(300);
       const t = await page.evaluate(() => window.__bb.input.touch);
       R.ok(`${label}: ability button presses and releases`, t.sp === false);
+      await page.dispatchEvent('#tbtn-b','pointerdown',{pointerId:10,pointerType:'touch'});
+      await page.waitForTimeout(120);await page.dispatchEvent('#tbtn-b','pointercancel',{pointerId:10,pointerType:'touch'});
+      R.ok(`${label}: bite touch control releases on cancellation`,await page.evaluate(()=>!window.__bb.input.touch.b));
       await page.screenshot({ path: `${SHOTS}/${label}-game.png` });
       const hudOverflow = await page.evaluate(() => { const r = document.querySelector('#objectives').getBoundingClientRect(); return r.right <= window.innerWidth && r.bottom <= window.innerHeight; });
       R.ok(`${label}: HUD panels stay on screen`, hudOverflow);

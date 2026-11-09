@@ -156,7 +156,7 @@ export class Room {
         if (!this.game || this.phase !== 'playing') return;
         let q = this.queues.get(pid);
         if (!q) { q = []; this.queues.set(pid, q); }
-        q.push({ mx: +msg.mx || 0, my: +msg.my || 0, sp: !!msg.sp, e: !!msg.e, seq: +msg.s || 0 });
+        q.push({ mx: +msg.mx || 0, my: +msg.my || 0, sp: !!msg.sp, e: !!msg.e, b:!!msg.b, seq: +msg.s || 0 });
         while (q.length > 4) q.shift();
         break;
       }

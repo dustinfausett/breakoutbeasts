@@ -77,7 +77,7 @@ so rebuild after changing the game.
 | Interact (hold for levers, cranks, keys) | E | **E** button |
 | Use your animal's ability | Space | **★** button |
 | Quick messages to teammates | 1–6 | 💬 Say |
-| Minimap on/off | M | — |
+| Bite / remove a teammate’s muzzle | B | **Bite** button |
 | Menu / pause | Esc | ☰ Menu |
 
 Menus can be operated with the keyboard alone (Tab, Enter and arrow keys).
@@ -101,7 +101,7 @@ Menus can be operated with the keyboard alone (Tab, Enter and arrow keys).
 | Elephant | Easy | Pushes crates (Space), pulls them with its trunk (E), holds heavy plates | Too big for narrow rock gaps |
 | Monkey | Easy | Reaches levers through bars and climbs ropes | Cannot break reinforced barriers |
 | Beaver | Easy | Chews marked wood (hold Space). Picks up logs (E) and builds bridges on posts | Chewing takes time and bridges need logs |
-| Giraffe | Medium | Flips high wall switches. Lookout reveals every keeper to the team | Too tall for tunnels |
+| Giraffe | Medium | Flips high wall switches. Lookout sends a warning to teammates | Too tall for tunnels |
 | Penguin | Medium | Belly-slides through low ducts, zooms on ice, swims | Slow on ordinary ground |
 | Zebra | Medium | Kicks loose planks down and sprints | Sprint recharges, and kicks and sprints are noisy |
 | Meerkat | Hard | Digs through marked soil to open a tunnel, then travels it (E) | Digging is slow and each tunnel has one exit |
@@ -383,3 +383,21 @@ Real browser checks completed two-player and four-player online missions, includ
 Focused regression coverage is in `test/security.test.js`; `node e2e/security.mjs` tests charging, sound captions, repairs, the alert HUD and bush cover in Chromium. It is also included in `npm run test:e2e`.
 
 Validation for the guard-security update: all 78 Node tests passed, including all 385 team compositions and the live WebSocket mission test. All 8 focused security browser checks passed, along with the mobile suite and the two-player browser mission. Four-player browser room creation, readiness, synchronization and reconnect checks passed; its full autoplay stalled while navigating the maintenance yard. That long run was stopped, so full four-player browser completion and the subsequent solo browser suite are not claimed for this update.
+
+## Wild update: invites, biting and Hard mode
+
+The title now uses original retro bitmap lettering with jungle vines, claws and fangs. Room invite links open a name field before joining; names are saved locally and appear in the shared lobby. Hard mode can be chosen on the title screen, the invite screen or in Settings. It is an individual visual choice, so teammates can choose different modes.
+
+Hold E to steal a key while creeping at 45% walking speed. You must stay within 1.9 tiles and out of awake keepers’ sight for 0.9 seconds. Holding E while approaching automatically begins the attempt when you enter a valid position. Losing range or being seen cancels it.
+
+Press B (or the touch Bite button) while facing a nearby target. A bite can knock a keeper unconscious for 30 seconds. Their keys can be taken while they are down, but biting a keeper permanently enables high alert and tranquilizer darts for this mission. Awake keepers fire only at visible animals within their view range. Darts travel at a finite speed, can be dodged, stop at obstacles and expire at the keeper’s viewing range.
+
+A dart hit returns an animal to its enclosure with a muzzle. The muzzle survives capture, repair and time passing. It prevents biting and beaver chewing, but does not prevent collecting materials or building an alternate escape ramp. A nearby teammate can face the muzzled animal and press B to bite off the muzzle. In solo play, approach a freed NPC animal and press E to ask it to bite off the muzzle. This keeps a muzzled solo beaver from being stuck permanently: it can build a ramp for a friend and ask that friend for help. A muzzle also comes off when the animal passes through the open zoo exit. Friendly nips cause only a brief flinch; there is no health system or graphic injury. NPC animals can also be nipped.
+
+There is no minimap, objective navigation arrow or through-wall keeper highlight. Use zoo signs, landmarks and teammate communication. Quick-message buttons remain available; built-in voice chat is not implemented.
+
+Hard mode draws only the forward half of the animal’s view, with obstacles blocking the area behind them. The near surface of a wall remains visible. Vision has no artificial distance limit and is independent of keeper cones; the camera still displays the current screen-sized portion of the zoo. The animal’s own sprite remains visible. This is a visual challenge mode, not an anti-cheat or network-privacy mechanism.
+
+`test/wild.test.js` covers moving theft, bites, darts, muzzles and view geometry. `e2e/wild.mjs` verifies the invite flow and the complete bite/tranquilizer/muzzle-removal loop across two real online clients, plus pixel checks for the Hard-mode mask.
+
+Validation for this update: all 92 Node tests passed, including all 385 team compositions and live WebSocket integration. The two-client wild-feature browser suite passed 13/13 checks; mobile passed 24/24; the earlier security suite passed 8/8. The single-file build completed. Full four-player and solo autoplay were not rerun; the earlier maintenance-yard autoplay limitation remains documented above.

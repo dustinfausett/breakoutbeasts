@@ -19,7 +19,7 @@ export function viewFromGame(game, pid) {
     world: game, zoo: game.zoo, staff:game.staff.map(s=>({x:s.x,y:s.y,d:s.dir,ar:game.time<game.alertUntil})),
     me: { id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, materials: p.materials, enc: p.enc },
     obj: game.objectives(),
-    objects: game.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, index: o.index, bay: o.bay, keeper: o.keeper, enc: o.enc, state: o.state, stand:o.stand })),
+    objects: game.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, index: o.index, bay: o.bay, keeper: o.keeper, enc: o.enc, state: o.state, public:!!o.public, stand:o.stand })),
     gates: game.gates.map((g) => ({ id: g.id, state: g.state, enc: g.enc, kind: g.kind })),
     npcs: game.npcs.map((n) => ({ enc: n.enc, state: n.state })),
     activeIds: game.activePlayers().map((q) => q.id),
@@ -131,8 +131,8 @@ export class Autopilot {
         const ramp=ramps[order % ramps.length];
         const enc=v.zoo.enclosures[ramp.enc], front=enc.front==='down'?1:-1;
         if((me.materials||0)<2){
-          const bench=v.objects.filter(o=>o.kind==='supplies' && (o.y===13||o.y===43)).sort((a,b)=>dist(me.x,me.y,a.x,a.y)-dist(me.x,me.y,b.x,b.y))[0];
-          return this.setScript('supplies-'+bench.id+'-'+(me.materials||0),[{go:[bench.x,bench.y+(bench.y===13?1:-1)]},{holdE:1.1},{wait:.1}]);
+          const bench=v.objects.filter(o=>o.kind==='supplies'&&o.public&&!o.state).sort((a,b)=>dist(me.x,me.y,a.x,a.y)-dist(me.x,me.y,b.x,b.y))[0];
+          if(bench)return this.setScript('supplies-'+bench.id+'-'+(me.materials||0),[{go:bench.stand||[bench.x,bench.y]},{holdE:1.1},{wait:.1}]);
         }
         return this.setScript('rescue-'+ramp.id,[{go:[ramp.x,ramp.y+front]},{holdE:2.3},{wait:.2}]);
       }

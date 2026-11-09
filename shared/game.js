@@ -104,7 +104,35 @@ export class Game {
       if (cage) cage.state = this.team ? 0 : 1;
     }
     this.rebuildBlock();
+    this._placeSupplies();
     initControlRoom(this);
+  }
+
+  _placeSupplies() {
+    // Reachable floor cells only; chests never alter collision or puzzle tiles.
+    const flood=(animal,start)=>{
+      const seen=new Set(),queue=[start];seen.add(start.join(','));
+      for(let i=0;i<queue.length;i++){const [x,y]=queue[i];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx=x+dx,ny=y+dy,key=nx+','+ny;
+        if(!seen.has(key)&&canOccupy(this,animal,nx+.5,ny+.5,null)){seen.add(key);queue.push([nx,ny]);}
+      }}return seen;
+    };
+    const publicReach=flood('elephant',[30,28]);
+    for(const chest of this.objects.filter(o=>o.kind==='supplies')){
+      const enc=this.zoo.enclosures[chest.enc],reach=chest.public?publicReach:flood(enc.animal,enc.spawn),candidates=[];
+      for(const key of reach){const [x,y]=key.split(',').map(Number);
+        if(![T.GRASS,T.PATH,T.FLOOR,T.ICE].includes(this.tileAt(x,y)))continue;
+        if(chest.public?this.zoo.enclosures.some(e=>this.inRect(x+.5,y+.5,e.rect)):!this.inRect(x+.5,y+.5,enc.rect))continue;
+        if(!chest.public&&dist(x,y,...enc.spawn)<2.5)continue;
+        if(this.zoo.decor.some(d=>d.kind==='controlHouse'&&x>=d.x&&x<d.x+d.w&&y>=d.y&&y<d.y+d.h))continue;
+        if(this.gates.some(g=>g.tiles.some(t=>dist(x,y,...t)<4)))continue;
+        if(this.objects.some(o=>o!==chest&&dist(x,y,o.x,o.y)<2))continue;
+        candidates.push([x,y]);
+      }
+      if(!candidates.length)throw new Error('No reachable supply location for '+enc.animal+' public='+chest.public+' reach='+reach.size);
+      const [x,y]=candidates[Math.floor(this.rng()*candidates.length)];
+      chest.x=x;chest.y=y;chest.stand=[x,y];chest.remaining=chest.public?6:2;chest.state=0;
+    }
   }
 
   _newPlayer(pd, enc) {
@@ -163,7 +191,7 @@ export class Game {
       if (g.state !== 0) continue;
       for (const [x, y] of g.tiles) { const i = this.idx(x, y); this.entSolid[i] = 1; if (g.vis === 'solid') this.entVis[i] = 1; }
     }
-    for (const o of this.objects) if (!['escapeBuild','escapeDig'].includes(o.kind)) this.entSolid[this.idx(o.x, o.y)] = 1;
+    for (const o of this.objects) if (!['escapeBuild','escapeDig','supplies'].includes(o.kind)) this.entSolid[this.idx(o.x, o.y)] = 1;
     for (const c of this.crates) { const i = this.idx(c.x, c.y); this.entSolid[i] = 1; this.entVis[i] = 1; }
   }
 
@@ -427,7 +455,6 @@ export class Game {
     const dirs = this.dirOrder(p);
     const nb = (d, n = 1) => [px + DIRS[d][0] * n, py + DIRS[d][1] * n];
     if (p.capturedT > 0 || p.under || p.hop || p.slide) return null;
-    if (this.inOwnEnclosure(p) && !p.prepared) return { text: 'Hold E at your salvage bench to prepare your escape first', idle: true };
     if (['elephant', 'giraffe', 'zebra'].includes(a)) {
       const gate = this.gates.find(g => g.kind === 'main' && !g.state && g.tiles.some(([x,y]) => dist(p.x,p.y,x+.5,y+.5)<1.65));
       if (gate) return { text: `Hold Space to charge gate hit (${gate.hits || 0}/${3 + (this.fortification.get(gate.enc) || 0)})`, run: () => {
@@ -622,15 +649,14 @@ export class Game {
     switch (o.kind) {
       case 'controlDoor': return {text:'Enter '+o.label,run:()=>enterControlRoom(this,p,o)};
       case 'supplies':
-        return { text: !p.prepared ? 'Hold E: salvage and prepare your escape' : `Hold E: collect a building bundle (${p.materials}/2)`, run: () => {
-          p.hold = { kind: 'craft', btn: 'e', obj: o.id, t: 0, need: .8 };
-        } };
+        if(!o.remaining)return {text:'Empty supply chest',idle:true};
+        if(p.materials>=2)return {text:'You are already carrying two bundles',idle:true};
+        return {text:`Hold E: take a building bundle (${o.remaining} left)`,run:()=>{p.hold={kind:'craft',btn:'e',obj:o.id,t:0,need:.8};}};
       case 'escapeBuild':
       case 'escapeDig': {
         if (o.kind === 'escapeDig' && ['elephant','giraffe','zebra'].includes(p.animal)) return { text: 'Too large for this tunnel — build a ramp or ram the gate', idle: true };
         if (o.state) return o.kind === 'escapeDig' ? { text: 'Travel through your dug tunnel', run: () => { p.under = { t: 0, dur: .7, to: o.outside.map(v=>v+.5) }; } } : { text: 'Walk over the stacked ramp at the fence', idle: true };
-        if (!p.prepared) return { text: 'Prepare at a salvage bench first', idle: true };
-        if (p.materials < 2) return { text: 'Collect two bundles at a salvage bench first', idle: true };
+        if (p.materials < 2) return { text: 'Find supply chests and collect two building bundles first', idle: true };
         return { text: o.kind === 'escapeBuild' ? 'Hold E: stack bundles into a climbing ramp' : 'Hold E: craft a stick and dig under the fence', run: () => { p.hold = { kind:'craft', btn:'e', obj:o.id,t:0,need:o.kind === 'escapeDig'?3:2 }; } };
       }
       case 'lever': {
@@ -905,8 +931,9 @@ export class Game {
   _finishCraft(p,o) {
     if (dist(p.x,p.y,o.x+.5,o.y+.5)>INTERACT_RANGE) return;
     if (o.kind==='supplies') {
-      if (!p.prepared) { p.prepared=true; this.msg(p,'Escape kit prepared! Use your animal ability, or collect two bundles here for a ramp or digging stick.'); }
-      else { p.materials=Math.min(2,p.materials+1); this.msg(p,`Building bundles: ${p.materials}/2. Visit a ramp or soil site at the front corners.`); }
+      if(!o.remaining||p.materials>=2)return;
+      o.remaining--;o.state=o.remaining?0:1;p.materials++;
+      this.msg(p,`Building bundles: ${p.materials}/2. Chest: ${o.remaining} left.`);
     } else if (!o.state && p.materials>=2) {
       p.materials-=2;o.state=1;
       if (o.kind==='escapeBuild') { this.setTile(...o.wall,T.PATH);this.rebuildBlock(); }
@@ -1148,8 +1175,8 @@ export class Game {
       this.setTile(x,y,z.tiles[this.idx(x,y)]);
       this.chew.delete(this.idx(x,y));
     }
-    this.objects=this.objects.filter(o=>o.enc!==enc);
-    this.objects.push(...z.objects.filter(o=>o.enc===enc).map(o=>({...o,state:0,cool:0})));
+    this.objects=this.objects.filter(o=>o.enc!==enc||o.kind==='supplies');
+    this.objects.push(...z.objects.filter(o=>o.enc===enc&&o.kind!=='supplies').map(o=>({...o,state:0,cool:0})));
     for(const g of this.gates.filter(g=>g.enc===enc)){
       g.state=0;g.timer=0;g.hits=0;g.broken=false;
     }
@@ -1266,7 +1293,7 @@ export class Game {
   defs() {
     return {
       gates: this.gates.map((g) => ({ id: g.id, kind: g.kind, vis: g.vis, tiles: g.tiles, label: g.label })),
-      objects: this.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, reach: o.reach, label: o.label, index: o.index, bay: o.bay, keeper: !!o.keeper, enc: o.enc, stand:o.stand })),
+      objects: this.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, reach: o.reach, label: o.label, index: o.index, bay: o.bay, keeper: !!o.keeper, enc: o.enc, stand:o.stand, public:!!o.public })),
       plates: this.plates.map((p) => ({ id: p.id, x: p.x, y: p.y, heavy: p.heavy })),
       burrows: this.burrows.map((b) => ({ id: b.id, a: b.a, b: b.b })),
       bays: this.bayState.map((b) => ({ index: b.index, used: b.used, x: b.x, y: b.y, room: b.room, part: b.part, template: b.template })),

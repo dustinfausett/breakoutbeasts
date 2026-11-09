@@ -65,6 +65,7 @@ export class Renderer {
     const g = this.mctx;
     for (const d of this.world.zoo.decor) {
       const ox = d.x * TS, oy = d.y * TS;
+      if(d.kind==='controlHouse'&&!IMAGES.terrain){g.fillStyle='#394d59';g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle='#57717c';for(let y=0;y<d.h;y++)g.fillRect(ox,oy+y*16,d.w*16,2);continue;}
       if(d.kind==='controlHouse'){for(let y=0;y<d.h;y++)for(let x=0;x<d.w;x++)atlasDraw(g,IMAGES.terrain,13,4,4,ox+x*16,oy+y*16,16,16);continue;}
       const prop={bench:6,lamp:5,sign:7}[d.kind];if(prop!==undefined&&objectArt(g,prop,ox-2,oy-8,20,24))continue;
       if (d.kind === 'flowers') { for (let i = 0; i < 4; i++) { g.fillStyle = ['#f2c63a', '#f08aa8', '#ffffff', '#b08af0'][i]; g.fillRect(ox + 2 + i * 3, oy + 10 + (i % 2) * 2, 2, 2); } }
@@ -379,9 +380,11 @@ export class Renderer {
       if(state){ctx.fillStyle='#8affae';ctx.fillRect(ox+12,oy+10,2,2);}return;
     }
     switch (o.kind) {
+      case 'controlDoor':
+        ctx.fillStyle=state?'#182b29':'#745737';ctx.fillRect(ox+1,oy,14,16);ctx.strokeStyle='#bba56b';ctx.strokeRect(ox+1,oy,14,16);ctx.fillStyle='#ffe4a0';ctx.font='bold 8px monospace';ctx.textAlign='center';ctx.fillText(String.fromCharCode(65+o.index),ox+8,oy+10);break;
       case 'supplies':
-        ctx.fillStyle='#89542e';ctx.fillRect(ox+1,oy+6,14,8);
-        ctx.fillStyle='#e4b773';ctx.fillRect(ox,oy+4,16,3);
+        ctx.fillStyle=state?'#443c35':'#89542e';ctx.fillRect(ox+1,oy+6,14,8);
+        ctx.fillStyle=state?'#a18c69':'#e4b773';ctx.fillRect(ox,oy+(state?0:4),16,3);
         ctx.fillStyle='#c6d6d0';ctx.fillRect(ox+5,oy,2,7);break;
       case 'escapeBuild':
         ctx.fillStyle=state?'#c49757':'#8d774e';
@@ -444,7 +447,7 @@ export class Renderer {
   _drawAnimal(ctx, animal, x, y, face, moving, wobble, now, opts = {}) {
     const img = this._sprite(animal, face, moving, now);
     const bob = !moving && !this.settings.reducedMotion ? (Math.floor(now / 500 + x) % 2) : 0;
-    const iw=24,ih=24;
+    const iw=IMAGES.actors?24:16,ih=iw;
     const dx = Math.round(x * TS - iw / 2), dy = Math.round(y * TS - ih + 6 - bob);
     ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(Math.round(x * TS - 5), Math.round(y * TS + 4), 10, 2);
     if (wobble) { ctx.save(); ctx.translate(x * TS, y * TS + 6); ctx.rotate(Math.sin(now / 90) * 0.25 * wobble); ctx.drawImage(img, -iw/2, -ih,iw,ih); ctx.restore(); }
@@ -467,7 +470,7 @@ export class Renderer {
     ctx.beginPath(); ctx.ellipse(p.x * TS, p.y * TS + 5, 7, 3, 0, 0, Math.PI * 2); ctx.stroke();
     this._drawAnimal(ctx, id, p.x, y, face, p.mv || (p.s & PF.SPRINT), (p.s & PF.WOBBLE) ? Math.min(1, p.wb * 1.5) : 0, now);
     ctx.globalAlpha = 1;
-    if(p.mu)objectArt(ctx,15,Math.round(p.x*TS+(face==='left'?-10:0)),Math.round(y*TS-7),10,9);
+    if(p.mu&&!objectArt(ctx,15,Math.round(p.x*TS+(face==='left'?-10:0)),Math.round(y*TS-7),10,9)){ctx.fillStyle='#aeb8b9';ctx.fillRect(p.x*TS+(face==='left'?-7:1),y*TS-5,6,4);}
     if (p.s & PF.HIDDEN) { ctx.fillStyle = 'rgba(46,122,58,0.7)'; ctx.fillRect(Math.round(p.x * TS - 8), Math.round(p.y * TS - 2), 16, 8); }
     if (p.s & PF.CAUGHT) { ctx.strokeStyle = '#e8e8e8'; ctx.lineWidth = 0.5; for (let i = -8; i <= 8; i += 3) { ctx.beginPath(); ctx.moveTo(p.x * TS + i, p.y * TS - 12); ctx.lineTo(p.x * TS + i + 4, p.y * TS + 6); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x * TS - 8, p.y * TS - 10 + i + 8); ctx.lineTo(p.x * TS + 8, p.y * TS - 12 + i + 8); ctx.stroke(); } }
     if ((p.s & PF.SPRINT) && !this.settings.reducedMotion) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; for (let i = 0; i < 3; i++) ctx.fillRect(Math.round(p.x * TS - 12 - i * 3), Math.round(p.y * TS - 6 + i * 3), 6, 1); }

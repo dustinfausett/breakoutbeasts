@@ -14,3 +14,5 @@ The atlases and logo are also embedded by `npm run build:single`; they require n
 - `walk-animals-b.png`: original generated four-frame cycles for zebra, meerkat, tortoise, flamingo and human keeper. Four equal columns; source row bounds are 0–260, 270–540, 560–775, 780–1060 and 1065–1402 pixels. Explicit strip crops prevent neighbouring characters from entering a frame.
 
 Walking frames change limb positions, with mirrored frames for leftward movement. Idle characters retain the original standing pose. Tortoises animate more slowly; reduced motion freezes walking. Both walking sheets are embedded in the single-file build.
+
+The game defaults to the original code-drawn artwork. All PNGs are intentionally retained here. Open the game with `?art=detailed` to use these generated assets and walking cycles again; no files need to be restored.

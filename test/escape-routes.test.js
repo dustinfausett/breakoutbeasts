@@ -10,12 +10,12 @@ import {Autopilot,viewFromGame} from '../shared/bot.js';
 function setup(animal='redpanda',staff=false){const g=new Game({players:[{id:'p',animal}],options:{staff}});return [g,g.players.get('p')];}
 function hold(g,p,o,seconds){const front=g.zoo.enclosures[o.enc].front==='down'?1:-1;p.x=o.x+.5;p.y=o.y+.5+front;g.setInput(p.id,{});g.step(TICK);g.setInput(p.id,{e:true});for(let i=0;i<seconds/TICK;i++)g.step(TICK);g.setInput(p.id,{});g.step(TICK);}
 
-for(const animal of ANIMAL_IDS)test(`${animal} can prepare, gather and build a second escape route`,()=>{
+for(const animal of ANIMAL_IDS)test(`${animal} can find supplies and build a second escape route`,()=>{
  const [g,p]=setup(animal),enc=g.zoo.enclosures[p.enc];
- const bench=g.objects.find(o=>o.kind==='supplies'&&o.enc===p.enc);
- p.x=enc.spawn[0]+.5;p.y=enc.spawn[1]+.5;
+ const bench=g.objects.find(o=>o.kind==='supplies'&&o.enc===p.enc&&!o.public);
+ p.x=bench.x+.5;p.y=bench.y+.5;
  for(let n=0;n<3;n++){g.setInput('p',{});g.step(TICK);g.setInput('p',{e:true});for(let t=0;t<22;t++)g.step(TICK);}
- assert.equal(p.prepared,true);assert.equal(p.materials,2);
+ assert.equal(p.materials,2);assert.equal(bench.remaining,0);
  const ramp=g.objects.find(o=>o.kind==='escapeBuild'&&o.enc===p.enc);
  const insideY=ramp.y+(enc.front==='down'?-1:1);
  assert.ok(bfs(g.w,g.h,enc.spawn[0],enc.spawn[1],[ramp.x,insideY],(x,y)=>canOccupy(g,animal,x+.5,y+.5,null)), 'ramp materials can be delivered from the starting position');

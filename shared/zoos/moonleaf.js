@@ -291,7 +291,7 @@ export function buildMoonleaf() {
     });
     const mainGate = addGate({ kind: 'main', vis: 'bars', tiles: mainTiles, enc: idx, label: def.name + ' gate' });
     const keeperId = addObj({ kind: 'lever', reach: 'normal', hold: 1.0, x: keeper[0], y: keeper[1], action: { open: mainGate }, enc: idx, keeper: true, label: 'Cage key lock' });
-    addObj({kind:'supplies',x:keeper[0]-1,y:keeper[1],enc:idx,label:'Public salvage bench'});
+    addObj({kind:'supplies',x:keeper[0]-1,y:keeper[1],enc:idx,public:true,label:'Supply chest'});
     if (high) addObj({ kind: 'lever', reach: 'high', hold: 0, x: high[0], y: high[1], action: { open: mainGate }, enc: idx, label: 'High switch' });
     let sideGate = null;
     if (sideTiles.length) {
@@ -318,10 +318,10 @@ export function buildMoonleaf() {
     const [rx0, ry0] = toWorld(0, 0); const [rx1, ry1] = toWorld(13, 10);
     const [sx, sy] = toWorld(11, 11);
     decor.push({ kind: 'sign', x: sx, y: sy, text: def.name });
-    // Supply bench at the spawn: prepare first, then use the animal's own route.
+    // Supply placeholder; Game chooses a reachable location for each mission.
     const bench = [spawn[0], spawn[1] + (bottom ? 1 : -1)];
     set(...bench, T.GRASS);
-    addObj({ kind: 'supplies', x: bench[0], y: bench[1], enc: idx, label: 'Salvage bench' });
+    addObj({ kind: 'supplies', x: bench[0], y: bench[1], enc: idx, label: 'Supply chest' });
     const build = toWorld(1, 10), wall = toWorld(1, 10), outside = toWorld(1, 11);
     set(...outside, T.PATH);
     set(...toWorld(1,9),T.GRASS);
@@ -331,7 +331,7 @@ export function buildMoonleaf() {
     const dig = toWorld(12, 10), digOut = toWorld(12, 11);
     set(...toWorld(12,9),T.GRASS); set(...digOut, T.PATH);
     addObj({ kind: 'escapeDig', x: dig[0], y: dig[1], enc: idx, label: 'Dig with a stick', outside: digOut });
-    const solution = [{ go: spawn }, { holdE: 1.2 }, ...(animal==='beaver'?[{go:toWorld(4,3)},{face:dirMap('up')},{holdSpace:2.2}]:[]), ...def.solution.map((s) => {
+    const solution = [{ go: spawn }, ...(animal==='beaver'?[{go:toWorld(4,3)},{face:dirMap('up')},{holdSpace:2.2}]:[]), ...def.solution.map((s) => {
       const o = { ...s };
       if (s.go) o.go = toWorld(...s.go);
       if (s.face) o.face = dirMap(s.face);
@@ -341,7 +341,7 @@ export function buildMoonleaf() {
     })];
     enclosures.push({
       index: idx, animal, name: def.name, theme: def.theme,
-      hint: 'First hold E at the salvage bench beside your starting spot to prepare. ' + def.hint + ' Alternative: collect two more bundles at the bench, then hold E at the ramp site in the front-left corner. Small animals can craft a digging stick at the front-right soil site. Large animals can charge a hit on the main gate by holding Space — every hit is louder!',
+      hint: def.hint + ' Alternative: find a supply chest and collect two bundles, then hold E at the ramp site in the front-left corner. Small animals can craft a digging stick at the front-right soil site. Large animals can charge a hit on the main gate by holding Space — every hit is louder!',
       rect: [Math.min(rx0, rx1), Math.min(ry0, ry1), Math.max(rx0, rx1), Math.max(ry0, ry1)],
       spawn, mainGate, keeper: keeperId, sideGate, front: bottom ? 'up' : 'down', solution,
     });

@@ -316,6 +316,8 @@ export function buildSprites() {
   const st = make(STAFF.rows, STAFF.pal);
   const st1 = make(walkFrame(STAFF.rows), STAFF.pal);
   SPRITES.staff = { r: [st, st1], l: [flip(st), flip(st1)] };
+  const down=document.createElement('canvas');down.width=16;down.height=16;const dg=down.getContext('2d');dg.translate(16,0);dg.rotate(Math.PI/2);dg.drawImage(st,0,0);
+  SPRITES.staffDown={r:[down],l:[flip(down)]};
 }
 
 const portraitCache = {};

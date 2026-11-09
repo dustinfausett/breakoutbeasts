@@ -1,7 +1,9 @@
 // Generated art is kept separate from gameplay coordinates. Atlases are sliced
 // only while rendering; collision and vision continue to use the shared tile map.
+import { LOGO_URL } from './logo.js';
 export const IMAGES={};
 export async function loadImages(){
+ if(new URLSearchParams(location.search).get('art')!=='detailed'){IMAGES.logo={src:LOGO_URL};return;}
  await Promise.all(['logo','actors','terrain','objects','panel','walk-animals-a','walk-animals-b'].map(async name=>{
   const image=new Image();image.src=window.__BB_ASSETS__?.[name]||`assets/${name}.png`;
   await image.decode();IMAGES[name]=image;

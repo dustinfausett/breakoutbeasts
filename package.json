@@ -1,7 +1,7 @@
 {
   "name": "breakout-beasts",
   "version": "0.1.0",
-  "description": "Breakout Beasts! — a cooperative pixel-art zoo escape game for 1–4 players",
+  "description": "Breakout Beasts! — a cooperative pixel-art zoo escape game for 1–8 players",
   "type": "module",
   "private": true,
   "engines": { "node": ">=20" },

@@ -4,7 +4,7 @@
 import { Game, TICK } from './game.js';
 import { ANIMAL_IDS, ANIMALS } from './animals.js';
 
-export const MAX_PLAYERS = 4;
+export const MAX_PLAYERS = 8;
 export const GRACE_LOBBY = 20;   // seconds a disconnected player keeps their lobby slot
 export const GRACE_PLAY = 45;    // seconds before the team automatically continues without them
 export const EMOTES = ['Over here!', 'Help me!', 'Wait!', 'Go go go!', 'Keeper nearby!', 'Thanks!'];
@@ -150,6 +150,13 @@ export class Room {
         const offline = list.filter((q) => !q.connected);
         if (offline.length) return this.error(pid, 'not_ready', `Waiting for ${offline.map((q) => q.name).join(', ')} to reconnect.`);
         this.startMission();
+        break;
+      }
+      case 'panel': this.game?.controlAction(pid,msg);break;
+      case 'chat': {
+        const now=Date.now();if(now-(p.lastChat||0)<100)return;p.lastChat=now;
+        const text=String(msg.text||'').replace(/[\u0000-\u001f\u007f]/g,'').trim().slice(0,180);
+        if(text&&this.game)this._pendingEvents.push({k:'chat',pid,name:p.name,text});
         break;
       }
       case 'in': {

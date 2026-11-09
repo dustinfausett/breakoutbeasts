@@ -1,6 +1,7 @@
 // Breakout Beasts! client controller: menus, lobby, HUD, game loop, audio and captions.
 
-import { LOGO_URL } from './logo.js';
+import { mountControlPanel, updateControlPanel, addPanelChat } from './control-panel.js';
+import { IMAGES, loadImages } from './assets.js';
 import { ANIMALS, ANIMAL_IDS } from './shared/animals.js';
 import { getZoo } from './shared/zoos/index.js';
 import { PF, TICK } from './shared/game.js';
@@ -29,7 +30,7 @@ const app = {
   screen: 'loading', overlay: null, link: null, mode: null, myId: null, lobby: null,
   world: null, renderer: null, pickAnimal: null, inGame: false, results: null, paused: false,
   seq: 0, tickAcc: 0, lastFrame: performance.now(), hudT: 0, footT: 0, bot: null, connState: 'open',
-  lastNotice: '', hintShown: false,
+  lastNotice: '', hintShown: false, teamClues:{}, lastRelay:0,
 };
 const input = new Input();
 const audio = new Audio();
@@ -75,7 +76,7 @@ function caption(text, cls = '', sound = false) {
 
 // ---------------- title ----------------
 function buildTitle() {
-  document.querySelectorAll('.pixel-logo').forEach(img=>img.src=LOGO_URL);
+  document.querySelectorAll('.pixel-logo').forEach(img=>img.src=IMAGES.logo.src);
   const parade = $('#title-parade');
   parade.innerHTML = '';
   for (const id of ANIMAL_IDS) { const img = document.createElement('img'); img.src = portraitURL(id); img.alt = ''; parade.appendChild(img); }
@@ -247,6 +248,7 @@ function enterGame(msg) {
 
 function leaveGameView(toLobby) {
   app.inGame = false;
+  updateControlPanel(null);
   app.world = null;
   overlay(null);
   input.releaseAll();
@@ -273,6 +275,7 @@ function nameOf(pid) { return app.world?.snap?.pl.find((p) => p.id === pid)?.n |
 function nearMe(x, y, r = 12) { const me = app.world?.me(); return me && Math.hypot(me.x - x, me.y - y) < r; }
 
 function handleEvent(ev) {
+  if(ev.k==='chat'){addPanelChat(ev);if(AUTOPILOT){const m=/^@panel (p[0-9]+) ([0-9]+) ([0-9]+) ([0-9]+)$/.exec(ev.text);if(m)app.teamClues[m[1]]={target:m[1],index:Number(m[2]),control:Number(m[3]),value:Number(m[4])};}return;}
   const r = app.renderer;
   r.addEvent(ev);
   const mine = ev.pid === app.myId;
@@ -280,6 +283,8 @@ function handleEvent(ev) {
     case 'msg': caption(ev.text); break;
     case 'gate': if (nearMe(ev.x, ev.y)) { audio.play(ev.open ? 'gate' : 'gateClose'); caption(ev.open ? '[Clank] A gate swings open' : '[Clang] A gate slams shut', '', true); } break;
     case 'alert': audio.play('alert'); caption(`[Whistle!] A keeper spotted ${ev.pid === app.myId ? 'you' : nameOf(ev.pid)}! Run and hide!`, 'alert'); break;
+    case 'panelraid': caption('The keepers broke in! Everyone was captured. Your generator and rescues are still complete.', 'alert');break;
+    case 'panelready': caption('All operators ready. Power on your panels!', 'good');break;
     case 'bitten': audio.play('crunch');caption('Keeper knocked out! High alert and tranquilizer darts are enabled for the rest of this escape.', 'alert');break;
     case 'muzzleoff': audio.play('rescue');caption(`${ev.name} is free of their muzzle!`, 'good');break;
     case 'tranquilized': audio.play('capture');caption(`${ev.name} was tranquilized and muzzled. A teammate can bite off the muzzle with B.`, 'alert');break;
@@ -328,6 +333,7 @@ function handleEvent(ev) {
 }
 
 function onEnd(res) {
+  updateControlPanel(null);
   app.results = res;
   input.releaseAll();
   const mins = Math.floor(res.time / 60), secs = String(res.time % 60).padStart(2, '0');
@@ -364,15 +370,15 @@ function updateHUD() {
     const step = p.steps[p.step];
     h += `<div class="sub ${p.done ? 'done' : ''} ${mine ? 'me' : ''}">${p.done ? '✓' : mine ? '➤' : '·'} Bay ${p.bay} · ${who}: ${p.done ? 'done' : p.waiting ? 'waiting for them to reconnect' : esc(step?.label || '')}${!p.done ? ` <small>(step ${p.step + 1}/${p.steps.length})</small>` : ''}</div>`;
   }
-  h += `<div class="o ${o.keys.done ? 'done' : ''}">${ck(o.keys.done)}Turn ${o.keys.need} exit key${o.keys.need > 1 ? 's' : ''} at the same time${o.keys.active || o.keys.done ? '' : ' (needs power + freed animals)'}</div>`;
-  if (o.keys.active && !o.keys.done) for (const k of o.keys.keys) h += `<div class="sub ${k.holder ? 'done' : ''}">${k.holder ? '✓' : '·'} Key ${k.i + 1}: ${k.holder ? esc(k.holder) + ' is holding it' : 'nobody yet'}</div>`;
+  h += `<div class="o ${o.keys.done?'done':''}">${ck(o.keys.done)}Control house: five tasks per operator${o.keys.active?'':' (needs power and rescued animals)'}</div>`;
+  if(o.control)for(const p of o.control.team)h+=`<div class="sub">${esc(p.name)}: ${p.done}/5 ${p.inside?'· at station':''}</div>`;
   h += `<div class="o ${o.exit.done ? 'done' : ''}">${ck(o.exit.done)}Everyone through the Moonleaf Gate${o.exit.open ? `: ${o.exit.inZone}/${o.exit.need} there` : ''}</div>`;
   h += '</div>';
   let now = '';
   const myPart = o.power.parts.find((p) => p.pid === app.myId && !p.done);
   if (me && (me.s & PF.IN_ENC) && myEnc) now = myEnc.hint;
   else if (o.exit.open) now = 'Everyone to the Moonleaf Gate!';
-  else if (o.keys.active) now = `Hold the exit keys together (${o.keys.keys.filter((k) => k.holder).length}/${o.keys.need})`;
+  else if (o.keys.active) { const station=o.control?.team.find(p=>p.id===app.myId); now = `Enter control-house door ${String.fromCharCode(65+(station?.doorIndex||0))} and read your instructions to your team.`; }
   else if (myPart) now = myPart.steps[myPart.step]?.label || '';
   else if (!o.rescue.done) now = `Free caged animals (${o.rescue.n}/${o.rescue.need})`;
   else if (!o.power.done) now = 'Help teammates restore power';
@@ -408,6 +414,7 @@ function updateHUD() {
 
   // prompts
   const pm = s.me;
+  updateControlPanel(pm?.control||null);
   let ph = '';
   if (pm) {
     if (pm.pe) ph += `<div class="prompt ${pm.pe.ok ? '' : 'no'}"><kbd>E</kbd> ${esc(pm.pe.t)}</div>`;
@@ -461,6 +468,12 @@ function gameTick() {
   if (app.bot && w.snap.me) inp = app.bot.update(clientView(), TICK);
   else inp = (app.overlay && app.overlay !== 'complete') ? { mx: 0, my: 0, sp: false, e: false } : input.state();
   if (app.overlay === 'complete') inp = { mx: 0, my: 0, sp: false, e: false };
+  if(inp.panel)app.link?.send({t:'panel',...inp.panel});
+  if(AUTOPILOT&&w.snap.me?.control?.instruction&&performance.now()-app.lastRelay>500){
+    const c=w.snap.me.control.instruction;app.lastRelay=performance.now();
+    app.link?.send({t:'chat',text:`@panel ${c.target} ${c.index} ${c.control} ${c.value}`});
+    if(c.target===app.myId)app.teamClues[c.target]=c;
+  }
   app.seq++;
   const msg = { t: 'in', s: app.seq, mx: Math.round(inp.mx * 100) / 100, my: Math.round(inp.my * 100) / 100, sp: inp.sp ? 1 : 0, e: inp.e ? 1 : 0, b:inp.b?1:0 };
   app.link?.send(msg);
@@ -470,6 +483,7 @@ function gameTick() {
 function clientView() {
   const w = app.world, s = w.snap, d = w.defs, me = w.me();
   return {
+    panel:s.me?.control,teamClues:Object.values(app.teamClues),
     world: w, zoo: w.zoo, staff:s.st,
     me: { id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
     obj: s.obj,
@@ -626,8 +640,10 @@ for (const [id, key, type] of [['#set-hard','hard','b'], ['#set-music', 'music',
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 // ---------------- boot ----------------
-function boot() {
+async function boot() {
   try {
+    mountControlPanel(msg=>app.link?.send(msg));
+    await loadImages();
     buildSprites();
     getZoo('moonleaf');
     app.renderer = new Renderer($('#game'));

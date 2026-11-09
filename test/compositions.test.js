@@ -1,4 +1,4 @@
-// Deadlock sweep: every possible team of 1–4 different animals (385 teams) must be able to
+// Deadlock sweep: every possible team of 1–8 different animals (1,012 teams) must be able to
 // finish the mission. Autopilots play each team headlessly against the real rules.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,7 +8,7 @@ import { runMission } from './helpers.js';
 const combos = [];
 (function rec(start, cur) {
   if (cur.length) combos.push([...cur]);
-  if (cur.length === 4) return;
+  if (cur.length === 8) return;
   for (let i = start; i < ANIMAL_IDS.length; i++) { cur.push(ANIMAL_IDS[i]); rec(i + 1, cur); cur.pop(); }
 })(0, []);
 

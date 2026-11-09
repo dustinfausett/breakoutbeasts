@@ -1,6 +1,6 @@
 # Breakout Beasts!
 
-A browser-based, cooperative pixel-art zoo escape for **1–4 players**. You are animals trapped
+A browser-based, cooperative pixel-art zoo escape for **1–8 players**. You are animals trapped
 in Moonleaf Zoo: slip out of your enclosure, free your friends, restore power, and walk out
 through the Moonleaf Gate together, without getting caught by the night keepers.
 
@@ -84,12 +84,11 @@ Menus can be operated with the keyboard alone (Tab, Enter and arrow keys).
 
 **The mission at Moonleaf Zoo**
 1. **Escape your enclosure.** Hold **E** at the salvage bench next to your starting spot to prepare an escape kit, then solve your animal’s ability puzzle. The beaver must chew timber down, pick up its log, build a bridge, and chew the exit barrier. Alternative for every animal: gather two bundles at the bench and build a ramp at the front-left fence site. Smaller animals can instead use the front-right soil site to craft a stick and dig a tunnel; press E there again to travel. Elephants, giraffes and zebras can ram the main gate three times with Space. Hits must be separated by 1.2 seconds, and every hit carries farther and increases keeper attention. These materials are reusable in supply but consumed when building.
-2. **Free caged animals.** Sneak behind an unwatched keeper and hold **E** to steal a cage key. Spend it by holding **E** at a gold cage lock. Keys replenish on each keeper after 12 seconds. Alternatively, gather two bundles at a salvage bench and build an escape ramp from outside a cage. Beaver chewing and zebra kicking can also break suitable enclosure barriers. Three animals must be freed. Freed animals run to the Animal Hideout in the courtyard.
+2. **Free caged animals.** Sneak behind an unwatched keeper and hold **E** to steal a cage key. Keep it until capture and reuse it by holding **E** at any gold enclosure lock. Every opened enclosure dispatches a keeper to inspect it. Alternatively, gather two bundles at a salvage bench and build an escape ramp from outside a cage. Beaver chewing and zebra kicking can also break suitable enclosure barriers. Three animals must be freed. Freed animals run to the Animal Hideout in the courtyard.
 3. **Restore power.** In the Maintenance Yard, each player has their own bay. The bay door is
    rebuilt to need *that player's* ability. Get in, flip the breaker (when playing as a team),
    take the fuse and plug it into the generator.
-4. **Turn the exit keys together.** The Exit Plaza has one key per player, and everyone must
-   hold theirs at the same time.
+4. **Operate the control house together.** Each animal enters its assigned door in the Exit Plaza. Once everyone is inside, every operator presses their flashing red power button. Each screen describes another player’s dials or levers: talk or use the panel chat to pass the strange instructions along. Each player must finish five tasks before the three-minute break-in timer expires. A failed attempt returns everyone to reinforced enclosures; power and rescued friends remain. Solo players get instructions from a rescued radio partner.
 5. **Everyone through the Moonleaf Gate.** The mission ends once every active player is in the
    exit zone.
 
@@ -138,13 +137,13 @@ of exit keys shrinks to match the remaining team.
 - All **10 animals** with abilities that change the world in different ways: tiles are chewed,
   kicked or dug, bridges are built, crates move, gates jam, and animals hop, slide, tunnel or
   wade.
-- **Puzzles that scale with team size:** one power part and one exit key per player. Parts are
+- **Puzzles that scale with team size:** one power part and five control-house tasks per player. Parts are
   generated from the team's own animals, and the generator part has an extra breaker step for
-  teams. **All 385 possible teams of 1–4 animals** were played through to completion
+  teams. **All 1,012 possible teams of 1–8 animals** were played through to completion
   automatically.
 - **Keepers:** they patrol, become suspicious, investigate noises, chase, catch and return to
   patrol. They have directional vision cones with line-of-sight checks and radio sightings immediately; noise raises attention. Players can hide, and bins work as distractions.
-- **Online:** an authoritative server, 5-letter room codes, invite links, a 4-player limit,
+- **Online:** an authoritative server, 5-letter room codes, invite links, an 8-player limit,
   duplicate animals blocked, readiness, host-only start, host hand-over, reconnection with a
   grace period, clear "room full", "not found" and "connection lost" messages, smoothing of
   remote movement and prediction for your own movement.
@@ -185,7 +184,7 @@ This runs the Node unit and integration tests, about 2–3 minutes:
   grace period and teammate release work; noise is investigated; part and key counts scale with
   the team; the exit requires every active player; disconnect adaptation keeps progress; the
   tortoise gate really needs the shell.
-- `test/compositions.test.js`: all 385 teams of 1–4 different animals finish the mission (no
+- `test/compositions.test.js`: all 1,012 teams of 1–8 different animals finish the mission (no
   deadlocks), plus one team run with keepers active.
 - `test/room.test.js`: room limit of 4, duplicate picks, host-only start and readiness,
   joining mid-mission refused, host migration, reconnecting within the grace period, automatic
@@ -354,8 +353,8 @@ To add a zoo, create `shared/zoos/<name>.js` that returns the same shape as `bui
 
 ## 9. Art, audio and licensing
 
-All pixel art (animals, keepers, tiles and the icon) is original to this project and is drawn
-in code in `client/sprites.js`. All sound effects and music are synthesized at runtime with the
+The original generated pixel art (animals, keepers, terrain, props, console and logo) lives
+in `client/assets/`. Small functional overlays and the icon are drawn in code. All sound effects and music are synthesized at runtime with the
 Web Audio API in `client/audio.js`. No third-party art, audio or fonts are used, so there are no
 attribution requirements. The only runtime dependency is the [`ws`](https://github.com/websockets/ws)
 library (MIT license).
@@ -401,3 +400,14 @@ Hard mode draws only the forward half of the animal’s view, with obstacles blo
 `test/wild.test.js` covers moving theft, bites, darts, muzzles and view geometry. `e2e/wild.mjs` verifies the invite flow and the complete bite/tranquilizer/muzzle-removal loop across two real online clients, plus pixel checks for the Hard-mode mask.
 
 Validation for this update: all 92 Node tests passed, including all 385 team compositions and live WebSocket integration. The two-client wild-feature browser suite passed 13/13 checks; mobile passed 24/24; the earlier security suite passed 8/8. The single-file build completed. Full four-player and solo autoplay were not rerun; the earlier maintenance-yard autoplay limitation remains documented above.
+
+
+## Eight-player control house and artwork
+
+Rooms now support up to eight distinct animals. The maintenance yard has eight bays and generator sockets, and the control house has eight individual entrances. Panel solutions are private: an operator receives their own controls and a clue for another player, never their own multiplayer answer. Disconnected players pause the puzzle timer; continuing without them preserves remaining operators’ door assignments and progress. Action, ability, hiding and bite buttons are available with a mouse as well as touch.
+
+The original generated PNG artwork in `client/assets/` replaces the small actor sprites, terrain, props and title logo with more detailed pixel art. The console uses its own generated backdrop. Assets were created for this project using image generation; the supplied references guided pixel detail and style only. See `client/assets/README.md` for atlas layouts. Audio remains synthesized.
+
+Run `npm run test:e2e -- "control house"` for eight real clients joining, separate entrances, private instructions, chat, timer failure, and all forty panel tasks unlocking the exit. `npm run build:single` embeds the art and code for offline solo play; online rooms require the running server.
+
+Validation for the eight-player update: 102/102 Node tests passed, including all 1,012 animal-team combinations and a live WebSocket mission. The eight-client control-house browser test passed 15/15 checks; wild-feature regression passed 13/13 and mobile passed 24/24. The single-file build succeeded and started a solo beaver game over localhost with no browser errors. Direct `file://` opening is blocked by this test environment’s browser policy. The eight-client control-house test prepares completed power/rescue prerequisites to isolate the final puzzle; full missions for every team composition are exercised in the simulation. Full eight-player browser autoplay from enclosure to exit was not run.

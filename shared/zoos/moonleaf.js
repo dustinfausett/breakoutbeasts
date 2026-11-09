@@ -354,8 +354,8 @@ export function buildMoonleaf() {
   rect(3, 18, 22, 38, T.FLOOR);
   themeRect(2, 17, 23, 39, 'maint');
   const bays = [];
-  for (let i = 0; i < 4; i++) {
-    const bx = 3 + i * 5, by = 18;
+  for (let i = 0; i < 8; i++) {
+    const bx = 3 + (i%4) * 5, by = 18+Math.floor(i/4)*10;
     // bay shell
     rect(bx, by, bx + 4, by + 7, T.WALL);
     rect(bx + 1, by + 1, bx + 3, by + 3, T.FLOOR);
@@ -376,16 +376,17 @@ export function buildMoonleaf() {
       cage, breaker,
     });
   }
-  rect(8, 30, 15, 31, T.MACHINE); // generator
-  const sockets = [8, 10, 12, 14].map((x, i) => addObj({ kind: 'socket', x, y: 32, index: i, label: 'Generator socket' }));
+  rect(4,38,10,38,T.MACHINE);rect(15,38,21,38,T.MACHINE);
+  const sockets=[4,6,8,10,15,17,19,21].map((x,index)=>addObj({kind:'socket',x,y:37,index,stand:[x,36],label:'Generator socket'}));
+  rect(23,26,23,27,T.PATH);
   rect(23, 28, 23, 30, T.PATH); // east exit
   rect(11, 39, 13, 39, T.PATH); // south exit
   set(23, 34, T.LOW);           // penguin shortcut duct
-  for (const [x, y] of [[4, 36], [5, 36], [21, 37], [4, 27], [22, 27]]) set(x, y, T.BARREL);
-  for (const [x, y] of [[4, 31], [4, 32], [21, 31], [21, 32], [18, 36]]) set(x, y, T.BUSH);
-  addObj({ kind: 'can', x: 20, y: 36, label: 'Noisy bin' });
+  for (const [x, y] of [[4,27]]) set(x, y, T.BARREL);
+  for (const [x, y] of [[18,36]]) set(x, y, T.BUSH);
+  addObj({ kind: 'can', x: 22, y: 36, label: 'Noisy bin' });
   decor.push({ kind: 'sign', x: 24, y: 27, text: 'Maintenance Yard' });
-  decor.push({ kind: 'sign', x: 7, y: 33, text: 'Generator' });
+  decor.push({ kind: 'sign', x: 12, y: 37, text: 'Generator' });
 
   // --- West garden (x24..29) ---
   rect(25, 17, 28, 26, T.HEDGE);
@@ -438,9 +439,18 @@ export function buildMoonleaf() {
   const shortcutGate = addGate({ kind: 'side', vis: 'bars', tiles: [[72, 17]], label: 'Service gate' });
   addObj({ kind: 'lever', reach: 'high', hold: 0, x: 73, y: 17, action: { open: shortcutGate }, label: 'High switch' });
   for (const [x, y] of [[59, 25], [59, 26], [74, 23], [74, 33], [66, 26], [67, 26]]) set(x, y, T.BUSH);
-  for (const [x, y] of [[63, 28], [70, 30]]) set(x, y, T.BARREL);
+  for (const [x, y] of [[61, 29], [73, 30]]) set(x, y, T.BARREL);
   addObj({ kind: 'can', x: 66, y: 33, label: 'Noisy bin' });
-  const keys = [[61, 21], [72, 35], [72, 21], [61, 35]].map(([x, y], i) => addObj({ kind: 'key', x, y, index: i, label: 'Exit key' }));
+  // A compact control house replaces the exposed exit-key stations.
+  rect(64,25,70,31,T.FLOOR);border(64,25,70,31,T.WALL);
+  for(let y=25;y<=31;y++)for(let x=64;x<=70;x++)staffMask[y*W+x]=1;
+  const keys = [[66,25,66,24],[68,25,68,24],[70,27,71,27],[70,29,71,29],[68,31,68,32],[66,31,66,32],[64,29,63,29],[64,27,63,27]].map(([x,y,sx,sy],index)=>{
+    set(x,y,T.FLOOR);set(sx,sy,T.PATH);
+    return addObj({kind:'controlDoor',x,y,index,stand:[sx,sy],label:'Control house door '+String.fromCharCode(65+index)});
+  });
+  for(let i=objects.length-1;i>=0;i--){const o=objects[i];if(o.kind!=='controlDoor'&&o.x>=64&&o.x<=70&&o.y>=25&&o.y<=31)objects.splice(i,1);}
+  decor.push({kind:'controlHouse',x:64,y:25,w:7,h:7});
+  decor.push({kind:'sign',x:65,y:23,text:'Exit Control House — separate doors'});
   // exit gate and zone
   rect(76, 27, 76, 29, T.PATH);
   const exitGate = addGate({ kind: 'exit', vis: 'solid', tiles: [[76, 27], [76, 28], [76, 29]], label: 'Moonleaf Gate' });

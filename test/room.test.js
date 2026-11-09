@@ -10,9 +10,9 @@ function makeRoom(opts = {}) {
   return { room, out, last };
 }
 
-test('room enforces four players and rejects a fifth', () => {
+test('room enforces eight players and rejects a ninth', () => {
   const { room } = makeRoom();
-  for (let i = 0; i < 4; i++) assert.ok(room.addPlayer('P' + i).player);
+  for (let i = 0; i < 8; i++) assert.ok(room.addPlayer('P' + i).player);
   const r = room.addPlayer('Fifth');
   assert.equal(r.error, 'room_full');
 });

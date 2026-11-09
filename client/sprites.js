@@ -1,6 +1,7 @@
 // Original pixel art for Breakout Beasts!, defined as character grids and drawn in code.
 // All art in this file is original to this project (no external assets).
 
+import { IMAGES, atlasDraw, objectArt } from './assets.js';
 import { T } from './shared/tiles.js';
 
 function make(rows, pal) {
@@ -283,6 +284,16 @@ function walkFrame(rows) {
 
 export const SPRITES = {};
 export function buildSprites() {
+  if(IMAGES.actors){
+    const ids=['redpanda','elephant','monkey','beaver','giraffe','penguin','zebra','meerkat','tortoise','flamingo','staff','staffDown'];
+    ids.forEach((id,index)=>{
+      const idle=document.createElement('canvas');idle.width=96;idle.height=96;
+      const g=idle.getContext('2d');g.imageSmoothingEnabled=false;atlasDraw(g,IMAGES.actors,index,4,3,0,0,96,96);
+      const walk=document.createElement('canvas');walk.width=96;walk.height=96;walk.getContext('2d').drawImage(idle,0,-2);
+      SPRITES[id]={r:[idle,walk],l:[flip(idle),flip(walk)]};
+    });
+    SPRITES.shell=SPRITES.tortoise;SPRITES.penguinSlide=SPRITES.penguin;return;
+  }
   for (const [id, a] of Object.entries(ART)) {
     const f0 = make(a.rows, a.pal);
     const f1 = make(walkFrame(a.rows), a.pal);
@@ -302,11 +313,8 @@ export function portraitURL(id, scale = 4) {
   const key = id + scale;
   if (portraitCache[key]) return portraitCache[key];
   const src = SPRITES[id].r[0];
-  const c = document.createElement('canvas');
-  c.width = 20 * scale; c.height = 20 * scale;
-  const g = c.getContext('2d');
-  g.imageSmoothingEnabled = false;
-  g.drawImage(src, Math.floor((20 - src.width) / 2) * scale, (20 - src.height) * scale, src.width * scale, src.height * scale);
+  const c = document.createElement('canvas');c.width=96;c.height=96;
+  const g=c.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(src,0,0,96,96);
   portraitCache[key] = c.toDataURL();
   return portraitCache[key];
 }
@@ -330,6 +338,19 @@ function px(g, x, y, w, h, c) { g.fillStyle = c; g.fillRect(x, y, w, h); }
 
 /** Draw one 16x16 tile at (ox,oy) in the map canvas. */
 export function drawTile(g, t, x, y, ox, oy, themeName, getTile) {
+  if(IMAGES.terrain){
+    const textures={[T.GRASS]:0,[T.PATH]:1,[T.FLOOR]:themeName==='maint'?14:2,[T.EXIT]:1,[T.WALL]:3,[T.FENCE]:4,[T.CLIMB]:4,[T.HEDGE]:5,[T.BUSH]:6,[T.WATER]:7,[T.POND]:12,[T.ICE]:8,[T.LOW]:14,[T.NARROW]:10,[T.WOOD]:9,[T.LOOSE]:9,[T.REINF]:14,[T.SOIL]:15,[T.BURROW]:15,[T.SOILX]:0,[T.ROPE]:7,[T.LEDGE]:7,[T.BEAM]:7,[T.BRIDGE_SPOT]:7,[T.BRIDGE]:7,[T.TREE]:11,[T.ROCK]:10,[T.DEBRIS]:15,[T.MACHINE]:14,[T.BARREL]:0};
+    atlasDraw(g,IMAGES.terrain,textures[t]??0,4,4,ox,oy,16,16);
+    if(t===T.MACHINE)objectArt(g,2,ox,oy);
+    if(t===T.BARREL)objectArt(g,4,ox,oy);
+    if(t===T.BRIDGE)objectArt(g,1,ox,oy);
+    if(t===T.ROPE||t===T.BEAM||t===T.LEDGE){g.fillStyle=t===T.LEDGE?'#b2b7c2':'#c59b5f';g.fillRect(ox,oy+6,16,t===T.ROPE?2:4);}
+    if(t===T.BRIDGE_SPOT){g.fillStyle='#b07b40';g.fillRect(ox+2,oy,2,16);g.fillRect(ox+12,oy,2,16);}
+    if(t===T.CLIMB||t===T.LOOSE||t===T.WOOD||t===T.SOIL){g.strokeStyle='#ffdf85';g.lineWidth=.5;g.strokeRect(ox+5,oy+5,6,6);}
+    if(t===T.BURROW){g.fillStyle='#17120f';g.beginPath();g.ellipse(ox+8,oy+9,5,4,0,0,Math.PI*2);g.fill();}
+    if(t===T.LOW){g.fillStyle='#0d1c26';g.fillRect(ox+2,oy+7,12,6);g.fillStyle='#80c8d9';g.fillRect(ox+4,oy+9,8,1);}
+    return;
+  }
   const base = THEME_FLOOR[themeName] || THEME_FLOOR.outside;
   const r = hash(x, y);
   const ground = (col) => { px(g, ox, oy, 16, 16, col); for (let i = 0; i < 4; i++) { const hx = Math.floor(hash(x + i, y * 3) * 15), hy = Math.floor(hash(x * 5, y + i) * 15); px(g, ox + hx, oy + hy, 1, 1, shade(col, 0.88 + 0.2 * hash(i, x))); } };

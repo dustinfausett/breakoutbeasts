@@ -5,8 +5,8 @@ export async function run({ players = 4, staff = false } = {}) {
   const R = new Report('multiplayer');
   const srv = await startServer(staff ? {} : { BB_STAFF: '0' });
   const browser = await chromium.launch();
-  const names = ['Ana', 'Ben', 'Cy', 'Dee'];
-  const animals = ['elephant', 'penguin', 'meerkat', 'flamingo'];
+  const names = ['Ana', 'Ben', 'Cy', 'Dee', 'Eli', 'Flo', 'Gia', 'Hal'];
+  const animals = ['elephant', 'penguin', 'meerkat', 'flamingo', 'redpanda', 'monkey', 'beaver', 'zebra'];
   const pages = []; const errs = [];
   try {
     for (let i = 0; i < players; i++) {
@@ -44,15 +44,15 @@ export async function run({ players = 4, staff = false } = {}) {
     await waitFor(async () => (await state(host)).lobby?.players.length === players, { what: 'everyone in lobby' });
     R.ok('start is disabled until everyone is ready', await host.isDisabled('#lobby-start'));
     await host.screenshot({ path: `${SHOTS}/lobby-${players}p.png` });
-    // fifth player
-    if (players === 4) {
+    // ninth player
+    if (players === 8) {
       const ctx = await browser.newContext(); const p5 = await ctx.newPage();
       await p5.goto(srv.url + `?room=${code}`);
       await p5.fill('#join-code', code);
       await p5.click('[data-act="join-go"]');
       await waitFor(async () => (await p5.textContent('#join-msg')).length > 0, { what: 'room full message' });
       const m = await p5.textContent('#join-msg');
-      R.ok('a fifth player cannot join a full room', /full/i.test(m), m);
+      R.ok('a ninth player cannot join a full room', /full/i.test(m), m);
       await p5.screenshot({ path: `${SHOTS}/room-full.png` });
       await ctx.close();
     }

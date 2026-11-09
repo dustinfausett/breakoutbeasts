@@ -4,7 +4,7 @@
 export class Input {
   constructor() {
     this.keys = new Set();
-    this.biteQueued=false;
+    this.biteQueued=false;this.actionQueued={e:false,sp:false};
     this.touch = { mx: 0, my: 0, sp: false, e: false, b:false };
     this.enabled = false;
     this.onKey = null; // (code, event) -> handled?
@@ -14,6 +14,8 @@ export class Input {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyB'].includes(e.code)) e.preventDefault();
       if(e.code==='KeyB'&&!e.repeat)this.biteQueued=true;
+      if(!e.repeat&&e.code==='KeyE')this.actionQueued.e=true;
+      if(!e.repeat&&e.code==='Space')this.actionQueued.sp=true;
       this.keys.add(e.code);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -25,7 +27,7 @@ export class Input {
 
   releaseAll() {
     this.keys.clear();
-    this.biteQueued=false;
+    this.biteQueued=false;this.actionQueued={e:false,sp:false};
     this.touch = { mx: 0, my: 0, sp: false, e: false, b:false };
     if (this.stick) this.stick.reset();
     document.querySelectorAll('.tbtn.down').forEach((b) => b.classList.remove('down'));
@@ -42,7 +44,8 @@ export class Input {
     const t = this.touch;
     if (Math.hypot(t.mx, t.my) > 0.15) { mx = t.mx; my = t.my; }
     const bite=k.has('KeyB')||t.b||this.biteQueued;this.biteQueued=false;
-    return { mx, my, sp: k.has('Space') || t.sp, e: k.has('KeyE') || t.e, b:bite };
+    const e=k.has('KeyE')||t.e||this.actionQueued.e,sp=k.has('Space')||t.sp||this.actionQueued.sp;this.actionQueued={e:false,sp:false};
+    return {mx,my,sp,e,b:bite};
   }
 
   attachTouch(root) {
@@ -71,8 +74,10 @@ export class Input {
     const btn = (id, key) => {
       const b = root.querySelector(id);
       const up = () => { this.touch[key] = false; b.classList.remove('down'); };
-      b.addEventListener('pointerdown', (e) => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch { /* ignore */ } this.touch[key] = true; if(key==='b')this.biteQueued=true; b.classList.add('down'); });
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch { /* ignore */ } this.touch[key] = true; if(key==='b')this.biteQueued=true;else this.actionQueued[key]=true; b.classList.add('down'); });
       for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, up);
+      b.addEventListener('keydown',e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();this.touch[key]=true;if(key==='b')this.biteQueued=true;else this.actionQueued[key]=true;}});
+      b.addEventListener('keyup',e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();up();}});
       b.addEventListener('contextmenu', (e) => e.preventDefault());
     };
     btn('#tbtn-e', 'e');

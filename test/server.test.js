@@ -56,10 +56,10 @@ test('serves the client and health endpoint', async () => {
   assert.notEqual(bad.status, 200);
 });
 
-test('create, join with code, lobby shows everyone; a fifth player is refused', async () => {
-  const { code, clients } = await makeRoom(4);
-  const lobby = await clients[0].wait((m) => m.t === 'lobby' && m.players.length === 4);
-  assert.equal(lobby.players.length, 4);
+test('create, join with code, lobby shows everyone; a ninth player is refused', async () => {
+  const { code, clients } = await makeRoom(8);
+  const lobby = await clients[0].wait((m) => m.t === 'lobby' && m.players.length === 8);
+  assert.equal(lobby.players.length, 8);
   assert.equal(lobby.hostId, lobby.players[0].id);
   const fifth = new Client(); await fifth.open();
   fifth.send({ t: 'join', code, name: 'Five' });
@@ -159,6 +159,7 @@ test('an online team completes the mission through the server', async () => {
       seq++;
       for (const bot of bots) {
         const inp = bot.update(viewFromGame(room.game, bot.pid), 0.05);
+        if(inp.panel)ws[bot.pid].send({t:'panel',...inp.panel});
         ws[bot.pid].send({ t: 'in', s: seq, mx: inp.mx, my: inp.my, sp: inp.sp ? 1 : 0, e: inp.e ? 1 : 0 });
       }
     }, 50);

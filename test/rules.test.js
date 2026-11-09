@@ -246,7 +246,7 @@ test('disconnect: untouched part is dropped, started part becomes a universal cr
   assert.equal(g.keyCount(), 1);
   // remaining flamingo can still finish everything
   const bot = new Autopilot('c');
-  while (g.phase === 'play' && g.time < 600) { g.setInput('c', bot.update(viewFromGame(g, 'c'), TICK)); g.step(TICK); g.drainEvents(); }
+  while (g.phase === 'play' && g.time < 600) { const input=bot.update(viewFromGame(g,'c'),TICK); if(input.panel)g.controlAction('c',input.panel); g.setInput('c',input); g.step(TICK); g.drainEvents(); }
   assert.equal(g.phase, 'complete', 'remaining player can finish after adaptation');
 });
 

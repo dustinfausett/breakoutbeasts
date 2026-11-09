@@ -1,5 +1,6 @@
 // Canvas renderer: crisp integer-scaled pixel art, night lighting, vision cones, effects.
 
+import { IMAGES, atlasDraw, objectArt } from './assets.js';
 import { SPRITES, drawTile } from './sprites.js';
 import { T } from './shared/tiles.js';
 import { animalCanSee } from './shared/vision.js';
@@ -41,8 +42,8 @@ export class Renderer {
     this.world = world;
     const z = world.zoo;
     this.map = document.createElement('canvas');
-    this.map.width = z.w * TS; this.map.height = z.h * TS;
-    this.mctx = this.map.getContext('2d');
+    this.map.width = z.w * TS * 3; this.map.height = z.h * TS * 3;
+    this.mctx = this.map.getContext('2d');this.mctx.scale(3,3);this.mctx.imageSmoothingEnabled=false;
     this.redrawAll();
     this.fx = []; this.bubbles = [];
   }
@@ -64,6 +65,8 @@ export class Renderer {
     const g = this.mctx;
     for (const d of this.world.zoo.decor) {
       const ox = d.x * TS, oy = d.y * TS;
+      if(d.kind==='controlHouse'){for(let y=0;y<d.h;y++)for(let x=0;x<d.w;x++)atlasDraw(g,IMAGES.terrain,13,4,4,ox+x*16,oy+y*16,16,16);continue;}
+      const prop={bench:6,lamp:5,sign:7}[d.kind];if(prop!==undefined&&objectArt(g,prop,ox-2,oy-8,20,24))continue;
       if (d.kind === 'flowers') { for (let i = 0; i < 4; i++) { g.fillStyle = ['#f2c63a', '#f08aa8', '#ffffff', '#b08af0'][i]; g.fillRect(ox + 2 + i * 3, oy + 10 + (i % 2) * 2, 2, 2); } }
       if (d.kind === 'bench') { g.fillStyle = '#7a4a24'; g.fillRect(ox + 1, oy + 7, 14, 3); g.fillStyle = '#5a3418'; g.fillRect(ox + 2, oy + 10, 2, 4); g.fillRect(ox + 12, oy + 10, 2, 4); }
       if (d.kind === 'statue') { g.fillStyle = '#c8c8d0'; g.fillRect(ox - 4, oy - 10, 24, 22); g.fillStyle = '#a0a0aa'; g.fillRect(ox - 2, oy - 14, 20, 6); g.fillStyle = '#e8e8f0'; g.fillRect(ox + 4, oy - 8, 8, 8); }
@@ -176,7 +179,7 @@ export class Renderer {
       npcs=npcs.filter(n=>visible(n.x,n.y));
     }
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.map, 0, 0);
+    ctx.drawImage(this.map, 0, 0,w.w*TS,w.h*TS);
 
     const x0 = Math.max(0, Math.floor(cx / TS) - 1), y0 = Math.max(0, Math.floor(cy / TS) - 1);
     const x1 = Math.min(w.w - 1, Math.ceil((cx + viewW) / TS) + 1), y1 = Math.min(w.h - 1, Math.ceil((cy + viewH) / TS) + 1);
@@ -343,6 +346,7 @@ export class Renderer {
   _drawGate(ctx, g, state) {
     for (const [x, y] of g.tiles) {
       const ox = x * TS, oy = y * TS;
+      if(IMAGES.objects){if(state===0)objectArt(ctx,0,ox-1,oy-5,18,22);else {ctx.fillStyle='#74bd88';ctx.fillRect(ox,oy,1,16);ctx.fillRect(ox+15,oy,1,16);}continue;}
       if (state === 0) {
         if (g.vis === 'bars') {
           ctx.fillStyle = '#2a2a32'; ctx.fillRect(ox, oy + 1, 16, 2); ctx.fillRect(ox, oy + 13, 16, 2);
@@ -369,6 +373,11 @@ export class Renderer {
 
   _drawObject(ctx, o, state, ctxs) {
     const ox = o.x * TS, oy = o.y * TS;
+    const sprite={lever:10,crank:9,logpile:1,cage:0,breaker:10,socket:13,can:4,supplies:14,escapeBuild:1,controlDoor:8}[o.kind];
+    if(sprite!==undefined&&objectArt(ctx,sprite,ox-1,oy-4,18,20)){
+      if(o.kind==='controlDoor'){ctx.fillStyle='#fff1ad';ctx.font='bold 5px sans-serif';ctx.textAlign='center';ctx.fillText(String.fromCharCode(65+o.index),ox+8,oy+4);}
+      if(state){ctx.fillStyle='#8affae';ctx.fillRect(ox+12,oy+10,2,2);}return;
+    }
     switch (o.kind) {
       case 'supplies':
         ctx.fillStyle='#89542e';ctx.fillRect(ox+1,oy+6,14,8);
@@ -433,10 +442,11 @@ export class Renderer {
   _drawAnimal(ctx, animal, x, y, face, moving, wobble, now, opts = {}) {
     const img = this._sprite(animal, face, moving, now);
     const bob = !moving && !this.settings.reducedMotion ? (Math.floor(now / 500 + x) % 2) : 0;
-    const dx = Math.round(x * TS - img.width / 2), dy = Math.round(y * TS - img.height + 6 - bob);
+    const iw=24,ih=24;
+    const dx = Math.round(x * TS - iw / 2), dy = Math.round(y * TS - ih + 6 - bob);
     ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(Math.round(x * TS - 5), Math.round(y * TS + 4), 10, 2);
-    if (wobble) { ctx.save(); ctx.translate(x * TS, y * TS + 6); ctx.rotate(Math.sin(now / 90) * 0.25 * wobble); ctx.drawImage(img, -img.width / 2, -img.height); ctx.restore(); }
-    else ctx.drawImage(img, dx, dy);
+    if (wobble) { ctx.save(); ctx.translate(x * TS, y * TS + 6); ctx.rotate(Math.sin(now / 90) * 0.25 * wobble); ctx.drawImage(img, -iw/2, -ih,iw,ih); ctx.restore(); }
+    else ctx.drawImage(img, dx, dy,iw,ih);
     if (opts.npc && opts.state === 'free') { ctx.fillStyle = '#ffe36a'; ctx.fillRect(Math.round(x * TS) - 1, dy - 4, 2, 2); }
   }
 
@@ -455,7 +465,7 @@ export class Renderer {
     ctx.beginPath(); ctx.ellipse(p.x * TS, p.y * TS + 5, 7, 3, 0, 0, Math.PI * 2); ctx.stroke();
     this._drawAnimal(ctx, id, p.x, y, face, p.mv || (p.s & PF.SPRINT), (p.s & PF.WOBBLE) ? Math.min(1, p.wb * 1.5) : 0, now);
     ctx.globalAlpha = 1;
-    if(p.mu){ctx.fillStyle='#aeb8b9';ctx.fillRect(Math.round(p.x*TS+(face==='left'?-8:1)),Math.round(y*TS-5),7,5);ctx.fillStyle='#3f4f55';for(let i=1;i<7;i+=2)ctx.fillRect(Math.round(p.x*TS+(face==='left'?-8:1)+i),Math.round(y*TS-5),1,5);}
+    if(p.mu)objectArt(ctx,15,Math.round(p.x*TS+(face==='left'?-10:0)),Math.round(y*TS-7),10,9);
     if (p.s & PF.HIDDEN) { ctx.fillStyle = 'rgba(46,122,58,0.7)'; ctx.fillRect(Math.round(p.x * TS - 8), Math.round(p.y * TS - 2), 16, 8); }
     if (p.s & PF.CAUGHT) { ctx.strokeStyle = '#e8e8e8'; ctx.lineWidth = 0.5; for (let i = -8; i <= 8; i += 3) { ctx.beginPath(); ctx.moveTo(p.x * TS + i, p.y * TS - 12); ctx.lineTo(p.x * TS + i + 4, p.y * TS + 6); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x * TS - 8, p.y * TS - 10 + i + 8); ctx.lineTo(p.x * TS + 8, p.y * TS - 12 + i + 8); ctx.stroke(); } }
     if ((p.s & PF.SPRINT) && !this.settings.reducedMotion) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; for (let i = 0; i < 3; i++) ctx.fillRect(Math.round(p.x * TS - 12 - i * 3), Math.round(p.y * TS - 6 + i * 3), 6, 1); }
@@ -464,12 +474,8 @@ export class Renderer {
   }
 
   _drawStaff(ctx, s, now) {
-    if(s.s===6){ctx.fillStyle='#3b5276';ctx.fillRect(s.x*TS-10,s.y*TS-3,15,6);ctx.fillStyle='#ddb08e';ctx.fillRect(s.x*TS+5,s.y*TS-4,6,6);ctx.fillStyle='#17273d';ctx.fillRect(s.x*TS-12,s.y*TS-2,4,4);return;}
-    const face = Math.cos(s.d) < 0 ? 'left' : 'right';
-    const moving = s.s !== 1 && s.s !== 5;
-    const img = this._sprite('staff', face, moving, now);
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(Math.round(s.x * TS - 5), Math.round(s.y * TS + 4), 10, 2);
-    ctx.drawImage(img, Math.round(s.x * TS - img.width / 2), Math.round(s.y * TS - img.height + 6));
+    if(s.s===6){const image=SPRITES.staffDown.r[0];ctx.drawImage(image,s.x*TS-16,s.y*TS-14,32,22);return;}
+    this._drawAnimal(ctx,'staff',s.x,s.y,Math.cos(s.d)<0?'left':'right',true,0,now);
   }
 
   _drawLighting(players, staff, toS, now) {

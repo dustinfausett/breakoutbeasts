@@ -48,7 +48,7 @@ test('steal a key from behind, spend it at a locked cage, and reject a watched t
  g._interact(p);for(let i=0;i<22;i++)if(p.hold)g._continueHold(p,{e:true},TICK);
  assert.equal(p.cageKeys,1);assert.equal(g._canSteal(p,s),false,'key theft has a replenishment delay');
  p.x=lock.x+1.5;p.y=lock.y+.5;g._interact(p);for(let i=0;i<22;i++)if(p.hold)g._continueHold(p,{e:true},TICK);
- assert.equal(p.cageKeys,0);assert.equal(g.gate(lock.action.open).state,1);
+ assert.equal(p.cageKeys,1);assert.equal(g.gate(lock.action.open).state,1);
 });
 
 test('a failed theft is cancelled when the guard turns or walks away',()=>{
@@ -61,12 +61,12 @@ test('a teammate can build an outside ramp to rescue an NPC without using a gate
  hold(g,p,o,2.3);assert.equal(g.stats.rescued,1);assert.equal(g.gate(g.zoo.enclosures[o.enc].mainGate).state,0);
 });
 
-test('two teammates finishing the same cage lock spend only one key',()=>{
+test('two teammates finishing the same cage lock keep their universal keys',()=>{
  const g=new Game({players:[{id:'a',animal:'redpanda'},{id:'b',animal:'monkey'}],options:{staff:false}});
  const a=g.players.get('a'),b=g.players.get('b');a.cageKeys=b.cageKeys=1;
  const lock=g.obj(g.zoo.enclosures.find(e=>e.animal==='zebra').keeper);
  g._activate(a,lock);g._activate(b,lock);
- assert.equal(a.cageKeys,0);assert.equal(b.cageKeys,1);assert.equal(g.stats.rescued,1);
+ assert.equal(a.cageKeys,1);assert.equal(b.cageKeys,1);assert.equal(g.stats.rescued,1);
 });
 
 test('hiding in view fails, breaking sight enables cover, and guards search the last seen location',()=>{

@@ -2,6 +2,7 @@
 // Used by automated tests (headless, against the real simulation) and by the browser
 // test mode (?autopilot=1) so end-to-end tests drive the real client and network path.
 
+import { controlPersonal } from './control-room.js';
 import { canOccupy } from './physics.js';
 import { bfs, dist, angleDiff, lineOfSight } from './util.js';
 import { bayEnterSteps, bayExitSteps } from './bays.js';
@@ -13,10 +14,12 @@ const DIRV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 export function viewFromGame(game, pid) {
   const p = game.players.get(pid);
   return {
+    panel:controlPersonal(game,pid),
+    teamClues:p.inControlRoom?game.activePlayers().map(q=>controlPersonal(game,q.id)?.instruction).filter(Boolean):[],
     world: game, zoo: game.zoo, staff:game.staff.map(s=>({x:s.x,y:s.y,d:s.dir,ar:game.time<game.alertUntil})),
     me: { id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, materials: p.materials, enc: p.enc },
     obj: game.objectives(),
-    objects: game.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, index: o.index, bay: o.bay, keeper: o.keeper, enc: o.enc, state: o.state })),
+    objects: game.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, index: o.index, bay: o.bay, keeper: o.keeper, enc: o.enc, state: o.state, stand:o.stand })),
     gates: game.gates.map((g) => ({ id: g.id, state: g.state, enc: g.enc, kind: g.kind })),
     npcs: game.npcs.map((n) => ({ enc: n.enc, state: n.state })),
     activeIds: game.activePlayers().map((q) => q.id),
@@ -42,6 +45,12 @@ export class Autopilot {
   update(v, dt) {
     const me = v.me;
     const idle = { mx: 0, my: 0, sp: false, e: false };
+    if(v.panel){
+      if(v.panel.ready&&!v.panel.powered&&v.panel.phase==='arming')return {...idle,panel:{op:'power'}};
+      const clue=(v.teamClues||[]).find(c=>c.target===me.id&&c.index===v.panel.done);
+      if(v.panel.phase==='running'&&clue)return {...idle,panel:{op:'set',control:clue.control,value:clue.value}};
+      return idle;
+    }
     if (me.flags & (PF.CAUGHT | PF.HOP | PF.UNDER | PF.SLIDE)) {
       if (me.flags & PF.CAUGHT) { this.script = null; this.scriptName = ''; }
       // keep running a script's waits while hopping/sliding
@@ -73,7 +82,7 @@ export class Autopilot {
     if (v.obj.exit.open) {
       const order = v.activeIds.indexOf(me.id);
       const z = v.zoo.exitZone;
-      return this.setScript('exit', [{ go: [z[0] + 1, z[1] + 2 + Math.max(0, order) * 2] }, { wait: 999 }]);
+      return this.setScript('exit', [{ go: [z[0] + Math.max(0,order)%3, z[1] + 2 + Math.floor(Math.max(0,order)/3) * 2] }, { wait: 999 }]);
     }
     // 2) my part
     const part = v.obj.power.parts.find((pt) => pt.pid === me.id && !pt.done) || v.obj.power.parts.find((pt) => !pt.done && !pt.pid);
@@ -85,7 +94,7 @@ export class Autopilot {
       const socket = v.objects.filter((o) => o.kind === 'socket' && o.state === 0).sort((a, b) => a.index - b.index)[0];
       const steps = [];
       if (inRoom) steps.push(...bayExitSteps(bay, bay.template));
-      if (socket) steps.push({ go: [socket.x, socket.y + 1] }, { face: 'up' }, { e: 1 }, { wait: 0.2 });
+      if (socket) steps.push({ go: socket.stand || [socket.x, socket.y + 1] }, { face: socket.stand && socket.stand[1]<socket.y?'down':'up' }, { e: 1 }, { wait: 0.2 });
       return this.setScript('socket-' + bayIdx + (inRoom ? 'r' : ''), steps);
     }
     if (part && !part.done && !(part.waiting)) {
@@ -128,14 +137,10 @@ export class Autopilot {
         return this.setScript('rescue-'+ramp.id,[{go:[ramp.x,ramp.y+front]},{holdE:2.3},{wait:.2}]);
       }
     }
-    // keys
-    if (v.obj.keys.active && !v.obj.keys.done) {
-      const order = v.activeIds.indexOf(me.id);
-      const key = v.obj.keys.keys[order % v.obj.keys.keys.length];
-      if (key) {
-        const stand = [key.x, key.y + (key.y < 28 ? 1 : -1)];
-        return this.setScript('key-' + key.i, [{ go: stand }, { face: key.y < 28 ? 'up' : 'down' }, { holdE: 999 }]);
-      }
+    // Each operator approaches a distinct control-house entrance.
+    if(v.obj.keys.active&&!v.obj.keys.done){
+      const order=v.obj.control.team.find(p=>p.id===me.id)?.doorIndex??v.activeIds.indexOf(me.id),door=v.objects.find(o=>o.kind==='controlDoor'&&o.index===order);
+      if(door)return this.setScript('control-door-'+door.id,[{go:door.stand},{e:1},{wait:.2}]);
     }
     if (!this.script || this.si >= this.script.length) {
       // nothing to do: wander to the plaza and wait

@@ -44,7 +44,7 @@ function load(id) {
     return '';
   });
   // export function/class/const NAME
-  src = src.replace(/^export (function|class|const) (\w+)/gm, (_, kw, name) => { exportsList.push([name, name]); return `${kw} ${name}`; });
+  src = src.replace(/^export (async function|function|class|const) (\w+)/gm, (_, kw, name) => { exportsList.push([name, name]); return `${kw} ${name}`; });
   if (/^\s*(import|export)\s/m.test(src)) throw new Error(`Unhandled import/export form in ${id}`);
   const ret = exportsList.map(([n, v]) => `get ${n}() { return ${v}; }`).join(', ');
   modules.set(id, `${src}\nreturn { ${ret} };`);
@@ -60,12 +60,13 @@ const bundle = [
   '})();',
 ].join('\n');
 
+const packedAssets=Object.fromEntries(['logo','actors','terrain','objects','panel'].map(name=>[name,'data:image/png;base64,'+fs.readFileSync(path.join(CLIENT,'assets',name+'.png')).toString('base64')]));
 let html = fs.readFileSync(path.join(CLIENT, 'index.html'), 'utf8');
-const css = fs.readFileSync(path.join(CLIENT, 'style.css'), 'utf8');
+const css = fs.readFileSync(path.join(CLIENT, 'style.css'), 'utf8').replaceAll('url(assets/panel.png)',`url(${packedAssets.panel})`);
 const icon = fs.readFileSync(path.join(CLIENT, 'favicon.svg'), 'utf8').trim();
 html = html.replace('<link rel="icon" href="favicon.svg" type="image/svg+xml">', `<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(icon)}">`);
 html = html.replace('<link rel="stylesheet" href="style.css">', () => `<style>\n${css}\n</style>`);
-html = html.replace('<script type="module" src="main.js"></script>', () => `<script>\n${bundle.replace(/<\/script/gi, '<\\/script')}\n</script>`);
+html = html.replace('<script type="module" src="main.js"></script>', () => `<script>\nwindow.__BB_ASSETS__=${JSON.stringify(packedAssets)};\n${bundle.replace(/<\/script/gi, '<\\/script')}\n</script>`);
 if (/src="main\.js"|href="style\.css"/.test(html)) throw new Error('inlining failed');
 
 fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });

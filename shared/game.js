@@ -1,6 +1,7 @@
 // Authoritative game simulation for one mission. Runs on the server for online rooms and in the
 // browser for solo play, so both modes share exactly the same rules.
 
+import { initControlRoom, controlPublic, controlPersonal, enterControlRoom, controlAction, stepControlRoom } from './control-room.js';
 import { T, tileBlocksVision, animalCanEnter, staffCanEnter, npcCanEnter, crateCanEnter, DIRS, DIR_LIST } from './tiles.js';
 import { ANIMALS } from './animals.js';
 import { getZoo } from './zoos/index.js';
@@ -51,6 +52,7 @@ export class Game {
     this.stats = { captures: 0, rescued: 0 };
     this.permanentAlert = false;
     this.darts = [];
+    this.enclosureChecks=[];
     this.alertUntil = 0;
     this.checks = [];
     this.fortification = new Map();
@@ -102,6 +104,7 @@ export class Game {
       if (cage) cage.state = this.team ? 0 : 1;
     }
     this.rebuildBlock();
+    initControlRoom(this);
   }
 
   _newPlayer(pd, enc) {
@@ -239,6 +242,7 @@ export class Game {
         s.state='investigate';s.goal=c.goal;s.path=null;s.look=0;
       }
     }
+    this._stepEnclosureChecks();
     for (const s of this.staff) this._stepStaff(s, dt);
     this._stepDarts(dt);
     for (const n of this.npcs) this._stepNpc(n, dt);
@@ -267,6 +271,7 @@ export class Game {
       if (p.capturedT <= 0) this._returnToEnclosure(p);
       return;
     }
+    if(p.inControlRoom)return;
     if (p.under) {
       p.under.t += dt;
       if (p.under.t >= p.under.dur) { p.x = p.under.to[0]; p.y = p.under.to[1]; p.under = null; this.emit({ k: 'tunnel', x: p.x, y: p.y }); this._unstick(p); }
@@ -386,7 +391,7 @@ export class Game {
       } else if (h.kind === 'steal') {
         const s = this.staff.find(s => s.id === h.staff);
         if (s && this._canSteal(p, s)) {
-          p.cageKeys++; s.keyCool = this.time + 12;
+          p.cageKeys=1; s.keyCool = this.time + 12;
           this.emit({ k: 'msg', pid: p.id, text: 'Key stolen! Use it at a gold cage lock. Guards carry spare keys — return later for another.' });
         }
       } else if (h.kind === 'craft') {
@@ -584,6 +589,9 @@ export class Game {
         return { text: 'Crawl through tunnel', run: () => { p.under = { t: 0, dur: 0.7, to: [to[0] + 0.5, to[1] + 0.5] }; p.shell = false; this.emit({ k: 'tunnel', x: p.x, y: p.y }); } };
       }
     }
+    // Assigned door stands must stay usable beside courtyard props.
+    const door=this.objects.find(o=>o.kind==='controlDoor'&&o.stand?.[0]===px&&o.stand?.[1]===py);
+    if(door)return this._objectInteraction(p,door);
     // nearest object
     let best = null, bd = INTERACT_RANGE;
     for (const o of this.objects) {
@@ -612,6 +620,7 @@ export class Game {
 
   _objectInteraction(p, o) {
     switch (o.kind) {
+      case 'controlDoor': return {text:'Enter '+o.label,run:()=>enterControlRoom(this,p,o)};
       case 'supplies':
         return { text: !p.prepared ? 'Hold E: salvage and prepare your escape' : `Hold E: collect a building bundle (${p.materials}/2)`, run: () => {
           p.hold = { kind: 'craft', btn: 'e', obj: o.id, t: 0, need: .8 };
@@ -671,14 +680,6 @@ export class Game {
           },
         };
       }
-      case 'key': {
-        const K = this.keyCount();
-        if (o.index >= K) return { text: 'Not needed tonight', idle: true };
-        if (!this.keysActive()) return { text: this.powerDone() ? `Rescue ${this.requiredRescues} animals first` : 'No power yet', idle: true };
-        const holder = this.activePlayers().find((q) => q !== p && q.hold && q.hold.obj === o.id);
-        if (holder) return { text: `${holder.name} is holding this key`, idle: true };
-        return { text: 'Hold to turn the key', run: () => { p.hold = { kind: 'key', btn: 'e', obj: o.id, t: 0, need: Infinity }; this.emit({ k: 'keyturn', x: o.x, y: o.y }); } };
-      }
       case 'can':
         if (o.cool > 0) return { text: 'Rattled — wait a moment', idle: true };
         return { text: 'Rattle the bin (distract keepers)', run: () => { o.cool = 6; this.noise(o.x + 0.5, o.y + 0.5, 9, p); this.emit({ k: 'rattle', x: o.x, y: o.y }); } };
@@ -699,7 +700,7 @@ export class Game {
     if (o.keeper) {
       if (this.gate(o.action.open)?.state) return;
       if (!p.cageKeys) return;
-      p.cageKeys--;
+      // Keeper keys are universal and reusable until the animal is captured.
     }
     const a = o.action || {};
     if (a.open) {
@@ -716,7 +717,9 @@ export class Game {
   }
 
   openGate(g, by) {
+    if(g.state!==0)return;
     g.state = 1;
+    if(g.enc!=null)this.enclosureChecks.push({enc:g.enc,guard:null});
     if (g.kind === 'side' && g.enc != null && by) this._rescueEnclosure(g.enc,by);
     this.rebuildBlock();
     const [x, y] = g.tiles[0];
@@ -809,28 +812,13 @@ export class Game {
   }
 
   powerDone() { return this.parts.length > 0 && this.parts.every((pt) => pt.inserted); }
-  keyCount() { return Math.max(1, Math.min(4, this.activePlayers().length)); }
+  keyCount() { return Math.max(1, Math.min(8, this.activePlayers().length)); }
   keysActive() { return this.powerDone() && this.stats.rescued >= this.requiredRescues; }
 
   _stepKeysAndExit(dt) {
     const exit = this.gate(this.zoo.exitGate);
-    if (exit.state === 0) {
-      if (!this.keysActive()) { this.keysT = 0; return; }
-      const K = this.keyCount();
-      const keys = this.objects.filter((o) => o.kind === 'key' && o.index < K);
-      const allHeld = keys.every((k) => this.activePlayers().some((p) => p.connected && p.hold && p.hold.kind === 'key' && p.hold.obj === k.id));
-      for (const k of keys) k.state = this.activePlayers().some((p) => p.hold && p.hold.obj === k.id) ? 1 : 0;
-      if (allHeld) {
-        this.keysT += dt;
-        if (this.keysT >= 1.0) {
-          this.openGate(exit);
-          for (const p of this.players.values()) if (p.hold && p.hold.kind === 'key') p.hold = null;
-          for (const k of keys) k.state = 2;
-          this.emit({ k: 'exitOpen' });
-        }
-      } else this.keysT = 0;
-      return;
-    }
+    stepControlRoom(this,dt);
+    if(!exit.state)return;
     const act = this.activePlayers();
     if (act.length && act.every((p) => p.connected && p.inExit)) {
       this.phase = 'complete';
@@ -839,9 +827,30 @@ export class Game {
   }
 
   // ---------- noise & staff ----------
+  controlAction(pid,msg){controlAction(this,pid,msg);}
+
+  _stepEnclosureChecks(){
+    if(!this.staff.length)return;
+    this.enclosureChecks=this.enclosureChecks.filter(check=>{
+      const e=this.zoo.enclosures[check.enc],lock=this.obj(e.keeper);
+      if(!lock)return false;
+      const goal=this._nearestStaffTile(lock.x,lock.y);
+      if(!goal)return true;
+      let guard=this.staff.find(s=>s.id===check.guard);
+      if(guard&&!(guard.downUntil>this.time)&&dist(guard.x,guard.y,goal[0]+.5,goal[1]+.5)<1.1)return false;
+      if(!guard||guard.state==='chase'||guard.state==='cheer'||guard.downUntil>this.time){
+        guard=this.staff.filter(s=>!(s.downUntil>this.time)&&s.state!=='chase'&&s.state!=='cheer'&&!this.enclosureChecks.some(c=>c!==check&&c.guard===s.id))
+          .sort((a,b)=>dist(a.x,a.y,...goal)-dist(b.x,b.y,...goal))[0];
+        check.guard=guard?.id??null;
+      }
+      if(guard){if(guard.state!=='investigate'||!guard.goal||guard.goal[0]!==goal[0]||guard.goal[1]!==goal[1])guard.path=null;guard.state='investigate';guard.goal=goal;guard.look=0;}
+      return true;
+    });
+  }
+
   _canSteal(p,s) {
     const unconscious=(s.downUntil||0)>this.time;
-    return p.active && p.capturedT<=0 && !p.under && !p.hop && !p.shell && dist(p.x,p.y,s.x,s.y)<1.9 &&
+    return p.active && !p.inControlRoom && !p.cageKeys && p.capturedT<=0 && !p.under && !p.hop && !p.shell && dist(p.x,p.y,s.x,s.y)<1.9 &&
       (unconscious || Math.abs(angleDiff(Math.atan2(p.y-s.y,p.x-s.x),s.dir))>Math.PI/2) &&
       !this.staff.some(g=>this.canSee(g,p)) && this.time >= (s.keyCool || 0) && (unconscious || s.state !== 'chase') &&
       lineOfSight(s.x,s.y,p.x,p.y,(x,y)=>this.visionBlocked(x,y));
@@ -993,7 +1002,7 @@ export class Game {
   }
 
   detectable(p) {
-    return p.active && p.connected && !p.hidden && !(p.shell && !p.exposed) && p.grace <= 0 && p.capturedT <= 0 && !p.under && !p.inExit && !this.inOwnEnclosure(p);
+    return p.active && p.connected && !p.inControlRoom && !p.hidden && !(p.shell && !p.exposed) && p.grace <= 0 && p.capturedT <= 0 && !p.under && !p.inExit && !this.inOwnEnclosure(p);
   }
 
   _stepStaff(s, dt) {
@@ -1110,6 +1119,7 @@ export class Game {
   }
 
   _capture(s, p) {
+    p.cageKeys=0;p.inControlRoom=false;
     p.capturedT = 1.1;
     p.hold = null; p.slide = null; p.shell = false; p.sprintT = 0;
     this._dropCarry(p);
@@ -1158,6 +1168,7 @@ export class Game {
   }
 
   _returnToEnclosure(p) {
+    p.cageKeys=0;p.inControlRoom=false;
     p.capturedT=0;
     const e = this.zoo.enclosures[p.enc];
     this._resetEnclosure(p.enc);
@@ -1229,9 +1240,9 @@ export class Game {
     const act = this.activePlayers();
     const exit = this.gate(this.zoo.exitGate);
     const K = this.keyCount();
-    const keys = this.objects.filter((o) => o.kind === 'key' && o.index < K).sort((a, b) => a.index - b.index).map((k) => {
-      const holder = act.find((p) => p.hold && p.hold.obj === k.id);
-      return { i: k.index, x: k.x, y: k.y, holder: holder ? holder.name : null };
+    const keys = this.objects.filter((o) => o.kind === 'controlDoor' && act.some(p=>this.controlRoom.panels[p.id]?.doorIndex===o.index)).sort((a, b) => a.index - b.index).map((k) => {
+      const holder = act.find((p) => this.controlRoom.entered[p.id]===k.index && p.inControlRoom);
+      return { i: k.index, x: k.x, y: k.y, stand:k.stand, holder: holder ? holder.name : null };
     });
     const waiting = act.filter((p) => !p.connected).map((p) => p.name);
     return {
@@ -1246,6 +1257,7 @@ export class Game {
         }),
       },
       keys: { active: this.keysActive(), need: K, keys, done: exit.state !== 0 },
+      control:controlPublic(this),
       exit: { open: exit.state !== 0, inZone: act.filter((p) => p.inExit).length, need: act.length, done: this.phase === 'complete' },
       waiting,
     };
@@ -1254,7 +1266,7 @@ export class Game {
   defs() {
     return {
       gates: this.gates.map((g) => ({ id: g.id, kind: g.kind, vis: g.vis, tiles: g.tiles, label: g.label })),
-      objects: this.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, reach: o.reach, label: o.label, index: o.index, bay: o.bay, keeper: !!o.keeper, enc: o.enc })),
+      objects: this.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, reach: o.reach, label: o.label, index: o.index, bay: o.bay, keeper: !!o.keeper, enc: o.enc, stand:o.stand })),
       plates: this.plates.map((p) => ({ id: p.id, x: p.x, y: p.y, heavy: p.heavy })),
       burrows: this.burrows.map((b) => ({ id: b.id, a: b.a, b: b.b })),
       bays: this.bayState.map((b) => ({ index: b.index, used: b.used, x: b.x, y: b.y, room: b.room, part: b.part, template: b.template })),
@@ -1282,7 +1294,7 @@ export class Game {
       pd: this.plates.map((p) => (p.down ? 1 : 0)),
       pl: this.order.map((id) => {
         const p = this.players.get(id);
-        return { id, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, mu:!!p.muzzled, ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
+        return { id, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, room:!!p.inControlRoom, mu:!!p.muzzled, ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
       }),
       permanent:this.permanentAlert,
       darts:this.darts.map(d=>({x:r2(d.x),y:r2(d.y),dx:d.dx,dy:d.dy})),
@@ -1302,12 +1314,13 @@ export class Game {
     const sp = this.abilityTarget(p);
     return {
       id: pid, x: p.x, y: p.y, seq: p.lastSeq,
+      control:controlPersonal(this,pid),
       pe: e ? { t: e.text, ok: !!e.run } : null,
       ps: sp ? { t: sp.text, ok: !!sp.run } : null,
       hold: p.hold ? { k: p.hold.kind, p: p.hold.need === Infinity ? -1 : Math.min(1, p.hold.t / p.hold.need) } : null,
       cd: p.cdMax ? Math.round((p.cd / p.cdMax) * 100) / 100 : 0,
       grace: Math.round(p.grace * 10) / 10,
-      special: !!(p.slide || p.hop || p.under || p.capturedT > 0 || p.shell || p.hold || p.sprintT > 0 || p.onBeam),
+      special: !!(p.inControlRoom || p.slide || p.hop || p.under || p.capturedT > 0 || p.shell || p.hold || p.sprintT > 0 || p.onBeam),
     };
   }
 

@@ -6,7 +6,7 @@
 import { T } from '../tiles.js';
 
 export const W = 81;
-export const H = 56;
+export const H = 70;
 
 // Legend for enclosure art
 const LEGEND = {
@@ -349,13 +349,22 @@ export function buildMoonleaf() {
   TOP_ROW.forEach((a, i) => placeEnclosure(a, ROW_X[i], false));
   BOTTOM_ROW.forEach((a, i) => placeEnclosure(a, ROW_X[i], true));
 
+  // Preserve the original zoo's southern boundary; only the service annex
+  // extends beyond it. Its west passage connects to the south promenade.
+  rect(0,55,W-1,H-1,T.WALL);
+  rect(1,56,22,68,T.FLOOR);
+  rect(1,42,1,67,T.PATH);
+  rect(1,42,12,42,T.PATH);
+  themeRect(1,56,22,68,'maint');
+  decor.push({kind:'sign',x:2,y:56,text:'Service Annex — Bays 5–8'});
+
   // --- Maintenance yard (x2..23, y17..39) ---
   border(2, 17, 23, 39, T.WALL);
   rect(3, 18, 22, 38, T.FLOOR);
   themeRect(2, 17, 23, 39, 'maint');
   const bays = [];
   for (let i = 0; i < 8; i++) {
-    const bx = 3 + (i%4) * 5, by = 18+Math.floor(i/4)*10;
+    const bx = 3 + (i%4) * 5, by = i<4?18:58;
     // bay shell
     rect(bx, by, bx + 4, by + 7, T.WALL);
     rect(bx + 1, by + 1, bx + 3, by + 3, T.FLOOR);
@@ -376,8 +385,8 @@ export function buildMoonleaf() {
       cage, breaker,
     });
   }
-  rect(4,38,10,38,T.MACHINE);rect(15,38,21,38,T.MACHINE);
-  const sockets=[4,6,8,10,15,17,19,21].map((x,index)=>addObj({kind:'socket',x,y:37,index,stand:[x,36],label:'Generator socket'}));
+  rect(8,30,15,31,T.MACHINE);
+  const sockets=[8,10,12,14,4,6,18,20].map((x,index)=>addObj({kind:'socket',x,y:32,index,stand:[x,33],label:'Generator socket'}));
   rect(23,26,23,27,T.PATH);
   rect(23, 28, 23, 30, T.PATH); // east exit
   rect(11, 39, 13, 39, T.PATH); // south exit
@@ -386,7 +395,7 @@ export function buildMoonleaf() {
   for (const [x, y] of [[18,36]]) set(x, y, T.BUSH);
   addObj({ kind: 'can', x: 22, y: 36, label: 'Noisy bin' });
   decor.push({ kind: 'sign', x: 24, y: 27, text: 'Maintenance Yard' });
-  decor.push({ kind: 'sign', x: 12, y: 37, text: 'Generator' });
+  decor.push({ kind: 'sign', x: 7, y: 33, text: 'Generator' });
 
   // --- West garden (x24..29) ---
   rect(25, 17, 28, 26, T.HEDGE);

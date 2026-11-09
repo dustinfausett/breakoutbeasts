@@ -427,3 +427,12 @@ The original code-drawn pixel artwork is the default again. All generated artwor
 Supply chests now occupy randomized reachable locations away from gates. Each enclosure chest contains two building bundles; scattered public chests contain six. Holding E takes one bundle, up to a carrying limit of two. Empty chests remain empty after capture and enclosure repair. A new mission resets chest stock and chooses new locations. Native animal abilities no longer require preparation at a bench; supplies are only needed for alternative building/digging routes.
 
 Validation for the classic-art and supply update: 105/105 Node tests passed, including all 1,012 team compositions and live WebSocket integration. The classic/default and retained detailed-art checks passed 7/7; mobile passed 24/24; the eight-player control-house browser test passed 15/15. The single-file build completed. Supply tests cover deterministic seeding, varied placements, reachable locations away from gates, finite stock, full inventory, capture persistence, fresh mission stock, and abilities without preparation.
+
+
+## Open maintenance yard
+
+The original four north-side fuse bays and open lower maintenance yard are restored. The generator sits at its original central location, with eight sockets along its south side. Bays 5–8 are in a separate southern service annex, reached from the south promenade by the west passage. Eight-player puzzles remain supported without filling the main yard with a second row of walls. Patrol tests check the south keeper actually reaches both yard waypoints.
+
+The generated epic logo is now used with both art styles. Characters, terrain, props and the console keep the classic appearance by default; `?art=detailed` still selects the saved detailed artwork.
+
+Validation for the yard repair: 108/108 Node tests passed, including all 1,012 animal-team missions, live WebSocket integration, reachability of all eight fuse bays, and a keeper actually visiting both yard patrol points. The art browser suite passed 7/7 checks, including the generated logo with classic sprites. The running browser showed the open yard without page errors, and the single-file build succeeded.

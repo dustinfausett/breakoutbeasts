@@ -3,8 +3,8 @@ export async function run(){
  const R=new Report('animation'),srv=await startServer(),browser=await chromium.launch();
  try{
   const page=await browser.newPage({viewport:{width:1100,height:1000}}),errors=pageErrors(page,'walk cycles');await page.goto(srv.url);
-  const classic=await page.evaluate(async()=>{const {IMAGES,loadImages}=await import('./assets.js');const {SPRITES,buildSprites}=await import('./sprites.js');await loadImages();buildSprites();return !IMAGES.actors&&!IMAGES.terrain&&SPRITES.redpanda.r[0].width===16&&!!SPRITES.staffDown;});
-  R.ok('original pixel artwork is the default with an unconscious keeper fallback',classic);
+  const classic=await page.evaluate(async()=>{const {IMAGES,loadImages}=await import('./assets.js');const {SPRITES,buildSprites}=await import('./sprites.js');await loadImages();buildSprites();return !IMAGES.actors&&!IMAGES.terrain&&SPRITES.redpanda.r[0].width===16&&!!SPRITES.staffDown&&IMAGES.logo.naturalWidth>500;});
+  R.ok('classic characters remain the default while the generated logo loads',classic);
   await page.goto(srv.url+'?art=detailed');
   const result=await page.evaluate(async()=>{
    const {loadImages}=await import('./assets.js'),{buildSprites,SPRITES}=await import('./sprites.js'),{Renderer}=await import('./render.js');

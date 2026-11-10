@@ -47,7 +47,7 @@ export async function run({players=2,mobile=false,hard=false,landscape=false}={}
   if(players>1)R.ok('controls wait until the crew is aboard',await host.locator('[data-hold-control],[data-car-control]').first().isDisabled());
   for(let i=1;i<players;i++)await enter(i);
   await host.screenshot({path:`${SHOTS}/getaway-controls-${players}${mobile?'-mobile':''}p.png`});
-  if(hard){const pixels=await host.evaluate(()=>{const a=window.__bb.app,r=a.renderer,c=a.world.snap.obj.parking.car,ctx=r.canvas.getContext('2d');return [4,-4].map(d=>{const x=Math.round(((c.x+d)*16-r.cam.x)*r.scale),y=Math.round((c.y*16-r.cam.y)*r.scale);return [...ctx.getImageData(x,y,1,1).data].slice(0,3).reduce((a,b)=>a+b,0);});});R.ok('Hard-mode windshield sees ahead and hides the rear',pixels[0]>60&&pixels[1]<45,pixels.join(','));}
+  if(hard){const pixels=await host.evaluate(()=>{const a=window.__bb.app,r=a.renderer,c=a.world.snap.obj.parking.car,ctx=r.canvas.getContext('2d');return [4,-4].map(d=>{const x=Math.round(((c.x+d)*16-r.cam.x)*r.scale),y=Math.round((c.y*16-r.cam.y)*r.scale);return [...ctx.getImageData(x,y,1,1).data].slice(0,3).reduce((a,b)=>a+b,0);});});R.ok('Hard-mode windshield keeps the map visible ahead and behind',pixels[0]>45&&pixels[1]>45,pixels.join(','));}
   const ownership=[];
   for(let i=0;i<players;i++){
    const page=pages[i];await waitFor(()=>page.locator('#vehicle-panel button:not([data-car-leave])').first().isEnabled());

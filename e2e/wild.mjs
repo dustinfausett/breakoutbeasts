@@ -56,11 +56,14 @@ export async function run(){
     const r=window.__bb.app.renderer,S=r.scale,p=r.ctx.getImageData(Math.round(x*16*S-r.cam.x*S),Math.round(y*16*S-r.cam.y*S),1,1).data;
     return Array.from(p).slice(0,3).join(',');
   },[x,y]);
-  R.ok('Hard mode renders the space behind the animal as black',(await sample(17.5,15.5))==='5,11,16');
-  R.ok('Hard mode hides space beyond a wall',(await sample(25.5,15.5))==='5,11,16');
+  R.ok('Hard mode keeps map terrain behind the animal visible',(await sample(17.5,15.5))!=='5,11,16');
+  R.ok('Hard mode keeps terrain beyond walls visible',(await sample(25.5,15.5))!=='5,11,16');
   R.ok('Hard mode still shows the wall’s near surface',(await sample(23.5,15.5))!=='5,11,16');
   g.setTile(23,15,1);await guest.waitForTimeout(200);
-  R.ok('animal vision extends beyond keeper range',(await sample(32.5,15.5))!=='5,11,16');
+  R.ok('distant map terrain remains visible',(await sample(32.5,15.5))!=='5,11,16');
+  g.setTile(24,15,3);await guest.waitForTimeout(250);
+  const guardVisibility=await guest.evaluate(()=>{const a=window.__bb.app,r=a.renderer,w=a.world,s=w.snap,me=w.me(),original=s.st,interp=w.interp,draw=r._drawStaff,seen=[];s.st=[{x:23.5,y:15.5,d:0,s:0},{x:19.5,y:15.5,d:0,s:0},{x:31.5,y:15.5,d:0,s:0},{x:26.5,y:15.5,d:0,s:0}];w.interp=()=>({a:s,b:s,k:1});r._drawStaff=(ctx,g)=>seen.push(g.x);r.draw(performance.now(),0,{});s.st=original;w.interp=interp;r._drawStaff=draw;return seen;});
+  R.ok('Hard mode renders the nearby forward guard but hides rear, distant and wall-blocked guards',guardVisibility.join(',')==='23.5',guardVisibility.join(','));
   await guest.screenshot({path:`${SHOTS}/hard-vision.png`});
   R.ok('no browser errors in invite, theft, combat or Hard mode',errors.every(e=>e.length===0),errors.flat().join(' | '));
  }finally{await browser.close();await srv.close();}

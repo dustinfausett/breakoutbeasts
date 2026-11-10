@@ -59,6 +59,8 @@ const bundle = [
   '__req("main.js");',
   '})();',
 ].join('\n');
+// Fail the build if a module leaves behind syntax that cannot run as an embedded script.
+new Function(bundle);
 
 const packedAssets=Object.fromEntries(['car','logo','actors','terrain','objects','panel','walk-animals-a','walk-animals-b'].map(name=>[name,'data:image/png;base64,'+fs.readFileSync(path.join(CLIENT,'assets',name+'.png')).toString('base64')]));
 let html = fs.readFileSync(path.join(CLIENT, 'index.html'), 'utf8');

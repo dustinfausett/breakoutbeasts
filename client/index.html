@@ -23,9 +23,12 @@
     <section id="title" class="screen" aria-labelledby="title-h">
       <div class="panel wide center">
         <h1 class="logo" id="title-h"><img class="pixel-logo" alt="Breakout Beasts!"></h1>
-        <label class="check mode-pick"><input type="checkbox" id="title-hard"> Hard mode · eyes forward, no seeing through walls</label>
+        <label class="check mode-pick"><input type="checkbox" id="title-hard"> Hard mode · guards visible only nearby and in sight</label>
         <p class="tagline">Slip out of your enclosure, free your friends and escape the zoo together.</p>
-        <div id="title-parade" class="parade" aria-hidden="true"></div>
+        <div id="title-parade" class="parade" aria-label="Zoo animals"></div>
+        <label id="chapter-menu" class="field" hidden>Choose where to start
+          <select id="start-at"><option value="zoo">Zoo — enclosure escape</option><option value="control">Zoo — control house</option><option value="parking">Parking lot — steal a car</option><option value="driving">Parking lot — driving</option><option value="city">City — driving and exploring</option></select>
+        </label>
         <label class="field">Your name
           <input id="name" maxlength="14" autocomplete="nickname" placeholder="e.g. Sam">
         </label>
@@ -57,7 +60,7 @@
           <button class="btn" data-act="back">Back</button>
           <button class="btn primary" data-act="join-go">Join</button>
         </div>
-        <label class="check"><input type="checkbox" id="join-hard"> Hard mode · forward sight only</label>
+        <label class="check"><input type="checkbox" id="join-hard"> Hard mode · guards visible only nearby and in sight</label>
         <p id="join-msg" class="msg" role="alert"></p>
       </div>
     </section>
@@ -135,7 +138,7 @@
         <h2 id="settings-h">Settings</h2>
         <label class="field">Music volume <input type="range" id="set-music" min="0" max="100"></label>
         <label class="field">Sound effects volume <input type="range" id="set-sfx" min="0" max="100"></label>
-        <label class="check"><input type="checkbox" id="set-hard"> Hard mode: forward line of sight only</label><p class="info">See ahead as far as the zoo extends, but not behind you or through obstacles. Each player chooses their own view.</p>
+        <label class="check"><input type="checkbox" id="set-hard"> Hard mode: guards visible only nearby and in sight</label><p class="info">The whole map stays visible. See guards only within 10 tiles ahead of you, with a clear line of sight. Each player chooses their own view.</p>
         <label class="check"><input type="checkbox" id="set-mute"> Mute all sound</label>
         <label class="check"><input type="checkbox" id="set-motion"> Reduced motion (less shaking, bobbing and flashing)</label>
         <label class="check"><input type="checkbox" id="set-captions" checked> Show sound captions</label>
@@ -173,7 +176,7 @@
           <div>
             <h3>Keepers</h3>
             <p>Keepers walk set routes with flashlights. If one spots you, a <b>?</b> meter fills — get out of the light! At 100% they shout <b>!</b> and chase. Hide in bushes, break line of sight behind walls and hedges, or rattle a noisy bin to send them looking somewhere else.</p>
-            <p><kbd>B</kbd> bites. A bitten keeper lies unconscious for 30 seconds and can be looted, but all keepers gain tranquilizer darts and permanent high alert for this escape. A dart hit returns you to your enclosure with a muzzle. Muzzles block biting and beaver chewing; a teammate can face you and press B to bite it off. Construction remains possible, even when muzzled.</p><p>No minimap, waypoints, or through-wall keeper highlights: use landmarks and talk to your team. Hard mode, chosen on the title/join screen or in Settings, hides everything behind you and behind obstacles. Forward vision has no distance limit.</p><p>Keepers stay on alert for three minutes after the latest sighting, with wider vision and faster movement. Large animals (elephant, giraffe and zebra) need two adjoining bushes to hide. Keepers radio sightings immediately. Break their line of sight before hiding; entering cover while watched does not hide you.</p><p>Caught animals go back to their enclosure with a few seconds of safety. Escape again, or a teammate can steal a key for your cage or build a ramp. Everything your team finished stays finished.</p>
+            <p><kbd>B</kbd> bites. A bitten keeper lies unconscious for 30 seconds and can be looted, but all keepers gain tranquilizer darts and permanent high alert for this escape. A dart hit returns you to your enclosure with a muzzle. Muzzles block biting and beaver chewing; a teammate can face you and press B to bite it off. Construction remains possible, even when muzzled.</p><p>No minimap, waypoints, or through-wall keeper highlights: use landmarks and talk to your team. Hard mode, chosen on the title/join screen or in Settings, keeps the map visible but shows guards only within 10 tiles ahead, with a clear line of sight.</p><p>Keepers stay on alert for three minutes after the latest sighting, with wider vision and faster movement. Large animals (elephant, giraffe and zebra) need two adjoining bushes to hide. Keepers radio sightings immediately. Break their line of sight before hiding; entering cover while watched does not hide you.</p><p>Caught animals go back to their enclosure with a few seconds of safety. Escape again, or a teammate can steal a key for your cage or build a ramp. Everything your team finished stays finished.</p>
             <h3>Playing together</h3>
             <p>Each puzzle splits into one part per player, built for each animal's ability. If a teammate disconnects, the team waits for them; you can choose to continue without them and their remaining task is adapted.</p>
           </div>
@@ -187,7 +190,6 @@
     <section id="complete" class="screen overlay" role="dialog" aria-modal="true" aria-labelledby="complete-h">
       <div class="panel center">
         <h2 id="complete-h">Mission complete!</h2>
-        <label class="check mode-pick"><input type="checkbox" id="title-hard"> Hard mode · eyes forward, no seeing through walls</label>
         <p class="tagline">The beasts broke out of Moonleaf Zoo.</p>
         <div id="complete-stats" class="stats"></div>
         <div class="row" id="complete-actions">

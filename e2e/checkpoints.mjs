@@ -1,0 +1,17 @@
+import {chromium,startServer,waitFor,Report,SHOTS,pageErrors} from './lib.mjs';
+export async function run(){const R=new Report('secret chapters'),srv=await startServer(),browser=await chromium.launch();try{
+ const page=await browser.newPage({viewport:{width:1200,height:900}}),errors=pageErrors(page,'secret chapters');await page.goto(srv.url);
+ const animals=['redpanda','elephant','monkey','beaver','giraffe','penguin','zebra','meerkat','tortoise','flamingo'];
+ R.ok('chapter selector is hidden on a fresh title screen',await page.locator('#chapter-menu').isHidden());
+ await page.locator('[data-parade-animal="elephant"]').click();for(const id of animals.slice(1))await page.locator(`[data-parade-animal="${id}"]`).click();R.ok('an out-of-order sequence does not unlock it',await page.locator('#chapter-menu').isHidden());
+ for(const id of animals.slice(0,-1))await page.locator(`[data-parade-animal="${id}"]`).click();R.ok('the full sequence is required',await page.locator('#chapter-menu').isHidden());await page.locator('[data-parade-animal="flamingo"]').click();R.ok('left-to-right animal clicks reveal the chapter selector',await page.locator('#chapter-menu').isVisible());await page.screenshot({path:`${SHOTS}/secret-chapters.png`});
+ for(const stage of ['control','parking','driving','city','zoo']){
+  await page.locator('#start-at').selectOption(stage);await page.click('[data-act="solo"]');await page.click('[data-animal="beaver"]');await page.click('#animals-go');await waitFor(()=>page.evaluate(()=>!!window.__bb.app.world?.snap));
+  const result=await page.evaluate(()=>{const g=window.__bb.app.link.room.game;return {id:g.zooId,control:g.zooId==='moonleaf'&&g.keysActive(),car:g.activePlayers().every(p=>p.inVehicle)};});R.ok('solo starts at '+stage,result.id===(['control','zoo'].includes(stage)?'moonleaf':stage==='driving'?'parking':stage)&&(stage!=='control'||result.control)&&(!['driving','city'].includes(stage)||result.car));
+  await page.click('[data-act="pause"]');await page.click('[data-act="quit"]');await waitFor(()=>page.locator('#title').isVisible());
+ }
+ await page.locator('#start-at').selectOption('city');await page.click('[data-act="create"]');await page.click('[data-animal="beaver"]');await page.click('#animals-go');const guest=await browser.newPage();const code=await page.evaluate(()=>window.__bb.app.lobby.code);await guest.goto(srv.url+'?room='+code);await guest.fill('#join-name','Chapter Buddy');await guest.click('[data-act="join-go"]');await guest.click('[data-animal="elephant"]');await guest.click('#animals-go');await guest.click('#lobby-ready');await page.click('#lobby-start');await waitFor(()=>page.evaluate(()=>window.__bb.app.world?.zoo.id==='city'));await waitFor(()=>guest.evaluate(()=>window.__bb.app.world?.zoo.id==='city'));R.ok('online host starts both players in the selected chapter',await page.evaluate(()=>window.__bb.app.world.snap.pl.length===2));
+ const phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});await phone.goto(srv.url);for(const id of animals)await phone.locator(`[data-parade-animal="${id}"]`).tap();R.ok('the secret sequence works with phone taps',await phone.locator('#chapter-menu').isVisible());
+ R.ok('secret chapter flow has no browser errors',!errors.length,errors.join(' | '));
+}finally{await browser.close();srv.stop();}return R;}
+if(import.meta.url===`file://${process.argv[1]}`)run().then(r=>process.exit(r.failed?1:0),e=>{console.error(e);process.exit(1)});

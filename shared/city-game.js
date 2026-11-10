@@ -1,4 +1,5 @@
-import {ParkingGame,CAR_CONTROLS} from './parking-game.js';import {dist} from './util.js';
+import {ParkingGame,CAR_CONTROLS} from './parking-game.js';
+import {dist} from './util.js';
 export class CityGame extends ParkingGame{
  constructor(args){super({...args,worldId:'city',options:{...args.options,staff:false}});this.visited=new Set();const ids=this.activePlayers().map(p=>p.id);if(ids.length&&!this.vehicle.owners.navigation)this.vehicle.owners.navigation=ids.at(-1);this.vehicle.unlocked=true;this.vehicle.values.navigation=this.zoo.destinations[0].name;for(const p of this.activePlayers()){p.inVehicle=true;p.x=this.vehicle.x;p.y=this.vehicle.y;}}
  _carControls(){return CAR_CONTROLS.map(c=>c.id==='navigation'?{...c,choices:this.zoo.destinations.map(d=>d.name),goal:this.zoo.destinations[0].name,hint:'Pick a destination and guide the crew through the streets.'}:c);}

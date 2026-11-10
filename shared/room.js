@@ -151,7 +151,7 @@ export class Room {
         if (notReady.length) return this.error(pid, 'not_ready', `Waiting for ${notReady.map((q) => q.name).join(', ')} to be ready.`);
         const offline = list.filter((q) => !q.connected);
         if (offline.length) return this.error(pid, 'not_ready', `Waiting for ${offline.map((q) => q.name).join(', ')} to reconnect.`);
-        this.startMission();
+        this.startMission(['zoo','control','parking','driving','city'].includes(msg.startAt)?msg.startAt:'zoo');
         break;
       }
       case 'continue': {
@@ -221,6 +221,7 @@ export class Room {
   }
 
   startMission(stage='zoo') {
+    const checkpoint=stage;stage=stage==='control'?'zoo':stage==='driving'?'parking':stage;
     const continuing=(stage==='parking'&&this.game?.zooId==='moonleaf')||(stage==='city'&&this.game?.zooId==='parking');
     const carColor=this.game?.vehicle?.colorIndex;
     const eligible=continuing?new Set(this.game.activePlayers().map(p=>p.id)):null;
@@ -228,6 +229,14 @@ export class Room {
     const list = [...this.players.values()].filter((p) => p.animal && p.connected && (!eligible||eligible.has(p.id))).sort((a, b) => a.joinedAt - b.joinedAt);
     const seed = Math.floor(this.rng() * 1e9);
     this.game = new (stage==='city'?CityGame:stage==='parking'?ParkingGame:Game)({previousCarSlot:this.lastCarSlot,carColor:stage==='city'?carColor:null,zooId: this.zooId, players: list.map((p) => ({ id: p.id, name: p.name, animal: p.animal })), seed, options: this.options });
+    if(checkpoint==='control'){
+      const g=this.game;for(const part of g.parts)part.inserted=true;g.stats.rescued=g.requiredRescues;
+      for(const o of g.objects)if(o.kind==='socket')o.state=1;
+      for(const p of g.activePlayers()){const door=g.objects.find(o=>o.kind==='controlDoor'&&o.index===g.controlRoom.panels[p.id].doorIndex);p.escaped=true;p.x=door.stand[0]+.5;p.y=door.stand[1]+.5;p.safe=[p.x,p.y];p.grace=5;}
+    }
+    if(checkpoint==='driving'){
+      const g=this.game,crew=g.activePlayers();if(crew[0]){crew[0].cageKeys=1;g.vehicleAction(crew[0].id,{op:'unlock'});}for(const p of crew){p.inVehicle=true;p.x=g.vehicle.x;p.y=g.vehicle.y;}
+    }
     for (const p of this.players.values()) if (!list.includes(p)) p.spectator = true;
     if(stage==='parking')this.lastCarSlot=this.game.vehicle.slot;
     this.phase = 'playing';

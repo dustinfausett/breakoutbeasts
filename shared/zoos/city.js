@@ -1,4 +1,5 @@
-import {T} from '../tiles.js';import {ANIMAL_IDS} from '../animals.js';
+import {T} from '../tiles.js';
+import {ANIMAL_IDS} from '../animals.js';
 export function buildCity(){
  const w=160,h=128,tiles=new Uint8Array(w*h).fill(T.GRASS),theme=new Uint8Array(w*h),staffMask=new Uint8Array(w*h),decor=[];
  const rect=(x0,y0,x1,y1,t)=>{for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)tiles[y*w+x]=t;};

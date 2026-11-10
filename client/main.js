@@ -90,12 +90,17 @@ function caption(text, cls = '', sound = false) {
   setTimeout(() => d.remove(), sound ? 2200 : 4200);
 }
 
+let paradeProgress=0;
 // ---------------- title ----------------
 function buildTitle() {
   document.querySelectorAll('.pixel-logo').forEach(img=>img.src=IMAGES.logo.src);
   const parade = $('#title-parade');
   parade.innerHTML = '';
-  for (const id of ANIMAL_IDS) { const img = document.createElement('img'); img.src = portraitURL(id); img.alt = ''; parade.appendChild(img); }
+  for (const [index,id] of ANIMAL_IDS.entries()) {
+    const b=document.createElement('button');b.type='button';b.className='parade-animal';b.dataset.paradeAnimal=id;b.setAttribute('aria-label',ANIMALS[id].name);
+    const img=document.createElement('img');img.src=portraitURL(id);img.alt='';b.append(img);
+    b.addEventListener('click',()=>{paradeProgress=index===paradeProgress?paradeProgress+1:index===0?1:0;if(paradeProgress===ANIMAL_IDS.length){$('#chapter-menu').hidden=false;paradeProgress=0;}});parade.append(b);
+  }
   try { $('#name').value = localStorage.getItem('bb-name') || '';$('#join-name').value=$('#name').value; } catch { /* */ }
 }
 function myName(source='#name') {
@@ -555,7 +560,7 @@ async function startOnline(kind, code) {
   if (OFFLINE_FILE) { const where = kind === 'create' ? '#title-msg' : '#join-msg'; show(kind === 'create' ? 'title' : 'join'); $(where).textContent = OFFLINE_MSG; return; }
   const name = myName(kind==='join'?'#join-name':'#name');
   if (app.link) { try { app.link.close(); } catch { /* */ } }
-  app.mode = 'online'; app.lobby = null; app.pickAnimal = null;
+  app.mode = 'online'; app.lobby = null; app.pickAnimal = null;app.startAt=kind==='create'?$('#start-at').value:'zoo';
   const link = new OnlineLink(onMessage, connStatus);
   app.link = link;
   $('#loading-text').textContent = kind === 'create' ? 'Creating a room…' : 'Joining room…';
@@ -572,13 +577,14 @@ async function startOnline(kind, code) {
 
 function startSolo() {
   if (app.link) { try { app.link.close(); } catch { /* */ } }
-  app.mode = 'solo'; app.lobby = null;
+  app.mode = 'solo'; app.lobby = null;app.startAt=$('#start-at').value;
   app.link = null;
   app.pickAnimal = app.pickAnimal || null;
   show('animals'); buildAnimals();
 }
 
 function toTitle() {
+  updateVehiclePanel(null);updateKeyFob(false);updateControlPanel(null);
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.link = null; app.mode = null; app.lobby = null; app.inGame = false; app.world = null;
   audio.stopMusic();
@@ -613,7 +619,7 @@ function act(name, el) {
       if (app.mode === 'solo') {
         if (!app.link) { app.link = new SoloLink(onMessage); app.link.create(myName()); }
         app.link.send({ t: 'pick', animal: app.pickAnimal });
-        app.link.send({ t: 'start' });
+        app.link.send({ t: 'start',startAt:app.startAt||'zoo' });
       } else {
         app.link?.send({ t: 'pick', animal: app.pickAnimal });
         show('lobby'); renderLobby();
@@ -626,7 +632,7 @@ function act(name, el) {
       break;
     }
     case 'lobby-ready': { const me = app.lobby.players.find((p) => p.id === app.myId); app.link.send({ t: 'ready', ready: !me?.ready }); break; }
-    case 'lobby-start': app.link.send({ t: 'start' }); break;
+    case 'lobby-start': app.link.send({ t: 'start',startAt:app.startAt||'zoo' }); break;
     case 'lobby-animal': show('animals'); buildAnimals(); break;
     case 'lobby-leave': toTitle(); break;
     case 'pause': openPause(); break;

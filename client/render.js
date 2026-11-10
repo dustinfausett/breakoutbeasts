@@ -4,7 +4,7 @@ import { IMAGES, atlasDraw, objectArt, carArt } from './assets.js';
 import { SPRITES, drawTile } from './sprites.js';
 import { T, tileBlocksVision } from './shared/tiles.js';
 import { vehicleCells } from './shared/driving.js';
-import { animalCanSee } from './shared/vision.js';
+import { animalCanSeeGuard } from './shared/vision.js';
 import { PF, visionPolygon } from './shared/game.js';
 import { lerp, lerpAngle } from './world.js';
 import { ANIMALS } from './shared/animals.js';
@@ -180,19 +180,8 @@ export class Renderer {
     const drivenCar=me.car?snap.obj.parking?.car:null,ownCarCells=drivenCar?new Set(vehicleCells(drivenCar,w.w,w.h)):null;
     const visionWorld=drivenCar?{w:w.w,h:w.h,visionBlocked:(x,y)=>ownCarCells.has(y*w.w+x)?tileBlocksVision(w.tiles[y*w.w+x]):w.visionBlocked(x,y)}:w;
     const observer=drivenCar?{x:me.x,y:me.y,angle:drivenCar.angle}:{x:me.x,y:me.y,face:me.f};
-    const visible=(x,y)=>!this.settings.hard || animalCanSee(visionWorld,observer,x,y);
-    if(this.settings.hard){
-      ctx.beginPath();
-      const lx=Math.max(0,Math.floor(cx/TS)-1), ly=Math.max(0,Math.floor(cy/TS)-1);
-      const hx=Math.min(w.w-1,Math.ceil((cx+viewW)/TS)), hy=Math.min(w.h-1,Math.ceil((cy+viewH)/TS));
-      for(let y=ly;y<=hy;y++)for(let x=lx;x<=hx;x++){
-        if((Math.floor(me.x)===x&&Math.floor(me.y)===y)||visible(x+.5,y+.5))ctx.rect(x*TS,y*TS,TS,TS);
-      }
-      ctx.clip();
-      players=players.filter(p=>p.id===me.id||visible(p.x,p.y));
-      staff=staff.filter(s=>visible(s.x,s.y));
-      npcs=npcs.filter(n=>visible(n.x,n.y));
-    }
+    const visible=()=>true;
+    if(this.settings.hard)staff=staff.filter(s=>animalCanSeeGuard(visionWorld,observer,s.x,s.y));
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.map, 0, 0,w.w*TS,w.h*TS);
 
@@ -318,7 +307,6 @@ export class Renderer {
     }
     for (const p of players) {
       if (p.car || (p.s & PF.UNDER)) continue;
-      if(this.settings.hard && p.id===me.id)continue;
       const [sx, sy] = toS(p.x, p.y);
       const top = sy - 18 * S;
       const mine = p.id === w.myId;
@@ -366,14 +354,6 @@ export class Renderer {
       }
     }
     ctx.restore();
-    if(this.settings.hard){
-      ctx.setTransform(S,0,0,S,-cx*S,-cy*S);
-      this._drawPlayer(ctx,me,now);
-      ctx.setTransform(1,0,0,1,0,0);
-      const [sx,sy]=toS(me.x,me.y);
-      label(me.n+(me.mu?' · MUZZLED':''),sx,sy-18*S,'#ffe36a');
-      if(!this.settings.compactHUD)label(this.world.zoo.id==='parking'?`Car keys: ${me.ck||0}`:`Cage keys: ${me.ck||0} · Bundles: ${me.supplies||0}/2`,sx,sy-18*S-fs*1.4,'#ffe36a');
-    }
     ctx.setTransform(1,0,0,1,0,0);
   }
 

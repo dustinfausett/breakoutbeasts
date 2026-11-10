@@ -26,3 +26,6 @@ export function animalCanSee(world, animal, x, y) {
   }
   return false;
 }
+
+export const GUARD_VIEW_RANGE=10;
+export function animalCanSeeGuard(world,animal,x,y){return Math.hypot(x-animal.x,y-animal.y)<=GUARD_VIEW_RANGE&&animalCanSee(world,animal,x,y);}

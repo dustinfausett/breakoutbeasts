@@ -20,3 +20,27 @@ test('the south keeper can patrol into and across the open maintenance yard',()=
  for(let i=0;i<4000;i++){g.step(TICK);g.drainEvents();for(const [j,point] of [[12,35],[20,28]].entries())if(dist(keeper.x,keeper.y,point[0]+.5,point[1]+.5)<1)seen.add(j);}
  assert.equal(seen.size,2,'keeper visits both yard waypoints instead of circling in a pocket');
 });
+
+test('six and eight players each receive a distinct physical fuse and generator slot',()=>{
+ for(const n of [6,8]){
+  const g=new Game({players:ANIMAL_IDS.slice(0,n).map((animal,i)=>({id:'p'+i,animal})),options:{staff:false}});
+  assert.equal(g.parts.length,n);assert.equal(new Set(g.parts.map(p=>p.bay)).size,n);
+  assert.equal(g.objects.filter(o=>o.kind==='cage'&&g.parts.some(p=>p.bay===o.bay)).length,n);
+  assert.equal(g.objects.filter(o=>o.kind==='socket').length,8);assert.equal(g.objectives().power.rooms,n);
+  for(const [i,p] of g.activePlayers().entries()){
+   const bay=g.bayState[i],part=g.parts[i];p.x=bay.x+2.5;p.y=bay.y+2.5;g.step(TICK);assert.equal(part.opened,true);
+   p.x=bay.x+3.5;p.y=bay.y+2.5;g._interact(p);assert.equal(part.breaker,true);
+   p.x=bay.x+1.5;p.y=bay.y+2.5;g._interact(p);assert.equal(p.carry,'fuse:'+i);
+   const socket=g.objects.find(o=>o.kind==='socket'&&o.index===i);p.x=socket.stand[0]+.5;p.y=socket.stand[1]+.5;g._interact(p);assert.equal(part.inserted,true);assert.equal(p.carry,null);
+  }
+  assert.equal(g.powerDone(),true);assert.equal(g.objectives().power.parts.filter(p=>p.done).length,n);
+ }
+});
+
+test('workshop stairs connect directly to the yard and preserve carried fuses in both directions',()=>{
+ const g=new Game({players:ANIMAL_IDS.slice(0,8).map((animal,i)=>({id:'p'+i,animal})),options:{staff:false}}),p=g.players.get('p7');
+ const passages=g.objects.filter(o=>o.kind==='fusePassage');assert.equal(passages.length,2);
+ p.carry='fuse:7';
+ for(const o of passages){p.x=o.stand[0]+.5;p.y=o.stand[1]+.5;assert.ok(canOccupy(g,p.animal,p.x,p.y,null));g._interact(p);assert.deepEqual([p.x,p.y],o.to.map(v=>v+.5));assert.equal(p.carry,'fuse:7');}
+ assert.equal(g.objectives().power.parts[7].location,'Fuse workshop');assert.ok(g.objectives().power.passageHint.includes('5–8'));
+});

@@ -1,11 +1,11 @@
 import {createServer} from '../server/index.js';import {chromium,waitFor,Report,SHOTS,pageErrors} from './lib.mjs';
 const animals=['redpanda','elephant','monkey','beaver','giraffe','penguin','zebra','meerkat'];
-export async function run({players=2,mobile=false,hard=false}={}){
+export async function run({players=2,mobile=false,hard=false,landscape=false}={}){
  const R=new Report('parking '+players),srv=await createServer({port:0,host:'127.0.0.1',log:()=>{}}),browser=await chromium.launch();
  try{
   const url='http://127.0.0.1:'+srv.port+'/',pages=[],errors=[];
   for(let i=0;i<players;i++){
-   const page=await browser.newPage({viewport:mobile?{width:390,height:844}:{width:1200,height:850},isMobile:mobile,hasTouch:mobile});pages.push(page);errors.push(pageErrors(page,'crew'+i));await page.goto(i?url+'?room='+[...srv.rooms.keys()][0]:url);
+   const page=await browser.newPage({viewport:mobile?(landscape?{width:844,height:390}:{width:390,height:844}):{width:1200,height:850},isMobile:mobile,hasTouch:mobile});pages.push(page);errors.push(pageErrors(page,'crew'+i));await page.goto(i?url+'?room='+[...srv.rooms.keys()][0]:url);
    if(hard)await page.locator(i?'#join-hard':'#title #title-hard').check();
    if(!i){await page.fill('#name','Crew 1');await page.click('[data-act="create"]');}else{await page.fill('#join-name','Crew '+(i+1));await page.click('[data-act="join-go"]');}
    await page.click(`[data-animal="${animals[i]}"]`);await page.click('#animals-go');if(i)await page.click('#lobby-ready');
@@ -75,4 +75,4 @@ export async function run({players=2,mobile=false,hard=false}={}){
   R.ok('new stage has no browser errors',errors.every(e=>!e.length),errors.flat().join(' | '));
  }finally{await browser.close();await srv.close();}return R;
 }
-if(import.meta.url===`file://${process.argv[1]}`)run({players:Number(process.argv[2])||2,mobile:process.argv[3]==='mobile',hard:process.argv[3]==='hard'}).then(r=>process.exit(r.failed?1:0),e=>{console.error(e);process.exit(1)});
+if(import.meta.url===`file://${process.argv[1]}`)run({players:Number(process.argv[2])||2,mobile:['mobile','landscape'].includes(process.argv[3]),landscape:process.argv[3]==='landscape',hard:process.argv[3]==='hard'}).then(r=>process.exit(r.failed?1:0),e=>{console.error(e);process.exit(1)});

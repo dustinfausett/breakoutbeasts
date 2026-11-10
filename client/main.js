@@ -54,13 +54,28 @@ function overlay(id) {
 }
 let overlayReturn = null;
 
+function setObjectivesOpen(open){
+  app.objectivesOpen=!!open;$('#objectives').hidden=!open;$('#objectives').classList.remove('collapsed');
+  $('#objectives-toggle').setAttribute('aria-expanded',String(!!open));
+}
+$('#objectives-toggle').addEventListener('click',()=>setObjectivesOpen(!app.objectivesOpen));
+$('#objectives-toggle').addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='Enter'){e.preventDefault();e.stopPropagation();if(!e.repeat)setObjectivesOpen(!app.objectivesOpen);}});
+function resizeGame(){
+  const viewport=window.visualViewport;
+  document.documentElement.style.setProperty('--view-width',(viewport?.width||innerWidth)+'px');
+  document.documentElement.style.setProperty('--view-height',(viewport?.height||innerHeight)+'px');
+  const landscape=innerWidth>innerHeight;
+  if(app.viewportLandscape!==landscape){input.releaseAll();setObjectivesOpen(false);app.viewportLandscape=landscape;}
+  app.renderer?.resize();
+}
+
 function applySettings() {
   audio.set({ musicVol: settings.music / 100, sfxVol: settings.sfx / 100, muted: settings.mute });
   document.body.classList.toggle('reduced', settings.motion);
   document.body.classList.toggle('bigtext', settings.bigtext);
   const touchOn = settings.touch === 'on' || (settings.touch === 'auto' && (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window));
   document.body.classList.toggle('touch-on', touchOn);
-  if (app.renderer) {app.renderer.settings.reducedMotion = settings.motion;app.renderer.settings.hard=settings.hard;}
+  if (app.renderer) {app.renderer.settings.reducedMotion = settings.motion;app.renderer.settings.hard=settings.hard;app.renderer.settings.compactHUD=touchOn;app.renderer.resize();}
   $('#title-hard').checked=settings.hard;$('#join-hard').checked=settings.hard;
 }
 
@@ -234,6 +249,7 @@ function connStatus(state, info) {
 
 // ---------------- game ----------------
 function enterGame(msg) {
+  setObjectivesOpen(false);
   app.wasInCar=false;
   updateKeyFob(false);
   updateVehiclePanel(null);
@@ -323,7 +339,8 @@ function handleEvent(ev) {
     case 'sprint': audio.play('sprint'); break;
     case 'pickup': if (mine) audio.play('pickup'); break;
     case 'socket': audio.play('power'); { const o = app.world?.snap?.obj.power; if (o) caption(`Fuse plugged in! (${o.parts.filter((p) => p.done).length}/${o.parts.length})`, 'good'); } break;
-    case 'power': audio.play('power'); caption('Power restored! Head to the Exit Plaza and turn the keys together.', 'good'); break;
+    case 'fusepassage': if(ev.pid===app.myId)caption(ev.wing, 'good');break;
+    case 'power': audio.play('power'); caption('Power restored! Head to the control house in the Exit Plaza.', 'good'); break;
     case 'exitOpen': audio.play('complete'); caption('The Moonleaf Gate is open! Everyone to the exit!', 'good'); break;
     case 'bayopen': caption(`Bay ${ev.bay + 1} is open!`, 'good'); break;
     case 'rattle': audio.play('clang'); caption('[Clang clang] A bin rattles — keepers will investigate', '', true); break;
@@ -383,12 +400,13 @@ function updateHUD() {
   if (!o.escape.done) for (const p of o.escape.players) h += `<div class="sub ${p.escaped ? 'done' : ''} ${p.name === me?.n ? 'me' : ''}">${p.escaped ? '✓' : '·'} ${esc(p.name)} (${ANIMALS[p.animal].name})${p.escaped ? ' is out' : ''}</div>`;
   h += `<div class="o ${o.rescue.done ? 'done' : ''}">${ck(o.rescue.done)}Free caged animals: ${o.rescue.n}/${o.rescue.need}${o.rescue.done ? ' — done' : ' (steal guard keys for locks, or build escape ramps)'}</div>`;
   const pd = o.power.parts.filter((p) => p.done).length;
-  h += `<div class="o ${o.power.done ? 'done' : ''}">${ck(o.power.done)}Restore power in the Maintenance Yard: ${pd}/${o.power.parts.length} fuses</div>`;
+  h += `<div class="o ${o.power.done ? 'done' : ''}">${ck(o.power.done)}Restore power in the Maintenance Yard: ${pd}/${o.power.parts.length} fuses · ${o.power.rooms||o.power.parts.length} assigned bays</div>`;
+  if(!o.power.done&&o.power.passageHint)h+=`<div class="sub">${esc(o.power.passageHint)}</div>`;
   if (!o.power.done) for (const p of o.power.parts) {
     const mine = p.pid === app.myId;
     const who = p.who ? `${esc(p.who)} (${ANIMALS[p.animal].name})` : 'Anyone';
     const step = p.steps[p.step];
-    h += `<div class="sub ${p.done ? 'done' : ''} ${mine ? 'me' : ''}">${p.done ? '✓' : mine ? '➤' : '·'} Bay ${p.bay} · ${who}: ${p.done ? 'done' : p.waiting ? 'waiting for them to reconnect' : esc(step?.label || '')}${!p.done ? ` <small>(step ${p.step + 1}/${p.steps.length})</small>` : ''}</div>`;
+    h += `<div class="sub ${p.done ? 'done' : ''} ${mine ? 'me' : ''}">${p.done ? '✓' : mine ? '➤' : '·'} Bay ${p.bay} · ${esc(p.location||'Main yard')} · ${who}: ${p.done ? 'done' : p.waiting ? 'waiting for them to reconnect' : esc(step?.label || '')}${!p.done ? ` <small>(step ${p.step + 1}/${p.steps.length})</small>` : ''}</div>`;
   }
   h += `<div class="o ${o.keys.done?'done':''}">${ck(o.keys.done)}Control house: five tasks per operator${o.keys.active?'':' (needs power and rescued animals)'}</div>`;
   if(o.control)for(const p of o.control.team)h+=`<div class="sub">${esc(p.name)}: ${p.done}/5 ${p.inside?'· at station':''}</div>`;
@@ -399,13 +417,13 @@ function updateHUD() {
   if (me && (me.s & PF.IN_ENC) && myEnc) now = myEnc.hint;
   else if (o.exit.open) now = 'Everyone to the Moonleaf Gate!';
   else if (o.keys.active) { const station=o.control?.team.find(p=>p.id===app.myId); now = `Enter control-house door ${String.fromCharCode(65+(station?.doorIndex||0))} and read your instructions to your team.`; }
-  else if (myPart) now = myPart.steps[myPart.step]?.label || '';
+  else if (myPart) now = `${myPart.location||'Main yard'} · ${myPart.steps[myPart.step]?.label||''}`;
   else if (!o.rescue.done) now = `Free caged animals (${o.rescue.n}/${o.rescue.need})`;
   else if (!o.power.done) now = 'Help teammates restore power';
   h += `<div class="now">➤ ${esc(now)}</div>`;
   }
   const box = $('#objectives');
-  if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; $('#obj-h').onclick = () => box.classList.toggle('collapsed'); }
+  if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h;  }
 
   // team
   let t = '';
@@ -444,8 +462,8 @@ function updateHUD() {
   updateKeyFob(o.stage==='parking'&&!!pm?.fob&&s.phase==='play');
   let ph = '';
   if (pm) {
-    if (pm.pe) ph += `<div class="prompt ${pm.pe.ok ? '' : 'no'}"><kbd>E</kbd> ${esc(pm.pe.t)}</div>`;
-    if (pm.ps && (pm.ps.ok || !pm.pe)) ph += `<div class="prompt ${pm.ps.ok ? '' : 'no'}"><kbd>Space</kbd> ${esc(pm.ps.t)}</div>`;
+    if (pm.pe) ph += `<div class="prompt ${pm.pe.ok ? 'action' : 'no'}"><kbd>E</kbd> ${esc(pm.pe.t)}</div>`;
+    if (pm.ps && (pm.ps.ok || !pm.pe)) ph += `<div class="prompt ${pm.ps.ok ? 'action' : 'no'}"><kbd>Space</kbd> ${esc(pm.ps.t)}</div>`;
     if(me?.mu)ph+='<div class="prompt no">Muzzled: no biting or chewing. A teammate can bite it off; ask a rescued friend with E.</div>';
     else ph+='<div class="prompt"><kbd>B</kbd> Bite / remove a friend’s muzzle</div>';
     if (pm.grace > 0) ph += `<div class="prompt">Keepers ignore you for ${Math.ceil(pm.grace)}s</div>`;
@@ -466,7 +484,7 @@ function buildEmotes() {
   const box = $('#emotes'); box.innerHTML = '';
   const tog = document.createElement('button'); tog.className = 'btn small emote-toggle'; tog.textContent = '💬 Say'; tog.tabIndex = -1;
   tog.addEventListener('click', () => box.classList.toggle('open')); box.appendChild(tog);
-  $('#objectives').classList.toggle('collapsed', document.body.classList.contains('touch-on') || innerWidth < 760);
+
   EMOTES.forEach((t, i) => { const b = document.createElement('button'); b.className = 'btn small'; b.textContent = `${i + 1} ${t}`; b.tabIndex = -1; b.addEventListener('click', () => { app.link?.send({ t: 'emote', i }); box.classList.remove('open'); }); box.appendChild(b); });
 }
 
@@ -645,6 +663,7 @@ input.onKey = (code, e) => {
   if (code === 'Escape') {
     if (app.overlay === 'settings' || app.overlay === 'help') { act(app.overlay + '-close'); return true; }
     if (app.overlay === 'pause') { closePause(); return true; }
+    if (app.inGame && !app.overlay && app.objectivesOpen) {setObjectivesOpen(false);return true;}
     if (app.inGame && !app.overlay) { openPause(); return true; }
     if (app.screen === 'join' || app.screen === 'animals') { act(app.screen === 'join' ? 'back' : 'animals-back'); return true; }
     return false;
@@ -680,7 +699,9 @@ async function boot() {
     app.renderer = new Renderer($('#game'));
     applySettings();
     input.attachTouch($('#touch'));
-    window.addEventListener('resize', () => app.renderer.resize());
+    window.addEventListener('resize',resizeGame);
+    window.visualViewport?.addEventListener('resize',resizeGame);
+    resizeGame();
     buildTitle();
     if (OFFLINE_FILE) {
       for (const a of ['create', 'join']) { const b = document.querySelector(`#title [data-act="${a}"]`); b.disabled = true; b.title = OFFLINE_MSG; }

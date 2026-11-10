@@ -128,12 +128,14 @@ export class Autopilot {
       const socket = v.objects.filter((o) => o.kind === 'socket' && o.state === 0).sort((a, b) => a.index - b.index)[0];
       const steps = [];
       if (inRoom) steps.push(...bayExitSteps(bay, bay.template));
+      if(bayIdx>=4&&me.y>50){const passage=v.objects.find(o=>o.kind==='fusePassage'&&o.y>50);if(passage)steps.push({go:passage.stand},{e:1},{wait:.25});}
       if (socket) steps.push({ go: socket.stand || [socket.x, socket.y + 1] }, { face: socket.stand && socket.stand[1]<socket.y?'down':'up' }, { e: 1 }, { wait: 0.2 });
       return this.setScript('socket-' + bayIdx + (inRoom ? 'r' : ''), steps);
     }
     if (part && !part.done && !(part.waiting)) {
       const bay = v.bays[part.bay - 1];
       const inRoom = this._inRect(me.x, me.y, bay.room);
+      if(bay.index>=4&&me.y<50){const passage=v.objects.find(o=>o.kind==='fusePassage'&&o.y<50);if(passage)return this.setScript('fuse-workshop-'+bay.index,[{go:passage.stand},{e:1},{wait:.25}]);}
       const step = part.steps[part.step];
       if (part.step === 0 && !inRoom) return this.setScript('bay-enter-' + bay.index + '-' + bay.template, bayEnterSteps(bay, bay.template));
       if (step && step.label.startsWith('Flip')) {
@@ -168,7 +170,7 @@ export class Autopilot {
           const bench=v.objects.filter(o=>o.kind==='supplies'&&o.public&&!o.state).sort((a,b)=>dist(me.x,me.y,a.x,a.y)-dist(me.x,me.y,b.x,b.y))[0];
           if(bench)return this.setScript('supplies-'+bench.id+'-'+(me.materials||0),[{go:bench.stand||[bench.x,bench.y]},{holdE:1.1},{wait:.1}]);
         }
-        return this.setScript('rescue-'+ramp.id,[{go:[ramp.x,ramp.y+front]},{holdE:2.3},{wait:.2}]);
+        return this.setScript('rescue-'+ramp.id,[{go:[ramp.x,ramp.y+front]},{moveFor:[front===1?'up':'down',.08]},{holdE:2.3},{wait:.2}]);
       }
     }
     // Each operator approaches a distinct control-house entrance.

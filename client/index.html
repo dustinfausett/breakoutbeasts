@@ -99,7 +99,8 @@
     </section>
 
     <section id="hud" class="screen hud" aria-label="Game status">
-      <div id="objectives" class="objectives" aria-live="polite"></div>
+      <button id="objectives-toggle" class="objectives-toggle" type="button" aria-expanded="false" aria-controls="objectives">☷ Objectives</button>
+      <div id="objectives" class="objectives" aria-live="polite" hidden></div>
       <div id="team" class="team"></div>
       <button id="menu-btn" class="btn small menu-btn" data-act="pause" aria-label="Menu (Escape)">☰ Menu</button>
       <div id="waiting" class="waiting" hidden></div>

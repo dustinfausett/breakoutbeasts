@@ -85,6 +85,7 @@ export class Game {
     this.team = this.order.length >= 2;
     this.parts = [];
     this.bayState = z.bays.map((b) => ({ ...b, used: false, part: -1, created: { gates: [], objects: [], crates: [], burrows: [] }, template: null }));
+    if(z.bays.length<this.order.length)throw new Error('The zoo needs a separate fuse bay for every player.');
     this.order.forEach((pid, i) => {
       const p = this.players.get(pid);
       const bay = this.bayState[i];
@@ -645,6 +646,11 @@ export class Game {
 
   _objectInteraction(p, o) {
     switch (o.kind) {
+      case 'fusePassage': return {text:o.label,run:()=>{
+        const [x,y]=o.to;if(!canOccupy(this,p.animal,x+.5,y+.5,null))return this.msg(p,'The stair landing is blocked. Try again in a moment.');
+        p.x=x+.5;p.y=y+.5;p.hold=null;p.hidden=false;p.exposed=false;p.safe=[p.x,p.y];p.grace=Math.max(p.grace,1);
+        this.emit({k:'fusepassage',pid:p.id,name:p.name,wing:y>50?'Fuse workshop — Bays 5–8':'Main yard — Generator'});
+      }};
       case 'controlDoor': return {text:'Enter '+o.label,run:()=>enterControlRoom(this,p,o)};
       case 'supplies':
         if(!o.remaining)return {text:'Empty supply chest',idle:true};
@@ -1274,11 +1280,12 @@ export class Game {
       escape: { done: act.every((p) => p.escaped), players: act.map((p) => ({ name: p.name, animal: p.animal, escaped: p.escaped })) },
       rescue: { n: this.stats.rescued, need: this.requiredRescues, total: this.npcs.length, done: this.stats.rescued >= this.requiredRescues },
       power: {
-        done: this.powerDone(), team: this.team,
+        done: this.powerDone(), team: this.team, rooms:this.parts.length,
+        passageHint:this.parts.some(pt=>pt.bay>=4&&!pt.inserted)?'Bays 5–8: use the FUSE WORKSHOP stairs beside the generator.':null,
         parts: this.parts.map((pt) => {
           const who = pt.pid ? this.players.get(pt.pid) : null;
           const steps = bayStepsFor(pt, this.team);
-          return { i: pt.index, pid: pt.pid, bay: pt.bay + 1, who: who ? who.name : null, animal: who ? who.animal : null, template: pt.template, steps, step: steps.findIndex((s) => !s.done), done: pt.inserted, waiting: !!(who && !who.connected) };
+          return { i: pt.index, pid: pt.pid, bay: pt.bay + 1, location:this.bayState[pt.bay].wing, who: who ? who.name : null, animal: who ? who.animal : null, template: pt.template, steps, step: steps.findIndex((s) => !s.done), done: pt.inserted, waiting: !!(who && !who.connected) };
         }),
       },
       keys: { active: this.keysActive(), need: K, keys, done: exit.state !== 0 },

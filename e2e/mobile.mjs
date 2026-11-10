@@ -6,7 +6,7 @@ export async function run() {
   const srv = await startServer();
   const browser = await chromium.launch();
   try {
-    for (const [label, dev] of [['phone-portrait', devices['iPhone 13']], ['phone-landscape', devices['iPhone 13 landscape']], ['tablet', devices['iPad (gen 7)']]]) {
+    for (const [label, dev] of [['phone-portrait', devices['iPhone 13']], ['phone-landscape', devices['iPhone 13 landscape']], ['tablet', devices['iPad (gen 7)']], ['tablet-landscape', devices['iPad (gen 7) landscape']]]) {
       const ctx = await browser.newContext({ ...dev });
       const page = await ctx.newPage();
       const errs = pageErrors(page, label);
@@ -21,6 +21,16 @@ export async function run() {
       await page.tap('#animals-go');
       await waitFor(async () => (await state(page)).snap, { what: 'game' });
       await page.waitForTimeout(800);
+      R.ok(`${label}: objectives are hidden behind a compact button`,await page.locator('#objectives').isHidden()&&await page.locator('#objectives-toggle').isVisible());
+      const canvasBefore=await page.locator('#game').boundingBox();
+      await page.tap('#objectives-toggle');R.ok(`${label}: objectives open when tapped`,await page.locator('#objectives').isVisible()&&await page.locator('#objectives-toggle').getAttribute('aria-expanded')==='true');
+      await page.tap('#objectives-toggle');R.ok(`${label}: a second tap hides objectives`,await page.locator('#objectives').isHidden());
+      const fit=await page.evaluate(()=>{const r=document.querySelector('#game').getBoundingClientRect(),v=visualViewport;return Math.abs(r.width-v.width)<1&&Math.abs(r.height-v.height)<1;});
+      R.ok(`${label}: the playfield fills the visible viewport`,fit);
+      const canvasAfter=await page.locator('#game').boundingBox();R.ok(`${label}: opening objectives does not shrink the playfield`,canvasBefore.width===canvasAfter.width&&canvasBefore.height===canvasAfter.height);
+      R.ok(`${label}: team stats and caption panels stay off the playfield`,await page.locator('#team').isHidden()&&await page.locator('#captions').isHidden());
+      const controlsFit=await page.evaluate(()=>{const ids=['#stick','#tbtn-e','#tbtn-sp','#tbtn-b'],rs=ids.map(id=>document.querySelector(id).getBoundingClientRect());return rs.every(r=>r.left>=0&&r.top>=0&&r.right<=visualViewport.width&&r.bottom<=visualViewport.height)&&rs.every((r,i)=>rs.every((b,j)=>i===j||r.right<=b.left||b.right<=r.left||r.bottom<=b.top||b.bottom<=r.top));});
+      R.ok(`${label}: joystick and action buttons fit without overlapping`,controlsFit);
       R.ok(`${label}: touch controls are shown`, await page.isVisible('#stick') && await page.isVisible('#tbtn-e') && await page.isVisible('#tbtn-sp'));
       // drive the stick with touch-style pointer events
       const box = await page.locator('#stick').boundingBox();
@@ -52,6 +62,17 @@ export async function run() {
       const hudOverflow = await page.evaluate(() => { const r = document.querySelector('#objectives').getBoundingClientRect(); return r.right <= window.innerWidth && r.bottom <= window.innerHeight; });
       R.ok(`${label}: HUD panels stay on screen`, hudOverflow);
       R.ok(`${label}: no page errors`, errs.length === 0, errs.join(' | '));
+      if(label==='phone-portrait'){
+        await page.tap('#objectives-toggle');
+        const stick=await page.locator('#stick').boundingBox(),x=stick.x+stick.width/2,y=stick.y+stick.height/2;
+        await page.dispatchEvent('#stick','pointerdown',{pointerId:21,clientX:x,clientY:y,pointerType:'touch'});await page.dispatchEvent('#stick','pointermove',{pointerId:21,clientX:x-stick.width/2,clientY:y,pointerType:'touch'});
+        await page.setViewportSize({width:844,height:390});await page.waitForTimeout(450);
+        R.ok('rotation closes objectives and releases the joystick',await page.locator('#objectives').isHidden()&&await page.evaluate(()=>window.__bb.input.touch.mx===0&&window.__bb.input.touch.my===0));
+        const beforeRotateStop=(await state(page)).snap.pl[0];await page.waitForTimeout(450);const afterRotateStop=(await state(page)).snap.pl[0];R.ok('rotation does not leave movement stuck',Math.hypot(afterRotateStop.x-beforeRotateStop.x,afterRotateStop.y-beforeRotateStop.y)<.05);
+        const scale=await page.evaluate(()=>window.__bb.app.renderer.scale/window.__bb.app.renderer.dpr*16);R.ok('landscape keeps animals a readable size',scale>=28);
+        await page.screenshot({path:`${SHOTS}/phone-rotated-landscape.png`});
+        await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);R.ok('rotating back preserves a full-sized playfield',await page.evaluate(()=>Math.abs(document.querySelector('#game').getBoundingClientRect().height-visualViewport.height)<1));
+      }
       await ctx.close();
     }
   } finally { await browser.close(); srv.stop(); }

@@ -373,7 +373,7 @@ export function buildMoonleaf() {
     const cage = addObj({ kind: 'cage', x: bx + 1, y: by + 1, bay: i, label: 'Fuse cage' });
     const breaker = addObj({ kind: 'breaker', x: bx + 3, y: by + 1, bay: i, label: 'Breaker' });
     bays.push({
-      index: i, x: bx, y: by,
+      index: i, x: bx, y: by, wing:i<4?'Main yard':'Fuse workshop',
       door: [bx + 2, by + 4],
       corridor: [[bx + 2, by + 5], [bx + 2, by + 6], [bx + 2, by + 7]],
       room: [bx + 1, by + 1, bx + 3, by + 3],
@@ -396,6 +396,11 @@ export function buildMoonleaf() {
   addObj({ kind: 'can', x: 22, y: 36, label: 'Noisy bin' });
   decor.push({ kind: 'sign', x: 24, y: 27, text: 'Maintenance Yard' });
   decor.push({ kind: 'sign', x: 7, y: 33, text: 'Generator' });
+
+  // Direct, clearly marked stairs connect both banks of four fuse bays.
+  // Players no longer need to discover the long perimeter path to the annex.
+  addObj({kind:'fusePassage',x:21,y:34,stand:[20,34],to:[21,66],label:'FUSE WORKSHOP 5–8 · E'});
+  addObj({kind:'fusePassage',x:22,y:67,stand:[21,67],to:[20,34],label:'BACK TO GENERATOR · E'});
 
   // --- West garden (x24..29) ---
   rect(25, 17, 28, 26, T.HEDGE);

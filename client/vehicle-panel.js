@@ -24,6 +24,7 @@ export function mountVehiclePanel(sender){
  },true);
  window.addEventListener('keyup',e=>{const shortcut=shortcuts[e.code];if(shortcut&&held.get(shortcut[0])?.pointer==='shortcut-'+e.code){e.preventDefault();e.stopPropagation();release(shortcut[0]);}},true);
  document.addEventListener('keydown',e=>{if(e.code==='Escape')releaseAll();},true);
+ window.addEventListener('resize',releaseAll);
  window.addEventListener('blur',releaseAll);document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseAll();});
  setInterval(()=>{for(const [id,h] of held)transmit(id,h.value);},100);
 }

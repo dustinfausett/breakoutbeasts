@@ -29,12 +29,13 @@ export class Renderer {
 
   resize() {
     const dpr = Math.min(3, window.devicePixelRatio || 1);
-    const W = Math.floor(window.innerWidth * dpr), H = Math.floor(window.innerHeight * dpr);
+    const width=window.visualViewport?.width||innerWidth,height=window.visualViewport?.height||innerHeight;
+    const W = Math.floor(width * dpr), H = Math.floor(height * dpr);
     this.canvas.width = W; this.canvas.height = H;
-    this.canvas.style.width = window.innerWidth + 'px'; this.canvas.style.height = window.innerHeight + 'px';
+    this.canvas.style.width = width + 'px'; this.canvas.style.height = height + 'px';
     this.dpr = dpr;
     const landscape = W >= H;
-    const tx = landscape ? 24 : 13, ty = landscape ? 14 : 20;
+    const tx = landscape ? (this.settings.compactHUD?22:24) : 13, ty = landscape ? (this.settings.compactHUD?11:14) : 20;
     this.scale = Math.max(1, Math.floor(Math.min(W / (TS * tx), H / (TS * ty))));
     this.light.width = Math.ceil(W / 2); this.light.height = Math.ceil(H / 2);
   }
@@ -302,6 +303,16 @@ export class Renderer {
       const [sx,sy]=toS(o.x+.5,o.y);
       label(o.kind==='supplies'?'Salvage · hold E':o.kind==='escapeBuild'?'Ramp site · hold E':'Soil site · hold E',sx,sy-3*S,'#ffe9b0');
     }
+    for(const passage of w.defs.objects.filter(o=>o.kind==='fusePassage')){
+      if(Math.hypot(passage.x+.5-me.x,passage.y+.5-me.y)>7||!visible(passage.x+.5,passage.y+.5))continue;
+      const [sx,sy]=toS(passage.x+.5,passage.y);label(passage.label,sx,sy-3*S,'#ffe29a');
+    }
+    for(const bay of w.defs.bays){
+      const entrance=w.zoo.bays[bay.index].entrance;
+      if(Math.hypot(entrance[0]+.5-me.x,entrance[1]+.5-me.y)>11||!visible(entrance[0]+.5,entrance[1]+.5))continue;
+      const mine=snap.obj.power.parts.some(p=>p.pid===me.id&&p.bay===bay.index+1),[sx,sy]=toS(entrance[0]+.5,entrance[1]+.5);
+      label(bay.used?`FUSE ${bay.index+1}${mine?' · YOURS':''}`:`Unused bay ${bay.index+1}`,sx,sy, bay.used?'#ffe29a':'#98a59f');
+    }
     for (const p of players) {
       if (p.car || (p.s & PF.UNDER)) continue;
       if(this.settings.hard && p.id===me.id)continue;
@@ -315,8 +326,8 @@ export class Renderer {
       else if (!p.con) tag += ' (offline)';
       label(tag, sx, top, mine ? '#ffe36a' : '#ffffff');
       if(p.mu)label('MUZZLED',sx,top-fs*1.35,'#ffb796');
-      if (p.c) label(p.c === 'wood' ? 'carrying log' : 'carrying fuse', sx, top - fs * 1.35, '#ffd27a');
-      if (mine) label(this.world.zoo.id==='parking'?`Car keys: ${p.ck||0}`:`Cage keys: ${p.ck || 0} · Bundles: ${p.supplies || 0}/2`, sx, top - fs * 2.7, '#ffe36a');
+      if (p.c&&!this.settings.compactHUD) label(p.c === 'wood' ? 'carrying log' : 'carrying fuse', sx, top - fs * 1.35, '#ffd27a');
+      if (mine&&!this.settings.compactHUD) label(this.world.zoo.id==='parking'?`Car keys: ${p.ck||0}`:`Cage keys: ${p.ck || 0} · Bundles: ${p.supplies || 0}/2`, sx, top - fs * 2.7, '#ffe36a');
     }
     for (const b of this.bubbles) {
       const p = players.find((q) => q.id === b.pid); if (!p) continue;
@@ -358,7 +369,7 @@ export class Renderer {
       ctx.setTransform(1,0,0,1,0,0);
       const [sx,sy]=toS(me.x,me.y);
       label(me.n+(me.mu?' · MUZZLED':''),sx,sy-18*S,'#ffe36a');
-      label(this.world.zoo.id==='parking'?`Car keys: ${me.ck||0}`:`Cage keys: ${me.ck||0} · Bundles: ${me.supplies||0}/2`,sx,sy-18*S-fs*1.4,'#ffe36a');
+      if(!this.settings.compactHUD)label(this.world.zoo.id==='parking'?`Car keys: ${me.ck||0}`:`Cage keys: ${me.ck||0} · Bundles: ${me.supplies||0}/2`,sx,sy-18*S-fs*1.4,'#ffe36a');
     }
     ctx.setTransform(1,0,0,1,0,0);
   }
@@ -400,6 +411,7 @@ export class Renderer {
     }
     switch (o.kind) {
       case 'vehicle': break;
+      case 'fusePassage': ctx.fillStyle='#172538';ctx.fillRect(ox,oy,16,16);for(let i=0;i<4;i++){ctx.fillStyle=i%2?'#b9a96d':'#dbc78d';ctx.fillRect(ox+2+i*3,oy+11-i*3,12-i*3,3);}ctx.strokeStyle='#ffe29a';ctx.strokeRect(ox,oy,16,16);break;
       case 'controlDoor':
         ctx.fillStyle=state?'#182b29':'#745737';ctx.fillRect(ox+1,oy,14,16);ctx.strokeStyle='#bba56b';ctx.strokeRect(ox+1,oy,14,16);ctx.fillStyle='#ffe4a0';ctx.font='bold 8px monospace';ctx.textAlign='center';ctx.fillText(String.fromCharCode(65+o.index),ox+8,oy+10);break;
       case 'supplies':

@@ -6,9 +6,9 @@ function board(g,p){const o=g.obj('getaway');p.x=o.stand[0]+.5;p.y=o.stand[1]+.5
 function aboard(g){g.activePlayers()[0].cageKeys=1;for(const p of g.activePlayers())board(g,p);}
 function setupRoom(n=2){const out=[];const r=new Room({code:'ABCDE',options:{staff:false},send:(id,m)=>out.push({id,...m})});for(const p of players(n)){const a=r.addPlayer(p.name).player;r.handle(a.id,{t:'pick',animal:p.animal});r.handle(a.id,{t:'ready',ready:true});}r.handle(r.hostId,{t:'start'});return {r,out};}
 
-test('keeper pressure scales from four to ten in the zoo and from two to six in the lot',()=>{
+test('keeper pressure scales from six to nine in the zoo and from two to six in the lot',()=>{
  for(let n=1;n<=8;n++){
-  const g=new Game({players:players(n)});assert.equal(g.staff.length,4+Math.max(0,n-2));assert.equal(new Set(g.staff.map(s=>s.x+','+s.y)).size,g.staff.length);
+  const g=new Game({players:players(n)});assert.equal(g.staff.length,[6,6,7,7,8,8,9,9][n-1]);assert.equal(new Set(g.staff.map(s=>s.x+','+s.y)).size,g.staff.length);
   for(const s of g.staff){assert.ok(g._staffPass(Math.floor(s.x),Math.floor(s.y)));for(const target of s.route)assert.ok(bfs(g.w,g.h,Math.floor(s.x),Math.floor(s.y),target,(x,y)=>g._staffPass(x,y)),'connected keeper patrol');}
   const pg=lot(n,true);assert.equal(pg.staff.length,2+Math.floor(n/2));for(const s of pg.staff)for(const target of s.route)assert.ok(bfs(pg.w,pg.h,Math.floor(s.x),Math.floor(s.y),target,(x,y)=>pg._staffPass(x,y)),'reachable parking patrol');
  }

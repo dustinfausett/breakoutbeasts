@@ -1,5 +1,5 @@
 // Team size determines patrol pressure at the beginning of each mission.
-export const zooKeeperCount=n=>4+Math.max(0,n-2);
+export const zooKeeperCount=n=>6+Math.floor((Math.max(1,n)-1)/2);
 export const parkingKeeperCount=n=>2+Math.floor(n/2);
 export function makeKeepers(routes,count){return Array.from({length:count},(_,i)=>{
  const r=routes[i%routes.length],[x,y]=r.route[r.start];

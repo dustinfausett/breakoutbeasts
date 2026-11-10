@@ -439,7 +439,7 @@ Validation for the yard repair: 108/108 Node tests passed, including all 1,012 a
 
 ## Parking-lot chapter and keeper scaling
 
-Zoo patrols now scale at mission start: 1–2 players face four keepers, then each additional player adds one keeper, reaching ten for eight players. Added patrols use separate connected routes. Leaving a mission does not despawn its patrols.
+Zoo patrols now scale at mission start: 1–2 players face six keepers, 3–4 face seven, 5–6 face eight, and 7–8 face nine. Added patrols use separate connected routes. Leaving a mission does not despawn its patrols.
 
 After escaping Moonleaf Zoo, results include **Continue**. The host moves the active crew into the shared parking-lot chapter; disconnected teammates must reconnect first. Names and animals stay the same. Zoo keys are left behind, so players must steal fresh car keys from a parking-lot keeper. The lot contains three rows of parked cars, planted hiding islands large enough for bigger animals, and a gold getaway wagon. Cars block walking and sight. Parking patrols scale from two keepers for solo play to six for eight players. Capture confiscates the animal’s keys and returns it to the zoo service exit.
 

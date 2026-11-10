@@ -10,7 +10,7 @@ export async function run({players=2,mobile=false}={}){
    await page.click(`[data-animal="${animals[i]}"]`);await page.click('#animals-go');if(i)await page.click('#lobby-ready');
   }
   const host=pages[0];await host.bringToFront();await host.click('#lobby-start');const room=[...srv.rooms.values()][0];await waitFor(()=>room.game);
-  R.ok('keeper count scales with the crew',room.game.staff.length===4+Math.max(0,players-2));
+  R.ok('keeper count scales with the crew',room.game.staff.length===[6,6,7,7,8,8,9,9][players-1]);
   // Isolate the new stage transition; the complete zoo mission is covered by
   // the composition sweep and existing WebSocket integration tests.
   room.game.phase='complete';await waitFor(()=>host.locator('#complete.show').isVisible());

@@ -162,6 +162,7 @@ export class Room {
         if(remaining.some(p=>!p.connected))return this.error(pid,'waiting','Wait for your teammates to reconnect before continuing.');
         this.startMission(this.game.zooId==='parking'?'city':'parking');break;
       }
+      case 'rescue': if(this.phase==='playing')this.game?.rescueAction?.(pid,msg);break;
       case 'city': if(this.phase==='playing')this.game?.cityAction?.(pid,msg);break;
       case 'vehicle': if(this.phase==='playing')this.game?.vehicleAction?.(pid,msg);break;
       case 'panel': this.game?.controlAction(pid,msg);break;

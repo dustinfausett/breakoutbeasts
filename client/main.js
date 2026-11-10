@@ -1,3 +1,5 @@
+import {mountLiveMap,updateLiveMap} from './live-map.js';
+import {mountRescueUI,updateRescueUI} from './rescue-ui.js';
 import {mountCityUI,updateCityUI} from './city-ui.js';
 import { mountVehiclePanel, updateVehiclePanel, updateKeyFob } from './vehicle-panel.js';
 // Breakout Beasts! client controller: menus, lobby, HUD, game loop, audio and captions.
@@ -36,6 +38,7 @@ const app = {
 };
 const input = new Input();
 const audio = new Audio();
+window.addEventListener('beasts-radio',e=>{audio.unlock();audio.station=e.detail;audio.play('click');});
 window.__bb = { app, settings };
 
 // ---------------- screens ----------------
@@ -255,7 +258,7 @@ function connStatus(state, info) {
 
 // ---------------- game ----------------
 function enterGame(msg) {
-  updateCityUI(null,null,null);
+  updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
   setObjectivesOpen(false);
   app.wasInCar=false;
   updateKeyFob(false);
@@ -275,7 +278,7 @@ function enterGame(msg) {
 }
 
 function leaveGameView(toLobby) {
-  updateCityUI(null,null,null);
+  updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
   updateKeyFob(false);
   updateVehiclePanel(null);
   app.inGame = false;
@@ -357,6 +360,13 @@ function handleEvent(ev) {
     case 'adapt': caption('Tasks adjusted for the remaining team. Finished work was kept.', 'good'); break;
     case 'unlock': audio.play('pickup'); break;
     case 'keyturn': audio.play('click'); break;
+    case 'districtrescue': caption(`The ${ev.species} is running free!`,'good');audio.play('rescue');break;
+    case 'visitorcalling': caption('A visitor saw the release and is calling the guards!','alert');break;
+    case 'visitordescription': caption('Guard lookout: '+ev.description,'alert');break;
+    case 'districtsignal': caption('All habitat signal consoles complete. Release the remaining animals!','good');break;
+    case 'districtpanelraid': caption('The signal-house guards broke in. Rescue the team and try the consoles again.','alert');break;
+    case 'districtcagerescue': caption('The zoo rescue cage is open!','good');break;
+    case 'flightdeparted': caption('All animals rescued. Wildwing crew is airborne!','good');break;
     case 'cash': if(ev.pid===app.myId)caption(`Collected $${ev.amount}.`,'good');break;
     case 'controlcalled': caption('Animal control called! Get out of the bank within 2 minutes.','alert');break;
     case 'controlarrived': caption('Animal control arrived! Anyone still in the bank is captured.','alert');break;
@@ -382,11 +392,11 @@ function onEnd(res) {
   app.results = res;
   input.releaseAll();
   const mins = Math.floor(res.time / 60), secs = String(res.time % 60).padStart(2, '0');
-  $('#complete-h').textContent=res.stage==='city'?'City explored!':res.stage==='parking'?'Parking lot escaped!':'Zoo escaped!';
-  $('#complete .tagline').textContent=res.stage==='parking'?'The crew drove through the exit. Continue into Breakout City.':'You escaped the zoo. The parking lot is next.';
+  $('#complete-h').textContent=res.stage==='city'?(res.flightEscaped?'All animals free — plane escaped!':'City explored!'):res.stage==='parking'?'Parking lot escaped!':'Zoo escaped!';
+  $('#complete .tagline').textContent=res.flightEscaped?'The rescue crew is airborne. Every animal is free!':res.stage==='parking'?'The crew drove through the exit. Continue into Breakout City.':'You escaped the zoo. The parking lot is next.';
   const continueButton=document.querySelector('[data-act="continue"]');continueButton.hidden=!['parking','city'].includes(res.next);continueButton.disabled=app.lobby?.hostId!==app.myId;
   $('#complete-stats').innerHTML = `<p><b>${esc(res.zoo)}</b> escaped in <b>${mins}:${secs}</b></p>
-    ${res.stage==='parking'?'<p>Getaway wagon stolen · every animal has a car responsibility.</p>':`<p>Animals freed: <b>${res.rescued}/${res.total}</b>${res.rescued === res.total ? ' — every animal is free! ★' : ''}</p>`}
+    ${res.flightEscaped?`<p>All ${res.districtTotal} zoo and pet-store animals rescued. The whole crew flew away!</p>`:res.stage==='parking'?'<p>Getaway wagon stolen · every animal has a car responsibility.</p>':`<p>Animals freed: <b>${res.rescued}/${res.total}</b>${res.rescued === res.total ? ' — every animal is free! ★' : ''}</p>`}
     <p>Times caught: <b>${res.captures}</b>${res.captures === 0 ? ' — perfectly sneaky! ★' : ''}</p>
     <div class="players">${res.players.map((p) => `<span><img src="${portraitURL(p.animal)}" alt="">${esc(p.name)}${p.active ? '' : ' (left)'}</span>`).join('')}</div>`;
   const isHost = app.lobby?.hostId === app.myId;
@@ -439,6 +449,7 @@ function updateHUD() {
   h += `<div class="now">➤ ${esc(now)}</div>`;
   }
   if(o.parking?.holding?.captured)h+=`<p class="o">${o.parking.holding.captured} animals in the holding cage. ${o.parking.holding.allCaptured?'Everyone hold E at separate walls!':'An uncaptured animal can open its door.'}</p>`;
+  if(o.stage==='city'&&s.rescue){const r=s.rescue,mine=r.power.team.find(p=>p.id===app.myId),zoo=r.animals.filter(a=>a.scene!=='petstore'&&a.state==='escaped').length,pets=r.animals.filter(a=>a.scene==='petstore'&&a.state==='escaped').length;h=`<h4 id="obj-h">City rescue — objectives</h4><div class="detail"><p>Find cash at Cedar Bank. Buy disguises at Second Paw Thrift.</p><div class="o">${ck(r.power.done)}Habitat relays: ${r.power.inserted}/${r.power.need}</div>${mine?`<div class="sub">Your fuse: ${mine.index+1} · ${mine.index<4?'zoo gardens':mine.index<6?'upper terrace':'wetlands & bird house'} · ${mine.inserted?'connected':mine.collected?'bring it to the garden generator':'find and collect it'}</div>`:''}<div class="o">${ck(r.signal)}Habitat signal house: five tasks per player</div><div class="o">${ck(zoo===12)}Zoo animals safely free: ${zoo}/12</div><div class="o">${ck(pets===4)}Pet-store animals safely free: ${pets}/4</div><div class="now">${r.freed===r.total?'All animals free! Enter Wildwing Airport, board the plane and operate your flight controls.':'Use stairs and animal houses to reach every habitat. Each numbered team handle needs its own operator.'}</div><p>Keepers can identify a reported outfit. Change clothes or break sight and hide in bushes.</p></div>`;}
   const box = $('#objectives');
   if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h;  }
 
@@ -472,6 +483,7 @@ function updateHUD() {
 
   // prompts
   const pm = s.me;
+  updateLiveMap(w);updateRescueUI(s.rescue,pm);
   updateCityUI(pm,o.parking?.city,w.zoo);
   updateControlPanel(pm?.control||null);
   const inCar=s.phase==='play'&&!!pm?.vehicle;
@@ -531,6 +543,7 @@ function gameTick() {
   if (app.bot && w.snap.me) inp = app.bot.update(clientView(), TICK);
   else inp = (app.overlay && app.overlay !== 'complete') ? { mx: 0, my: 0, sp: false, e: false } : input.state();
   if (app.overlay === 'complete') inp = { mx: 0, my: 0, sp: false, e: false };
+  if(inp.rescue)app.link?.send({t:'rescue',...inp.rescue});
   if(inp.vehicle)app.link?.send({t:'vehicle',...inp.vehicle});
   if(inp.panel)app.link?.send({t:'panel',...inp.panel});
   if(AUTOPILOT&&w.snap.me?.control?.instruction&&performance.now()-app.lastRelay>500){
@@ -549,8 +562,9 @@ function clientView() {
   return {
     panel:s.me?.control,teamClues:Object.values(app.teamClues),
     world: w, zoo: w.zoo, staff:s.st,
+    rescue:s.rescue,flight:s.me?.flight,
     vehicle:s.me?.vehicle,
-    me: { caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
+    me: { location:me.location,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
     obj: s.obj,
     objects: d.objects.map((o, i) => ({ ...o, state: s.os[i] })),
     gates: d.gates.map((g, i) => ({ ...g, state: Number(s.g[i]) })),
@@ -593,7 +607,7 @@ function startSolo() {
 }
 
 function toTitle() {
-  updateCityUI(null,null,null);updateVehiclePanel(null);updateKeyFob(false);updateControlPanel(null);
+  updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);updateVehiclePanel(null);updateKeyFob(false);updateControlPanel(null);
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.link = null; app.mode = null; app.lobby = null; app.inGame = false; app.world = null;
   audio.stopMusic();
@@ -710,6 +724,7 @@ function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 // ---------------- boot ----------------
 async function boot() {
   try {
+    mountLiveMap();mountRescueUI(msg=>app.link?.send(msg));
     mountCityUI(msg=>app.link?.send(msg));
     mountControlPanel(msg=>app.link?.send(msg));
     mountVehiclePanel(msg=>app.link?.send(msg));

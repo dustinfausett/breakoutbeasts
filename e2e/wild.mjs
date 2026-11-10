@@ -46,7 +46,7 @@ export async function run(){
   p.x=friend.x-1;p.y=friend.y;p.face='right';p.biteCool=0;p.capturedT=0;p.grace=5;
   await host.keyboard.down('b');await host.waitForTimeout(2800);await host.keyboard.up('b');await waitFor(()=>!friend.muzzled,{what:'teammate bites off muzzle',timeout:5000}).catch(e=>{console.log('Muzzle fixture',JSON.stringify({p:{x:p.x,y:p.y,mu:p.muzzled,cap:p.capturedT,face:p.face,input:p.input,prevB:p.prevB,biteCool:p.biteCool},friend:{x:friend.x,y:friend.y,cap:friend.capturedT,mu:friend.muzzled}}));throw e;});
   R.ok('a real teammate can bite off the muzzle',true);
-  R.ok('minimap and map toggle are absent',await guest.locator('#minimap').count()===0);
+  R.ok('the expandable live map is available',await guest.locator('#live-map').isVisible());
   await guest.keyboard.press('m');
   await guest.bringToFront();
   g.staff=[];friend.x=20.5;friend.y=15.5;friend.face='right';friend.input={mx:0,my:0};

@@ -79,7 +79,7 @@ export async function run({players=2,mobile=false,hard=false,landscape=false}={}
   await waitFor(()=>room.phase==='complete',{what:'cooperative car theft'});
   await waitFor(()=>host.locator('#complete-h').innerText().then(s=>s==='Parking lot escaped!'));
   R.ok('correct shared controls steal the car and show the next result',room.results.carStolen&&room.results.stage==='parking');
-  await host.locator('[data-act="continue"]').click();await waitFor(()=>room.game.zooId==='city');await waitFor(()=>host.evaluate(()=>window.__bb.app.world?.zoo.id==='city'));R.ok('Continue loads the large shared city driving map',room.game.zoo.destinations.length===9);await host.waitForTimeout(250);await host.screenshot({path:`${SHOTS}/city-driving-${players}${mobile?'-mobile':''}p.png`});
+  await host.locator('[data-act="continue"]').click();await waitFor(()=>room.game.zooId==='city');await waitFor(()=>host.evaluate(()=>window.__bb.app.world?.zoo.id==='city'));R.ok('Continue loads the large shared city driving map',room.game.zoo.destinations.length===10);await host.waitForTimeout(250);await host.screenshot({path:`${SHOTS}/city-driving-${players}${mobile?'-mobile':''}p.png`});
   R.ok('new stage has no browser errors',errors.every(e=>!e.length),errors.flat().join(' | '));
  }finally{await browser.close();await srv.close();}return R;
 }

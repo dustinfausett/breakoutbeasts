@@ -42,23 +42,25 @@ export class Renderer {
   }
 
   setWorld(world) {
-    this.world = world;
-    const z = world.zoo;
-    this.map = document.createElement('canvas');
-    this.map.width = z.w * TS * (z.id==='city'?1:3); this.map.height = z.h * TS * (z.id==='city'?1:3);
-    this.mctx = this.map.getContext('2d');this.mctx.scale(z.id==='city'?1:3,z.id==='city'?1:3);this.mctx.imageSmoothingEnabled=false;
-    this.redrawAll();
-    this.fx = []; this.bubbles = [];
+    this.world=world;this._setMapArea(world.zoo.id==='city'?[0,0,159,127]:[0,0,world.w-1,world.h-1]);
+    this.fx=[];this.bubbles=[];
   }
 
-  redrawAll() {
-    const w = this.world, z = w.zoo;
-    for (let y = 0; y < z.h; y++) for (let x = 0; x < z.w; x++) this._drawTile(x, y);
-    this._drawStaticDecor();
-    w.changedTiles = []; w.dirtyTiles = false;
+  _setMapArea(rect){
+    const [x,y,x1,y1]=rect,scale=this.world.zoo.id==='city'?1:3;
+    this.mapBounds={x,y,w:x1-x+1,h:y1-y+1,key:rect.join(',')};
+    this.map=this.map||document.createElement('canvas');this.map.width=this.mapBounds.w*TS*scale;this.map.height=this.mapBounds.h*TS*scale;
+    this.mctx=this.map.getContext('2d');this.mctx.setTransform(scale,0,0,scale,-x*TS*scale,-y*TS*scale);this.mctx.imageSmoothingEnabled=false;this.redrawAll();
+  }
+
+  redrawAll(){
+    const b=this.mapBounds;
+    for(let y=b.y;y<b.y+b.h;y++)for(let x=b.x;x<b.x+b.w;x++)this._drawTile(x,y);
+    this._drawStaticDecor();this.world.changedTiles=[];this.world.dirtyTiles=false;
   }
 
   _drawTile(x, y) {
+    const b=this.mapBounds;if(x<b.x||y<b.y||x>=b.x+b.w||y>=b.y+b.h)return;
     const w = this.world, z = w.zoo;
     const i = y * z.w + x;
     drawTile(this.mctx, w.tiles[i], x, y, x * TS, y * TS, z.themes[z.theme[i]], null);
@@ -68,6 +70,8 @@ export class Renderer {
     const g = this.mctx;
     for (const d of this.world.zoo.decor) {
       const ox = d.x * TS, oy = d.y * TS;
+      if(d.kind==='runway'){g.fillStyle='#596064';g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle='#eee5c4';for(let y=24;y<d.h*16;y+=56)g.fillRect(ox+d.w*8-5,oy+y,10,26);g.strokeStyle='#e7dfc0';g.lineWidth=3;g.strokeRect(ox+8,oy+8,d.w*16-16,d.h*16-16);continue;}
+      if(d.kind==='plane')continue;
       if(d.kind==='parkingBay'){g.strokeStyle='#d8d8b7';g.lineWidth=1;g.strokeRect(ox,oy,d.w*16,d.h*16);continue;}
       if(d.kind==='interiorSign'){g.fillStyle='#e6c879';g.font='bold 12px monospace';g.textAlign='left';g.fillText(d.text,ox,oy);continue;}
       if(d.kind==='cityCounter'||d.kind==='clothesRack'){g.fillStyle=d.kind==='cityCounter'?'#6b756e':'#7b6452';g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle='#c4b594';g.fillRect(ox,oy,d.w*16,4);if(d.kind==='clothesRack')for(let i=5;i<d.w*16;i+=14){g.fillStyle=['#db7855','#6679bd','#72a06c'][Math.floor(i/14)%3];g.fillRect(ox+i,oy+5,10,16);}continue;}
@@ -143,10 +147,11 @@ export class Renderer {
   draw(now, dt, view) {
     const ctx = this.ctx, w = this.world;
     if (!w || !w.snap || !w.defs) return;
+    if(w.zoo.id==='city'){const area=w.zoo.interiors?.[w.me()?.location]?.rect||[0,0,159,127];if(area.join(',')!==this.mapBounds.key)this._setMapArea(area);}
     if(w.dirtyDecor){this.redrawAll();w.dirtyDecor=false;}
     if (w.dirtyTiles) { this.updateTiles(); w.dirtyTiles = false; }
     this._stepFx(dt);
-    const S = this.scale;
+    let S = this.scale;
     const W = this.canvas.width, H = this.canvas.height;
     const ip = w.interp(now);
     const sA = ip.a, sB = ip.b, k = ip.k;
@@ -164,11 +169,12 @@ export class Renderer {
 
     // camera
     const me = players.find((p) => p.id === w.myId) || players[0] || { x: 40, y: 28 };
+    if(me.plane)S=1;
     const viewW = W / S, viewH = H / S;
     let cx = me.x * TS - viewW / 2, cy = me.y * TS - viewH / 2;
-    cx = Math.max(0, Math.min(w.w * TS - viewW, cx)); cy = Math.max(0, Math.min(w.h * TS - viewH, cy));
-    if (viewW > w.w * TS) cx = (w.w * TS - viewW) / 2;
-    if (viewH > w.h * TS) cy = (w.h * TS - viewH) / 2;
+    const bounds=this.mapBounds,left=bounds.x*TS,top=bounds.y*TS,width=bounds.w*TS,height=bounds.h*TS;
+    cx=Math.max(left,Math.min(left+width-viewW,cx));cy=Math.max(top,Math.min(top+height-viewH,cy));
+    if(viewW>width)cx=left+(width-viewW)/2;if(viewH>height)cy=top+(height-viewH)/2;
     cx = Math.round(cx); cy = Math.round(cy);
     this.cam = { x: cx, y: cy };
     const toS = (x, y) => [Math.round((x * TS - cx) * S), Math.round((y * TS - cy) * S)];
@@ -187,7 +193,7 @@ export class Renderer {
     const visible=()=>true;
     if(this.settings.hard)staff=staff.filter(s=>animalCanSeeGuard(visionWorld,observer,s.x,s.y));
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.map, 0, 0,w.w*TS,w.h*TS);
+    ctx.drawImage(this.map,this.mapBounds.x*TS,this.mapBounds.y*TS,this.mapBounds.w*TS,this.mapBounds.h*TS);
 
     const x0 = Math.max(0, Math.floor(cx / TS) - 1), y0 = Math.max(0, Math.floor(cy / TS) - 1);
     const x1 = Math.min(w.w - 1, Math.ceil((cx + viewW) / TS) + 1), y1 = Math.min(w.h - 1, Math.ceil((cy + viewH) / TS) + 1);
@@ -241,15 +247,18 @@ export class Renderer {
     if(car&&visible(car.x,car.y)){
       ctx.save();ctx.translate(car.x*TS,car.y*TS);ctx.rotate(car.angle);carArt(ctx,-32,-24,64,48,car.colorIndex||0);ctx.restore();
     }
+    const plane=snap.rescue?.flight;
+    if(plane){ctx.save();ctx.translate(plane.x*TS,plane.y*TS);ctx.fillStyle='#c8d9d5';ctx.beginPath();ctx.moveTo(0,-125);ctx.lineTo(18,-75);ctx.lineTo(18,-10);ctx.lineTo(230,52);ctx.lineTo(225,78);ctx.lineTo(18,47);ctx.lineTo(15,115);ctx.lineTo(75,140);ctx.lineTo(70,151);ctx.lineTo(0,137);ctx.lineTo(-70,151);ctx.lineTo(-75,140);ctx.lineTo(-15,115);ctx.lineTo(-18,47);ctx.lineTo(-225,78);ctx.lineTo(-230,52);ctx.lineTo(-18,-10);ctx.lineTo(-18,-75);ctx.closePath();ctx.fill();ctx.strokeStyle='#577982';ctx.lineWidth=4;ctx.stroke();ctx.fillStyle='#275065';ctx.fillRect(-12,-70,24,22);ctx.fillStyle='#e0ae65';ctx.fillRect(-18,2,36,6);ctx.restore();}
     // City customers share depth sorting with animals and keepers.
     const humans=snap.humans||[];
     // characters sorted by y
     const ents = [];
     for (const n of npcs) ents.push({ y: n.y, draw: () => this._drawAnimal(ctx, n.a, n.x, n.y, n.f || 'down', n.mv, 0, now, { npc: true, state: n.s }) });
     for (const p of players) {
-      if (p.car || (p.s & PF.UNDER)) continue;
+      if (p.car || p.plane || (p.s & PF.UNDER)) continue;
       ents.push({ y: p.y, draw: () => this._drawPlayer(ctx, p, now) });
     }
+    for(const a of snap.rescue?.animals||[])if(a.state!=='escaped')ents.push({y:a.y,draw:()=>this._drawAnimal(ctx,'rescue_'+a.species,a.x,a.y,a.face,a.moving,0,now,{action:a.moving?'run':'walk'})});
     for(const human of humans)ents.push({y:human.y,draw:()=>this._drawHuman(ctx,human,now)});
     for (const s of staff) ents.push({ y: s.y, draw: () => this._drawStaff(ctx, s, now) });
     ents.sort((a, b) => a.y - b.y);
@@ -313,7 +322,7 @@ export class Renderer {
       label(bay.used?`FUSE ${bay.index+1}${mine?' · YOURS':''}`:`Unused bay ${bay.index+1}`,sx,sy, bay.used?'#ffe29a':'#98a59f');
     }
     for (const p of players) {
-      if (p.car || (p.s & PF.UNDER)) continue;
+      if (p.car || p.plane || (p.s & PF.UNDER)) continue;
       const [sx, sy] = toS(p.x, p.y);
       const top = sy - 18 * S;
       const mine = p.id === w.myId;
@@ -401,6 +410,11 @@ export class Renderer {
     }
     switch (o.kind) {
       case 'vehicle': break;
+      case 'districtLink':ctx.fillStyle='#bdad79';for(let i=0;i<4;i++)ctx.fillRect(ox+i*3,oy+12-i*3,15-i*3,3);ctx.fillStyle='#fff1ae';ctx.font='bold 8px monospace';ctx.fillText('↕',ox+4,oy-2);break;
+      case 'rescueFuse':if(!state){ctx.fillStyle='#e5ba4f';ctx.fillRect(ox+4,oy+1,8,13);ctx.fillStyle='#e5f2d5';ctx.fillRect(ox+6,oy+4,4,6);}break;
+      case 'rescueLock':case 'rescueTeam':case 'rescuePanel':case 'rescueLatch':ctx.fillStyle=state?'#79b87b':'#c18758';ctx.fillRect(ox+2,oy+2,12,12);ctx.fillStyle='#283c42';ctx.fillRect(ox+5,oy+4,6,5);if(o.index!=null){ctx.fillStyle='#fff0aa';ctx.font='bold 7px monospace';ctx.textAlign='center';ctx.fillText(String(o.index+1),ox+8,oy+11);}break;
+      case 'rescueGenerator':ctx.fillStyle='#718389';ctx.fillRect(ox-5,oy-8,26,24);ctx.fillStyle=state?'#9cdd94':'#d2a74e';for(let i=0;i<3;i++)ctx.fillRect(ox+i*5,oy,3,3);break;
+      case 'boardPlane':ctx.fillStyle='#e0c49a';for(let i=0;i<4;i++)ctx.fillRect(ox+i*3,oy+13-i*3,15-i*3,3);break;
       case 'cityDoor':ctx.fillStyle='#23464c';ctx.fillRect(ox+1,oy,14,16);ctx.strokeStyle='#ffe9a1';ctx.strokeRect(ox+1,oy,14,16);ctx.fillStyle='#ffe9a1';ctx.fillRect(ox+10,oy+8,2,2);break;
       case 'vaultWheel':ctx.strokeStyle='#e7c76f';ctx.lineWidth=2;ctx.beginPath();ctx.arc(ox+8,oy+8,9,0,Math.PI*2);ctx.moveTo(ox-1,oy+8);ctx.lineTo(ox+17,oy+8);ctx.moveTo(ox+8,oy-1);ctx.lineTo(ox+8,oy+17);ctx.stroke();break;
       case 'vaultCash':ctx.fillStyle='#55905d';for(let i=0;i<4;i++){ctx.fillRect(ox+i*3,oy+8-i*3,14,5);ctx.fillStyle='#bad69b';ctx.fillRect(ox+i*3+6,oy+8-i*3,2,5);ctx.fillStyle='#55905d';}break;
@@ -474,7 +488,7 @@ export class Renderer {
   _drawAnimal(ctx, animal, x, y, face, moving, wobble, now, opts = {}) {
     const img = this._sprite(animal, face, moving, now,opts.action);
     const bob = !moving && !this.settings.reducedMotion ? (Math.floor(now / 500 + x) % 2) : 0;
-    const iw=IMAGES.actors?24:16,ih=iw;
+    const iw=animal.startsWith('rescue_')?24:IMAGES.actors?24:16,ih=iw;
     const dx = Math.round(x * TS - iw / 2), dy = Math.round(y * TS - ih + 6 - bob);
     ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(Math.round(x * TS - 5), Math.round(y * TS + 4), 10, 2);
     if (wobble) { ctx.save(); ctx.translate(x * TS, y * TS + 6); ctx.rotate(Math.sin(now / 90) * 0.25 * wobble); ctx.drawImage(img, -iw/2, -ih,iw,ih); ctx.restore(); }
@@ -507,8 +521,8 @@ export class Renderer {
   }
 
   _drawHuman(ctx,n,now){
-    ctx.save();ctx.translate(n.x*TS,n.y*TS);if(n.asleep){ctx.rotate(Math.PI/2);ctx.translate(-4,0);}const bob=n.asleep?0:Math.floor(now/220+n.x)%2;
-    ctx.fillStyle=['#66849e','#a17980','#7d9565','#a78d60'][n.color];ctx.fillRect(-5,-7-bob,10,9);ctx.fillStyle='#e8bd98';ctx.fillRect(-3,-13-bob,7,6);ctx.fillStyle='#493b35';ctx.fillRect(-3,-14-bob,7,2);ctx.fillStyle='#202c37';ctx.fillRect(-4,2-bob,3,5);ctx.fillRect(2,2-bob,3,5);ctx.fillStyle='#241e21';ctx.fillRect(1,-11-bob,1,1);ctx.fillStyle='#e3d8a6';ctx.fillRect(0,-6-bob,1,5);if(n.asleep){ctx.fillStyle='#fff0bf';ctx.font='8px monospace';ctx.fillText('z',8,-8);}ctx.restore();
+    ctx.save();ctx.translate(n.x*TS,n.y*TS);if(!n.asleep&&Math.cos(n.d)<0)ctx.scale(-1,1);if(n.asleep){ctx.rotate(Math.PI/2);ctx.translate(-4,0);}const bob=n.asleep?0:Math.floor(now/220+n.x)%2;
+    ctx.fillStyle=['#66849e','#a17980','#7d9565','#a78d60'][n.color];ctx.fillRect(-5,-7-bob,10,9);ctx.fillStyle='#e8bd98';ctx.fillRect(-3,-13-bob,7,6);ctx.fillStyle='#493b35';ctx.fillRect(-3,-14-bob,7,2);ctx.fillStyle='#202c37';ctx.fillRect(-4,2-bob,3,5);ctx.fillRect(2,2-bob,3,5);ctx.fillStyle='#241e21';ctx.fillRect(1,-11-bob,1,1);ctx.fillStyle='#e3d8a6';ctx.fillRect(0,-6-bob,1,5);if(n.calling){ctx.fillStyle='#d9b67b';ctx.fillRect(7,-15,4,8);ctx.fillStyle='#8cdbdf';ctx.fillRect(8,-13,2,4);}if(n.asleep){ctx.fillStyle='#fff0bf';ctx.font='8px monospace';ctx.fillText('z',8,-8);}ctx.restore();
   }
   _drawStaff(ctx, s, now) {
     if(s.s===6){const image=SPRITES.staffDown.r[0];ctx.drawImage(image,s.x*TS-16,s.y*TS-14,32,22);return;}

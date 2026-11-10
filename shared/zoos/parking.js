@@ -16,7 +16,7 @@ export function buildParking(){
  decor.push({kind:'sign',x:3,y:17,text:'Zoo Service Exit'},{kind:'sign',x:66,y:56,text:'Road to the next adventure'});
  const spawn=[4,21],enclosures=ANIMAL_IDS.map((animal,index)=>({index,animal,name:'Zoo service exit',spawn:[...spawn],rect:[2,18,6,25],solution:[],hint:'Find a keeper carrying car keys. Stay out of sight.'}));
  const paths=[[[8,5],[66,5],[66,13],[8,13]],[[8,53],[65,53],[65,50],[8,50]],[[8,20],[65,20],[65,28],[8,28]],[[71,6],[71,52],[67,52],[67,6]],[[14,18],[62,18],[62,13],[14,13]],[[13,36],[65,36],[65,45],[13,45]]];
- return {id:'parking',name:'Moonleaf Parking Lot',w,h,tiles,theme,themes:['outside'],staffMask,decor,enclosures,
+ return {id:'parking',daylight:true,name:'Moonleaf Parking Lot',w,h,tiles,theme,themes:['outside'],staffMask,decor,enclosures,
   gates:[],objects:[{id:'parking-bin-1',kind:'can',x:7,y:16,label:'Garbage can'},{id:'parking-bin-2',kind:'can',x:7,y:32,label:'Garbage can'},{id:'parking-bin-3',kind:'can',x:65,y:52,label:'Garbage can'},{id:'getaway',kind:'vehicle',x:62,y:28,stand:[61,28],label:'Getaway wagon'}],plates:[],crates:[],burrows:[],bays:[],sockets:[],keys:[],hideout:[],exitZone:[67,59,75,62],requiredRescues:0,
   getaway:{x:60.5,y:25,angle:Math.PI/2,stall:[59,23,61,26]},
   staffRoutes:paths.map(route=>({route,start:0})),staff:{patrolSpeed:1.5,chaseSpeed:2.2,alertSpeed:1.9,investigateSpeed:1.55,range:5.5,halfAngle:.72,detectRate:1},

@@ -5,7 +5,7 @@ export class Audio {
   constructor() {
     this.ctx = null; this.music = null; this.sfxGain = null; this.musicGain = null;
     this.musicVol = 0.4; this.sfxVol = 0.7; this.muted = false;
-    this.musicTimer = null; this.step = 0; this.lastFoot = 0;
+    this.musicTimer = null; this.station=0;this.step = 0; this.lastFoot = 0;
   }
 
   unlock() {
@@ -99,7 +99,7 @@ export class Audio {
     this.musicTimer = setInterval(() => {
       if (!this.ctx || this.musicVol <= 0 || this.muted) { this.step++; return; }
       const i = this.step % notes.length;
-      this.tone(midi(notes[i] + 12), 0.28, { type: 'triangle', vol: 0.12, dest: this.musicGain });
+      this.tone(midi(notes[i] + 12 + [0,5,-3][this.station||0]), 0.28, { type: 'triangle', vol: 0.12, dest: this.musicGain });
       if (i % 2 === 0) this.tone(midi(bass[(i / 2) % bass.length]), 0.5, { type: 'sine', vol: 0.18, dest: this.musicGain });
       this.step++;
     }, 340);

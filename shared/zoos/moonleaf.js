@@ -326,6 +326,7 @@ export function buildMoonleaf() {
     set(...outside, T.PATH);
     set(...toWorld(1,9),T.GRASS);
     // A shore path lets the monkey reach the ramp site without swimming the moat.
+    if(animal==='beaver'){const bin=toWorld(9,3);set(...bin,T.GRASS);addObj({kind:'can',x:bin[0],y:bin[1],enc:idx,label:'Enclosure muzzle-removal bin'});}
     if (animal === 'monkey') for(let y=3;y<=9;y++)set(...toWorld(1,y),T.GRASS);
     addObj({ kind: 'escapeBuild', x: build[0], y: build[1], enc: idx, label: 'Stack a ramp', wall, outside });
     const dig = toWorld(12, 10), digOut = toWorld(12, 11);

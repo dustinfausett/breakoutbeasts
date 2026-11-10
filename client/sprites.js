@@ -1,3 +1,4 @@
+import {buildRescueSprites} from './rescue-sprites.js';
 // Generated actor and walking atlases, with original code-drawn fallback art.
 // All art in this file is original to this project (no external assets).
 
@@ -320,7 +321,7 @@ export function buildSprites() {
       }):[idle];
       SPRITES[id]={r:frames,l:frames.map(flip),idle:{r:idle,l:flip(idle)}};
     });
-    SPRITES.shell=SPRITES.tortoise;SPRITES.penguinSlide=SPRITES.penguin;buildActionSprites();return;
+    SPRITES.shell=SPRITES.tortoise;SPRITES.penguinSlide=SPRITES.penguin;buildActionSprites();buildRescueSprites(SPRITES,IMAGES);return;
   }
   for (const [id, a] of Object.entries(ART)) {
     const f0 = make(a.rows, a.pal);
@@ -336,7 +337,7 @@ export function buildSprites() {
   SPRITES.staff = { r: [st, st1], l: [flip(st), flip(st1)] };
   const down=document.createElement('canvas');down.width=16;down.height=16;const dg=down.getContext('2d');dg.translate(16,0);dg.rotate(Math.PI/2);dg.drawImage(st,0,0);
   SPRITES.staffDown={r:[down],l:[flip(down)]};
-  buildActionSprites();
+  buildActionSprites();buildRescueSprites(SPRITES,IMAGES);
 }
 
 const portraitCache = {};

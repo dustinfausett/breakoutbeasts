@@ -893,13 +893,13 @@ export class Game {
   }
 
   _bite(p) {
-    if(p.biteCool>0 || p.capturedT>0 || p.under || p.hop || p.slide || p.shell)return;
+    if(p.capturedT>0 || p.under || p.hop || p.slide || p.shell)return;
     if(p.muzzled){this.msg(p,'Your muzzle prevents biting. A teammate can bite it off.');return;}
     const [fx,fy]=DIRS[p.face];
-    const near=q=>dist(p.x,p.y,q.x,q.y)<1.35 && (q.x-p.x)*fx+(q.y-p.y)*fy>-.1 &&
+    const near=q=>dist(p.x,p.y,q.x,q.y)<1.75 && (q.x-p.x)*fx+(q.y-p.y)*fy>-.35 &&
       lineOfSight(p.x,p.y,q.x,q.y,(x,y)=>this.visionBlocked(x,y));
     const friend=this.activePlayers().find(q=>q!==p && q.connected && q.capturedT<=0 && !q.under && near(q));
-    p.biteCool=1.2;p.biteAnimT=.4;p.hold=null;
+    p.biteCool=0;p.biteAnimT=.4;p.hold=null;
     if(friend){
       if(friend.muzzled){p.hold={kind:'muzzleHelp',btn:'b',target:friend.id,t:0,need:2.5};this.msg(p,'Hold B and stay close to chew off the muzzle.');}
       else {friend.flinch=.3;this.emit({k:'nip',pid:friend.id});}

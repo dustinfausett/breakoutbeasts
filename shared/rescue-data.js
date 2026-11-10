@@ -1,0 +1,4 @@
+export const RESCUE_SPECIES=['lion','tiger','rhino','hippo','gorilla','wolf','kangaroo','capybara','otter','crocodile','peacock','sloth','rabbit','guineapig','cat','dog'];
+export const RESCUE_NAMES=['Lion','Tiger','Rhinoceros','Hippopotamus','Gorilla','Wolf','Kangaroo','Capybara','Otter','Crocodile','Peacock','Sloth','Rabbit','Guinea pig','Cat','Dog'];
+export const RESCUE_SCENES=['zoo','zooUpper','zooPavilion','zooControl','petstore','airport'];
+export const PLANE_JOBS=[{id:'yoke',label:'Flight yoke',choices:['Straight','Climb']},{id:'throttle',label:'Throttle',choices:['Idle','Takeoff']},{id:'flaps',label:'Flaps',choices:['Up','Takeoff']},{id:'radio',label:'Tower radio',choices:['Stand by','Clearance requested']},{id:'gear',label:'Landing gear',choices:['Down','Up']},{id:'trim',label:'Trim wheel',choices:['Neutral','Climb']},{id:'fuel',label:'Fuel pumps',choices:['Off','On']},{id:'navigation',label:'Flight route',choices:['Hold','Open sky']}];

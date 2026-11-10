@@ -1,4 +1,5 @@
 // Runs every browser end-to-end suite and prints a summary. Usage: npm run test:e2e
+import { run as rescueChapter } from './rescue-chapter.mjs';
 import { run as city } from './city.mjs';
 import { run as checkpoints } from './checkpoints.mjs';
 import { run as fuses } from './fuses.mjs';
@@ -11,7 +12,7 @@ import { run as solo } from './solo.mjs';
 import { run as multiplayer } from './multiplayer.mjs';
 import { run as mobile } from './mobile.mjs';
 
-const suites = [['city', () => city()], ['secret chapters', () => checkpoints()], ['fuses (6 players)', () => fuses({players:6})], ['fuses (8 players)', () => fuses({players:8})], ['parking (mobile)', () => parking({players:2,mobile:true})], ['parking (2 players)', () => parking({players:2})], ['parking (8 players)', () => parking({players:8})], ['animation', () => animation()], ['control house', () => controlHouse()], ['wild', () => wild()], ['security', () => security()], ['mobile', () => mobile()], ['multiplayer (2 players)', () => multiplayer({ players: 2 })], ['multiplayer (4 players)', () => multiplayer({ players: 4 })], ['solo', () => solo()]];
+const suites = [['rescue chapter', () => rescueChapter()], ['city', () => city()], ['secret chapters', () => checkpoints()], ['fuses (6 players)', () => fuses({players:6})], ['fuses (8 players)', () => fuses({players:8})], ['parking (mobile)', () => parking({players:2,mobile:true})], ['parking (2 players)', () => parking({players:2})], ['parking (8 players)', () => parking({players:8})], ['animation', () => animation()], ['control house', () => controlHouse()], ['wild', () => wild()], ['security', () => security()], ['mobile', () => mobile()], ['multiplayer (2 players)', () => multiplayer({ players: 2 })], ['multiplayer (4 players)', () => multiplayer({ players: 4 })], ['solo', () => solo()]];
 const only = process.argv[2];
 let failed = 0; const summary = [];
 for (const [name, fn] of suites) {

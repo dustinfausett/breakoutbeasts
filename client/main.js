@@ -1,3 +1,4 @@
+import {mountCityUI,updateCityUI} from './city-ui.js';
 import { mountVehiclePanel, updateVehiclePanel, updateKeyFob } from './vehicle-panel.js';
 // Breakout Beasts! client controller: menus, lobby, HUD, game loop, audio and captions.
 
@@ -254,6 +255,7 @@ function connStatus(state, info) {
 
 // ---------------- game ----------------
 function enterGame(msg) {
+  updateCityUI(null,null,null);
   setObjectivesOpen(false);
   app.wasInCar=false;
   updateKeyFob(false);
@@ -273,6 +275,7 @@ function enterGame(msg) {
 }
 
 function leaveGameView(toLobby) {
+  updateCityUI(null,null,null);
   updateKeyFob(false);
   updateVehiclePanel(null);
   app.inGame = false;
@@ -354,6 +357,11 @@ function handleEvent(ev) {
     case 'adapt': caption('Tasks adjusted for the remaining team. Finished work was kept.', 'good'); break;
     case 'unlock': audio.play('pickup'); break;
     case 'keyturn': audio.play('click'); break;
+    case 'cash': if(ev.pid===app.myId)caption(`Collected $${ev.amount}.`,'good');break;
+    case 'controlcalled': caption('Animal control called! Get out of the bank within 2 minutes.','alert');break;
+    case 'controlarrived': caption('Animal control arrived! Anyone still in the bank is captured.','alert');break;
+    case 'vaultopen': caption('The vault is open — grab the money!','good');break;
+    case 'cityrescue': caption('The animal-control cage is open!','good');break;
     case 'cityvisit': caption(`Discovered ${ev.name}!`, 'good');break;
     case 'runover': audio.play('capture');caption('Keeper knocked out for this chapter.', 'good');break;
     case 'cagerescue': caption(`${ev.name} opened the holding cage!`, 'good');break;
@@ -396,7 +404,7 @@ function updateHUD() {
   const s = w.snap, o = s.obj, me = w.me();
   const ck = (d) => `<span class="mark">${d ? '✓' : '○'}</span>`;
   let h='';
-  if(o.stage==='city'){const city=o.parking.city;h=`<h4>Breakout City</h4><div class="detail"><div class="o">Explore stores and zoos: ${city.visited}/${city.destinations.length}</div><p>Selected destination: ${esc(city.selected)}</p>${city.destinations.map(d=>`<div class="sub">${d.visited?'✓':'○'} ${esc(d.name)}</div>`).join('')}<p>Stop near an address to discover it. Destination interiors are for future missions.</p></div>`;}else if(o.stage==='parking'){
+  if(o.stage==='city'){const city=o.parking.city;h=`<h4>Breakout City</h4><div class="detail"><div class="o">Explore stores and zoos: ${city.visited}/${city.destinations.length}</div><p>Selected destination: ${esc(city.selected)}</p>${city.destinations.map(d=>`<div class="sub">${d.visited?'✓':'○'} ${esc(d.name)}</div>`).join('')}<p>Park and climb out. Enter Cedar Bank for money, Second Paw Thrift for disguises, or Animal Control to rescue teammates.</p><p>Hold E near customers to pickpocket. Bite calls animal control: leave the bank before two minutes are up. Everyone must hold the vault wheel together to open it.</p></div>`;}else if(o.stage==='parking'){
     const lot=o.parking;
     h=`<h4 tabindex="0" id="obj-h">Parking Lot — Steal a car</h4><div class="detail"><div class="o">${ck(lot.keys.length>0||lot.unlocked)}Sneak behind a keeper and hold E to steal car keys.</div><div class="o">${ck(lot.unlocked)}Use the key fob to unlock and flash your car.</div><div class="o">${ck(lot.inCar===lot.need)}Get the whole crew aboard: ${lot.inCar}/${lot.need}</div><div class="o">${ck(o.exit.done)}Drive through the exit together.</div><div class="now">${lot.inCar===lot.need?'Drive through the bottom-right opening.':lot.unlocked?'Find the flashing car and get the crew aboard.':'Steal a key fob. Unlock flashes the lights; Panic sounds the alarm.'}</div><div class="sub">${lot.keepers} keepers are searching the lot.</div></div>`;
   }else{
@@ -464,6 +472,7 @@ function updateHUD() {
 
   // prompts
   const pm = s.me;
+  updateCityUI(pm,o.parking?.city,w.zoo);
   updateControlPanel(pm?.control||null);
   const inCar=s.phase==='play'&&!!pm?.vehicle;
   if(app.wasInCar!==inCar){input.releaseAll();app.wasInCar=inCar;}
@@ -584,7 +593,7 @@ function startSolo() {
 }
 
 function toTitle() {
-  updateVehiclePanel(null);updateKeyFob(false);updateControlPanel(null);
+  updateCityUI(null,null,null);updateVehiclePanel(null);updateKeyFob(false);updateControlPanel(null);
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.link = null; app.mode = null; app.lobby = null; app.inGame = false; app.world = null;
   audio.stopMusic();
@@ -701,6 +710,7 @@ function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 // ---------------- boot ----------------
 async function boot() {
   try {
+    mountCityUI(msg=>app.link?.send(msg));
     mountControlPanel(msg=>app.link?.send(msg));
     mountVehiclePanel(msg=>app.link?.send(msg));
     await loadImages();

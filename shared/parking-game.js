@@ -1,10 +1,11 @@
+import {parkingGPS} from './navigation.js';
 import {Game} from './game.js';
 import {getZoo} from './zoos/index.js';
 import {makeKeepers,parkingKeeperCount} from './staff.js';
 import {vehicleCells} from './driving.js';
-import {T} from './tiles.js';
+import {T,tileBlocksVision} from './tiles.js';
 import {canOccupy} from './physics.js';
-import {dist} from './util.js';
+import {dist,lineOfSight} from './util.js';
 export const CAR_CONTROLS=[
  {id:'steering',label:'Steering wheel',kind:'wheel',choices:[-1,0,1],goal:0,hint:'Hold and drag the wheel, or use A/D.'},
  {id:'gas',label:'Gas pedal',kind:'pedal',choices:[0,1],goal:1,hint:'Hold or press W to accelerate. Release to coast.'},
@@ -46,12 +47,13 @@ export class ParkingGame extends Game{
  rebuildBlock(){super.rebuildBlock();if(this.vehicle)for(const i of vehicleCells(this.vehicle,this.w,this.h)){this.entSolid[i]=1;this.entVis[i]=1;}}
  _stepPlayer(p,dt){if(p.inVehicle){p.moving=false;p.x=this.vehicle.x;p.y=this.vehicle.y;return;}super._stepPlayer(p,dt);}
  detectable(p){return !p.inVehicle&&super.detectable(p);}
- _door(){const v=this.vehicle;return [v.x-Math.sin(v.angle)*2.15,v.y+Math.cos(v.angle)*2.15];}
+ _nearCar(p){const v=this.vehicle,c=Math.cos(v.angle),s=Math.sin(v.angle),dx=p.x-v.x,dy=p.y-v.y,u=dx*c+dy*s,l=-dx*s+dy*c;if(Math.hypot(Math.max(0,Math.abs(u)-2.25),Math.max(0,Math.abs(l)-1.65))>1.15)return false;const own=new Set(vehicleCells(v,this.w,this.h));return lineOfSight(p.x,p.y,v.x,v.y,(x,y)=>own.has(y*this.w+x)?tileBlocksVision(this.tileAt(x,y)):this.visionBlocked(x,y));}
+ _door(){const v=this.vehicle;return [v.x-Math.sin(v.angle)*2.75,v.y+Math.cos(v.angle)*2.75];}
  interactTarget(p){if(p.caged)return this._cageWallInteraction(p);const target=super.interactTarget(p);if(target)return target;return this._objectInteraction(p,this.obj('getaway'));}
  _objectInteraction(p,o){
   if(o.kind==='holdingCageDoor'){if(p.caged)return {text:'Wait for a rescue, or grab a wall when everyone is captured',idle:true};return {text:'Open the cage and free your captured teammates',run:()=>this._openHoldingCage(p.name)};}
   if(o.kind!=='vehicle')return super._objectInteraction(p,o);
-  if(!this.vehicle||p.inVehicle||p.capturedT>0||dist(p.x,p.y,...this._door())>1.6)return null;
+  if(!this.vehicle||p.inVehicle||p.capturedT>0||!this._nearCar(p))return null;
   if(!this.vehicle.unlocked)return {text:p.cageKeys?'Use Unlock on your key fob first':'Locked car: find a keeper carrying its key fob',idle:true};
   if(Math.abs(this.vehicle.speed)>.2)return {text:'Wait until the car stops before boarding',idle:true};
   return {text:'Climb into the car',run:()=>{p.inVehicle=true;p.hold=null;p.hidden=false;p.shell=false;p.slide=null;p.hop=null;p.x=this.vehicle.x;p.y=this.vehicle.y;}};
@@ -74,7 +76,7 @@ export class ParkingGame extends Game{
   if(!p.inVehicle)return;
   if(msg.op==='leave'){
    if(Math.abs(v.speed)>.2)return this.msg(p,'Stop the car before climbing out.');
-   const candidates=[this._door(),[v.x+Math.sin(v.angle)*2.15,v.y-Math.cos(v.angle)*2.15]];
+   const c=Math.cos(v.angle),s=Math.sin(v.angle),candidates=[[0,2.75],[0,-2.75],[3.5,0],[-3.5,0],[2.8,2.75],[-2.8,-2.75]].map(([u,l])=>[v.x+u*c-l*s,v.y+u*s+l*c]);
    const point=candidates.find(([x,y])=>canOccupy(this,p.animal,x,y,null));if(!point)return this.msg(p,'The door is blocked. Park with room to climb out.');
    p.inVehicle=false;[p.x,p.y]=point;p.grace=1;p.input={};p.prevE=true;this._releaseCarHolds();return;
   }
@@ -154,7 +156,7 @@ export class ParkingGame extends Game{
   return {stage:'parking',parking:{unlocked:v.unlocked,route:this.zooId==='parking'?[[this.zoo.getaway.x+4,this.zoo.getaway.y+4.6],[70,this.zoo.getaway.y+4.6],[71,61]]:[],keys:act.filter(p=>p.cageKeys).map(p=>p.name),inCar,need:act.length,keepers:this.staff.length,holding:this.holdingCage?{captured:act.filter(p=>p.caged).length,allCaptured:act.length>0&&act.every(p=>p.caged),progress:this.holdingCage.progress}:null,progress:Math.max(0,Math.min(1,1-dist(v.x,v.y,71,61)/60)),car:{x:v.x,y:v.y,angle:v.angle,colorIndex:v.colorIndex||0,speed:v.speed,steering:v.values.steering,lightsUntil:v.lightsUntil,alarmUntil:v.alarmUntil},roles:Object.entries(v.owners).map(([id,pid])=>({id,pid,label:this._carControls().find(c=>c.id===id).label,name:this.players.get(pid).name,ready:['steering','gas','brake'].includes(id)?!!v.values[id]:v.values[id]===this._carControls().find(c=>c.id===id).goal})),team:act.map(p=>({id:p.id,name:p.name,inside:!!p.inVehicle,connected:p.connected}))},
    escape:{done:true,players:[]},rescue:{done:true,n:0,need:0},power:{done:true,parts:[]},keys:{done:true,active:false,keys:[],need:0},exit:{done:this.phase==='complete',open:false,inZone:0,need:act.length},waiting:act.filter(p=>!p.connected).map(p=>p.name)};
  }
- personal(pid){const result=super.personal(pid),p=this.players.get(pid);if(result){result.fob=!!p.cageKeys;if(p.inVehicle){result.vehicle={...this.objectives().parking,controls:this._carControls().filter(c=>this.vehicle.owners[c.id]===pid).map(c=>({...c,value:this.vehicle.values[c.id]}))};result.pe=null;result.ps=null;}result.special=!!p.inVehicle||result.special;}return result;}
+ personal(pid){const result=super.personal(pid),p=this.players.get(pid);if(result){result.fob=!!p.cageKeys;if(p.inVehicle){result.vehicle={...this.objectives().parking,controls:this._carControls().filter(c=>this.vehicle.owners[c.id]===pid).map(c=>({...c,value:this.vehicle.values[c.id]}))};if(this.zooId==='parking'&&this.vehicle.owners.navigation===pid)result.gps=parkingGPS(this);result.pe=null;result.ps=null;}result.special=!!p.inVehicle||result.special;}return result;}
  snapshot(){const s=super.snapshot();s.pl=s.pl.map(p=>({...p,car:!!this.players.get(p.id).inVehicle,caged:!!this.players.get(p.id).caged}));return s;}
  results(){return {...super.results(),stage:this.zooId,next:this.zooId==='parking'?'city':null,carStolen:true};}
 }

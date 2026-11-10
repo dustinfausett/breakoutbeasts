@@ -369,6 +369,12 @@ function px(g, x, y, w, h, c) { g.fillStyle = c; g.fillRect(x, y, w, h); }
 
 /** Draw one 16x16 tile at (ox,oy) in the map canvas. */
 export function drawTile(g, t, x, y, ox, oy, themeName, getTile) {
+  if([T.PATH,T.FLOOR].includes(t)&&['roadHorizontal','roadVertical','parking','pavement'].includes(themeName)){
+    g.fillStyle=themeName==='pavement'?'#a4a7a2':themeName==='parking'?'#434e58':'#353e49';g.fillRect(ox,oy,16,16);
+    if(themeName==='pavement'){g.strokeStyle='#8d9693';g.lineWidth=.5;g.strokeRect(ox,oy,16,16);}else{g.fillStyle='#56606a';g.fillRect(ox+Math.floor(hash(x,y)*13),oy+3,1,1);g.fillRect(ox+9,oy+12,1,1);}
+    if(themeName==='roadHorizontal'&&y%32===12&&x%4<2){g.fillStyle='#e3cb7a';g.fillRect(ox,oy,12,1);}
+    if(themeName==='roadVertical'&&[12,50,88,126].includes(x)&&y%4<2){g.fillStyle='#e3cb7a';g.fillRect(ox,oy,1,12);}return;
+  }
   if(IMAGES.terrain){
     const textures={[T.GRASS]:0,[T.PATH]:1,[T.FLOOR]:themeName==='maint'?14:2,[T.EXIT]:1,[T.WALL]:3,[T.FENCE]:4,[T.CLIMB]:4,[T.HEDGE]:5,[T.BUSH]:6,[T.WATER]:7,[T.POND]:12,[T.ICE]:8,[T.LOW]:14,[T.NARROW]:10,[T.WOOD]:9,[T.LOOSE]:9,[T.REINF]:14,[T.SOIL]:15,[T.BURROW]:15,[T.SOILX]:0,[T.ROPE]:7,[T.LEDGE]:7,[T.BEAM]:7,[T.BRIDGE_SPOT]:7,[T.BRIDGE]:7,[T.TREE]:11,[T.ROCK]:10,[T.DEBRIS]:15,[T.MACHINE]:14,[T.BARREL]:0};
     atlasDraw(g,IMAGES.terrain,textures[t]??0,4,4,ox,oy,16,16);

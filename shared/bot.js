@@ -73,7 +73,7 @@ export class Autopilot {
       const car=v.vehicle.car;
       let target,distance;
       if(v.obj.stage==='city'){
-        const site=v.vehicle.city.destinations.find(d=>!d.visited)||v.vehicle.city.destinations[0];
+        const site=v.vehicle.city.destinations.find(d=>!d.visited)||v.vehicle.city.destinations[0];this.cityDestination=site.name;
         if(this.citySite!==site.id){this.citySite=site.id;const cols=[12,50,88,126],rows=[12,44,76,108],cx=cols.reduce((a,b)=>Math.abs(b-car.x)<Math.abs(a-car.x)?b:a),cy=rows.reduce((a,b)=>Math.abs(b-car.y)<Math.abs(a-car.y)?b:a);this.cityRoute=[[cx,cy],[cx,site.y],[site.x,site.y]];}
         while(this.cityRoute.length>1&&dist(car.x,car.y,...this.cityRoute[0])<2)this.cityRoute.shift();target=this.cityRoute[0];distance=dist(car.x,car.y,site.x,site.y);
       }else{this.carWaypoint=this.carWaypoint||0;const route=v.obj.parking.route;while(this.carWaypoint<route.length-1&&dist(car.x,car.y,...route[this.carWaypoint])<1.5)this.carWaypoint++;target=route[this.carWaypoint];distance=99;}
@@ -81,7 +81,7 @@ export class Autopilot {
       const controls=v.vehicle.controls;this.carControlTick=(this.carControlTick||0)+1;
       for(let i=0;i<controls.length;i++){
         const c=controls[(this.carControlTick+i)%controls.length];
-        if(c.kind==='select'||c.kind==='gear'){if(c.value!==c.goal)return {...idle,vehicle:{control:c.id,value:c.goal,held:c.kind==='gear'}};continue;}
+        if(c.kind==='select'||c.kind==='gear'){const goal=v.obj.stage==='city'&&c.id==='navigation'?this.cityDestination:c.goal;if(c.value!==goal)return {...idle,vehicle:{control:c.id,value:goal,held:c.kind==='gear'}};continue;}
         const value=c.id==='steering'?turn:c.id==='gas'?(distance>1.5&&Math.abs(car.speed)<2.5?1:0):(distance<=1.5||Math.abs(car.speed)>3.1?1:0);
         return {...idle,vehicle:{control:c.id,value,held:true}};
       }return idle;

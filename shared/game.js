@@ -190,7 +190,7 @@ export class Game {
       if (g.state !== 0) continue;
       for (const [x, y] of g.tiles) { const i = this.idx(x, y); this.entSolid[i] = 1; if (g.vis === 'solid') this.entVis[i] = 1; }
     }
-    for (const o of this.objects) if (!['escapeBuild','escapeDig','supplies','vehicle','holdingCageDoor'].includes(o.kind)) this.entSolid[this.idx(o.x, o.y)] = 1;
+    for (const o of this.objects) if (!o.walkable&&!['escapeBuild','escapeDig','supplies','vehicle','holdingCageDoor'].includes(o.kind)) this.entSolid[this.idx(o.x, o.y)] = 1;
     for (const c of this.crates) { const i = this.idx(c.x, c.y); this.entSolid[i] = 1; this.entVis[i] = 1; }
   }
 
@@ -1304,7 +1304,7 @@ export class Game {
   defs() {
     return {
       gates: this.gates.map((g) => ({ id: g.id, kind: g.kind, vis: g.vis, tiles: g.tiles, label: g.label })),
-      objects: this.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, reach: o.reach, label: o.label, index: o.index, bay: o.bay, keeper: !!o.keeper, enc: o.enc, stand:o.stand, public:!!o.public })),
+      objects: this.objects.map((o) => ({ id: o.id, kind: o.kind,walkable:!!o.walkable, x: o.x, y: o.y, reach: o.reach, label: o.label, index: o.index, bay: o.bay, keeper: !!o.keeper, enc: o.enc, stand:o.stand, public:!!o.public })),
       plates: this.plates.map((p) => ({ id: p.id, x: p.x, y: p.y, heavy: p.heavy })),
       burrows: this.burrows.map((b) => ({ id: b.id, a: b.a, b: b.b })),
       bays: this.bayState.map((b) => ({ index: b.index, used: b.used, x: b.x, y: b.y, room: b.room, part: b.part, template: b.template })),

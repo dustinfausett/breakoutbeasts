@@ -1,0 +1,902 @@
+[
+  {
+    "id": "redpanda-shirt-0",
+    "animal": "redpanda",
+    "slot": "shirt",
+    "style": 0,
+    "name": "Red Panda Sunset Stripe",
+    "color": "#db7855",
+    "price": 25,
+    "file": "redpanda-shirt-0.png"
+  },
+  {
+    "id": "redpanda-shirt-1",
+    "animal": "redpanda",
+    "slot": "shirt",
+    "style": 1,
+    "name": "Red Panda Midnight Check",
+    "color": "#6679bd",
+    "price": 35,
+    "file": "redpanda-shirt-1.png"
+  },
+  {
+    "id": "redpanda-shirt-2",
+    "animal": "redpanda",
+    "slot": "shirt",
+    "style": 2,
+    "name": "Red Panda Garden Vest",
+    "color": "#72a06c",
+    "price": 45,
+    "file": "redpanda-shirt-2.png"
+  },
+  {
+    "id": "redpanda-hat-0",
+    "animal": "redpanda",
+    "slot": "hat",
+    "style": 0,
+    "name": "Red Panda City Cap",
+    "color": "#d1a451",
+    "price": 20,
+    "file": "redpanda-hat-0.png"
+  },
+  {
+    "id": "redpanda-hat-1",
+    "animal": "redpanda",
+    "slot": "hat",
+    "style": 1,
+    "name": "Red Panda Moon Beanie",
+    "color": "#9a79bc",
+    "price": 30,
+    "file": "redpanda-hat-1.png"
+  },
+  {
+    "id": "redpanda-hat-2",
+    "animal": "redpanda",
+    "slot": "hat",
+    "style": 2,
+    "name": "Red Panda Sunday Fedora",
+    "color": "#9e7359",
+    "price": 40,
+    "file": "redpanda-hat-2.png"
+  },
+  {
+    "id": "redpanda-pants-0",
+    "animal": "redpanda",
+    "slot": "pants",
+    "style": 0,
+    "name": "Red Panda Denim Trousers",
+    "color": "#587ca0",
+    "price": 25,
+    "file": "redpanda-pants-0.png"
+  },
+  {
+    "id": "redpanda-pants-1",
+    "animal": "redpanda",
+    "slot": "pants",
+    "style": 1,
+    "name": "Red Panda Plaid Slacks",
+    "color": "#9a6c80",
+    "price": 35,
+    "file": "redpanda-pants-1.png"
+  },
+  {
+    "id": "redpanda-pants-2",
+    "animal": "redpanda",
+    "slot": "pants",
+    "style": 2,
+    "name": "Red Panda Cargo Pants",
+    "color": "#8c9868",
+    "price": 45,
+    "file": "redpanda-pants-2.png"
+  },
+  {
+    "id": "elephant-shirt-0",
+    "animal": "elephant",
+    "slot": "shirt",
+    "style": 0,
+    "name": "Elephant Sunset Stripe",
+    "color": "#db7855",
+    "price": 25,
+    "file": "elephant-shirt-0.png"
+  },
+  {
+    "id": "elephant-shirt-1",
+    "animal": "elephant",
+    "slot": "shirt",
+    "style": 1,
+    "name": "Elephant Midnight Check",
+    "color": "#6679bd",
+    "price": 35,
+    "file": "elephant-shirt-1.png"
+  },
+  {
+    "id": "elephant-shirt-2",
+    "animal": "elephant",
+    "slot": "shirt",
+    "style": 2,
+    "name": "Elephant Garden Vest",
+    "color": "#72a06c",
+    "price": 45,
+    "file": "elephant-shirt-2.png"
+  },
+  {
+    "id": "elephant-hat-0",
+    "animal": "elephant",
+    "slot": "hat",
+    "style": 0,
+    "name": "Elephant City Cap",
+    "color": "#d1a451",
+    "price": 20,
+    "file": "elephant-hat-0.png"
+  },
+  {
+    "id": "elephant-hat-1",
+    "animal": "elephant",
+    "slot": "hat",
+    "style": 1,
+    "name": "Elephant Moon Beanie",
+    "color": "#9a79bc",
+    "price": 30,
+    "file": "elephant-hat-1.png"
+  },
+  {
+    "id": "elephant-hat-2",
+    "animal": "elephant",
+    "slot": "hat",
+    "style": 2,
+    "name": "Elephant Sunday Fedora",
+    "color": "#9e7359",
+    "price": 40,
+    "file": "elephant-hat-2.png"
+  },
+  {
+    "id": "elephant-pants-0",
+    "animal": "elephant",
+    "slot": "pants",
+    "style": 0,
+    "name": "Elephant Denim Trousers",
+    "color": "#587ca0",
+    "price": 25,
+    "file": "elephant-pants-0.png"
+  },
+  {
+    "id": "elephant-pants-1",
+    "animal": "elephant",
+    "slot": "pants",
+    "style": 1,
+    "name": "Elephant Plaid Slacks",
+    "color": "#9a6c80",
+    "price": 35,
+    "file": "elephant-pants-1.png"
+  },
+  {
+    "id": "elephant-pants-2",
+    "animal": "elephant",
+    "slot": "pants",
+    "style": 2,
+    "name": "Elephant Cargo Pants",
+    "color": "#8c9868",
+    "price": 45,
+    "file": "elephant-pants-2.png"
+  },
+  {
+    "id": "monkey-shirt-0",
+    "animal": "monkey",
+    "slot": "shirt",
+    "style": 0,
+    "name": "Monkey Sunset Stripe",
+    "color": "#db7855",
+    "price": 25,
+    "file": "monkey-shirt-0.png"
+  },
+  {
+    "id": "monkey-shirt-1",
+    "animal": "monkey",
+    "slot": "shirt",
+    "style": 1,
+    "name": "Monkey Midnight Check",
+    "color": "#6679bd",
+    "price": 35,
+    "file": "monkey-shirt-1.png"
+  },
+  {
+    "id": "monkey-shirt-2",
+    "animal": "monkey",
+    "slot": "shirt",
+    "style": 2,
+    "name": "Monkey Garden Vest",
+    "color": "#72a06c",
+    "price": 45,
+    "file": "monkey-shirt-2.png"
+  },
+  {
+    "id": "monkey-hat-0",
+    "animal": "monkey",
+    "slot": "hat",
+    "style": 0,
+    "name": "Monkey City Cap",
+    "color": "#d1a451",
+    "price": 20,
+    "file": "monkey-hat-0.png"
+  },
+  {
+    "id": "monkey-hat-1",
+    "animal": "monkey",
+    "slot": "hat",
+    "style": 1,
+    "name": "Monkey Moon Beanie",
+    "color": "#9a79bc",
+    "price": 30,
+    "file": "monkey-hat-1.png"
+  },
+  {
+    "id": "monkey-hat-2",
+    "animal": "monkey",
+    "slot": "hat",
+    "style": 2,
+    "name": "Monkey Sunday Fedora",
+    "color": "#9e7359",
+    "price": 40,
+    "file": "monkey-hat-2.png"
+  },
+  {
+    "id": "monkey-pants-0",
+    "animal": "monkey",
+    "slot": "pants",
+    "style": 0,
+    "name": "Monkey Denim Trousers",
+    "color": "#587ca0",
+    "price": 25,
+    "file": "monkey-pants-0.png"
+  },
+  {
+    "id": "monkey-pants-1",
+    "animal": "monkey",
+    "slot": "pants",
+    "style": 1,
+    "name": "Monkey Plaid Slacks",
+    "color": "#9a6c80",
+    "price": 35,
+    "file": "monkey-pants-1.png"
+  },
+  {
+    "id": "monkey-pants-2",
+    "animal": "monkey",
+    "slot": "pants",
+    "style": 2,
+    "name": "Monkey Cargo Pants",
+    "color": "#8c9868",
+    "price": 45,
+    "file": "monkey-pants-2.png"
+  },
+  {
+    "id": "beaver-shirt-0",
+    "animal": "beaver",
+    "slot": "shirt",
+    "style": 0,
+    "name": "Beaver Sunset Stripe",
+    "color": "#db7855",
+    "price": 25,
+    "file": "beaver-shirt-0.png"
+  },
+  {
+    "id": "beaver-shirt-1",
+    "animal": "beaver",
+    "slot": "shirt",
+    "style": 1,
+    "name": "Beaver Midnight Check",
+    "color": "#6679bd",
+    "price": 35,
+    "file": "beaver-shirt-1.png"
+  },
+  {
+    "id": "beaver-shirt-2",
+    "animal": "beaver",
+    "slot": "shirt",
+    "style": 2,
+    "name": "Beaver Garden Vest",
+    "color": "#72a06c",
+    "price": 45,
+    "file": "beaver-shirt-2.png"
+  },
+  {
+    "id": "beaver-hat-0",
+    "animal": "beaver",
+    "slot": "hat",
+    "style": 0,
+    "name": "Beaver City Cap",
+    "color": "#d1a451",
+    "price": 20,
+    "file": "beaver-hat-0.png"
+  },
+  {
+    "id": "beaver-hat-1",
+    "animal": "beaver",
+    "slot": "hat",
+    "style": 1,
+    "name": "Beaver Moon Beanie",
+    "color": "#9a79bc",
+    "price": 30,
+    "file": "beaver-hat-1.png"
+  },
+  {
+    "id": "beaver-hat-2",
+    "animal": "beaver",
+    "slot": "hat",
+    "style": 2,
+    "name": "Beaver Sunday Fedora",
+    "color": "#9e7359",
+    "price": 40,
+    "file": "beaver-hat-2.png"
+  },
+  {
+    "id": "beaver-pants-0",
+    "animal": "beaver",
+    "slot": "pants",
+    "style": 0,
+    "name": "Beaver Denim Trousers",
+    "color": "#587ca0",
+    "price": 25,
+    "file": "beaver-pants-0.png"
+  },
+  {
+    "id": "beaver-pants-1",
+    "animal": "beaver",
+    "slot": "pants",
+    "style": 1,
+    "name": "Beaver Plaid Slacks",
+    "color": "#9a6c80",
+    "price": 35,
+    "file": "beaver-pants-1.png"
+  },
+  {
+    "id": "beaver-pants-2",
+    "animal": "beaver",
+    "slot": "pants",
+    "style": 2,
+    "name": "Beaver Cargo Pants",
+    "color": "#8c9868",
+    "price": 45,
+    "file": "beaver-pants-2.png"
+  },
+  {
+    "id": "giraffe-shirt-0",
+    "animal": "giraffe",
+    "slot": "shirt",
+    "style": 0,
+    "name": "Giraffe Sunset Stripe",
+    "color": "#db7855",
+    "price": 25,
+    "file": "giraffe-shirt-0.png"
+  },
+  {
+    "id": "giraffe-shirt-1",
+    "animal": "giraffe",
+    "slot": "shirt",
+    "style": 1,
+    "name": "Giraffe Midnight Check",
+    "color": "#6679bd",
+    "price": 35,
+    "file": "giraffe-shirt-1.png"
+  },
+  {
+    "id": "giraffe-shirt-2",
+    "animal": "giraffe",
+    "slot": "shirt",
+    "style": 2,
+    "name": "Giraffe Garden Vest",
+    "color": "#72a06c",
+    "price": 45,
+    "file": "giraffe-shirt-2.png"
+  },
+  {
+    "id": "giraffe-hat-0",
+    "animal": "giraffe",
+    "slot": "hat",
+    "style": 0,
+    "name": "Giraffe City Cap",
+    "color": "#d1a451",
+    "price": 20,
+    "file": "giraffe-hat-0.png"
+  },
+  {
+    "id": "giraffe-hat-1",
+    "animal": "giraffe",
+    "slot": "hat",
+    "style": 1,
+    "name": "Giraffe Moon Beanie",
+    "color": "#9a79bc",
+    "price": 30,
+    "file": "giraffe-hat-1.png"
+  },
+  {
+    "id": "giraffe-hat-2",
+    "animal": "giraffe",
+    "slot": "hat",
+    "style": 2,
+    "name": "Giraffe Sunday Fedora",
+    "color": "#9e7359",
+    "price": 40,
+    "file": "giraffe-hat-2.png"
+  },
+  {
+    "id": "giraffe-pants-0",
+    "animal": "giraffe",
+    "slot": "pants",
+    "style": 0,
+    "name": "Giraffe Denim Trousers",
+    "color": "#587ca0",
+    "price": 25,
+    "file": "giraffe-pants-0.png"
+  },
+  {
+    "id": "giraffe-pants-1",
+    "animal": "giraffe",
+    "slot": "pants",
+    "style": 1,
+    "name": "Giraffe Plaid Slacks",
+    "color": "#9a6c80",
+    "price": 35,
+    "file": "giraffe-pants-1.png"
+  },
+  {
+    "id": "giraffe-pants-2",
+    "animal": "giraffe",
+    "slot": "pants",
+    "style": 2,
+    "name": "Giraffe Cargo Pants",
+    "color": "#8c9868",
+    "price": 45,
+    "file": "giraffe-pants-2.png"
+  },
+  {
+    "id": "penguin-shirt-0",
+    "animal": "penguin",
+    "slot": "shirt",
+    "style": 0,
+    "name": "Penguin Sunset Stripe",
+    "color": "#db7855",
+    "price": 25,
+    "file": "penguin-shirt-0.png"
+  },
+  {
+    "id": "penguin-shirt-1",
+    "animal": "penguin",
+    "slot": "shirt",
+    "style": 1,
+    "name": "Penguin Midnight Check",
+    "color": "#6679bd",
+    "price": 35,
+    "file": "penguin-shirt-1.png"
+  },
+  {
+    "id": "penguin-shirt-2",
+    "animal": "penguin",
+    "slot": "shirt",
+    "style": 2,
+    "name": "Penguin Garden Vest",
+    "color": "#72a06c",
+    "price": 45,
+    "file": "penguin-shirt-2.png"
+  },
+  {
+    "id": "penguin-hat-0",
+    "animal": "penguin",
+    "slot": "hat",
+    "style": 0,
+    "name": "Penguin City Cap",
+    "color": "#d1a451",
+    "price": 20,
+    "file": "penguin-hat-0.png"
+  },
+  {
+    "id": "penguin-hat-1",
+    "animal": "penguin",
+    "slot": "hat",
+    "style": 1,
+    "name": "Penguin Moon Beanie",
+    "color": "#9a79bc",
+    "price": 30,
+    "file": "penguin-hat-1.png"
+  },
+  {
+    "id": "penguin-hat-2",
+    "animal": "penguin",
+    "slot": "hat",
+    "style": 2,
+    "name": "Penguin Sunday Fedora",
+    "color": "#9e7359",
+    "price": 40,
+    "file": "penguin-hat-2.png"
+  },
+  {
+    "id": "penguin-pants-0",
+    "animal": "penguin",
+    "slot": "pants",
+    "style": 0,
+    "name": "Penguin Denim Trousers",
+    "color": "#587ca0",
+    "price": 25,
+    "file": "penguin-pants-0.png"
+  },
+  {
+    "id": "penguin-pants-1",
+    "animal": "penguin",
+    "slot": "pants",
+    "style": 1,
+    "name": "Penguin Plaid Slacks",
+    "color": "#9a6c80",
+    "price": 35,
+    "file": "penguin-pants-1.png"
+  },
+  {
+    "id": "penguin-pants-2",
+    "animal": "penguin",
+    "slot": "pants",
+    "style": 2,
+    "name": "Penguin Cargo Pants",
+    "color": "#8c9868",
+    "price": 45,
+    "file": "penguin-pants-2.png"
+  },
+  {
+    "id": "zebra-shirt-0",
+    "animal": "zebra",
+    "slot": "shirt",
+    "style": 0,
+    "name": "Zebra Sunset Stripe",
+    "color": "#db7855",
+    "price": 25,
+    "file": "zebra-shirt-0.png"
+  },
+  {
+    "id": "zebra-shirt-1",
+    "animal": "zebra",
+    "slot": "shirt",
+    "style": 1,
+    "name": "Zebra Midnight Check",
+    "color": "#6679bd",
+    "price": 35,
+    "file": "zebra-shirt-1.png"
+  },
+  {
+    "id": "zebra-shirt-2",
+    "animal": "zebra",
+    "slot": "shirt",
+    "style": 2,
+    "name": "Zebra Garden Vest",
+    "color": "#72a06c",
+    "price": 45,
+    "file": "zebra-shirt-2.png"
+  },
+  {
+    "id": "zebra-hat-0",
+    "animal": "zebra",
+    "slot": "hat",
+    "style": 0,
+    "name": "Zebra City Cap",
+    "color": "#d1a451",
+    "price": 20,
+    "file": "zebra-hat-0.png"
+  },
+  {
+    "id": "zebra-hat-1",
+    "animal": "zebra",
+    "slot": "hat",
+    "style": 1,
+    "name": "Zebra Moon Beanie",
+    "color": "#9a79bc",
+    "price": 30,
+    "file": "zebra-hat-1.png"
+  },
+  {
+    "id": "zebra-hat-2",
+    "animal": "zebra",
+    "slot": "hat",
+    "style": 2,
+    "name": "Zebra Sunday Fedora",
+    "color": "#9e7359",
+    "price": 40,
+    "file": "zebra-hat-2.png"
+  },
+  {
+    "id": "zebra-pants-0",
+    "animal": "zebra",
+    "slot": "pants",
+    "style": 0,
+    "name": "Zebra Denim Trousers",
+    "color": "#587ca0",
+    "price": 25,
+    "file": "zebra-pants-0.png"
+  },
+  {
+    "id": "zebra-pants-1",
+    "animal": "zebra",
+    "slot": "pants",
+    "style": 1,
+    "name": "Zebra Plaid Slacks",
+    "color": "#9a6c80",
+    "price": 35,
+    "file": "zebra-pants-1.png"
+  },
+  {
+    "id": "zebra-pants-2",
+    "animal": "zebra",
+    "slot": "pants",
+    "style": 2,
+    "name": "Zebra Cargo Pants",
+    "color": "#8c9868",
+    "price": 45,
+    "file": "zebra-pants-2.png"
+  },
+  {
+    "id": "meerkat-shirt-0",
+    "animal": "meerkat",
+    "slot": "shirt",
+    "style": 0,
+    "name": "Meerkat Sunset Stripe",
+    "color": "#db7855",
+    "price": 25,
+    "file": "meerkat-shirt-0.png"
+  },
+  {
+    "id": "meerkat-shirt-1",
+    "animal": "meerkat",
+    "slot": "shirt",
+    "style": 1,
+    "name": "Meerkat Midnight Check",
+    "color": "#6679bd",
+    "price": 35,
+    "file": "meerkat-shirt-1.png"
+  },
+  {
+    "id": "meerkat-shirt-2",
+    "animal": "meerkat",
+    "slot": "shirt",
+    "style": 2,
+    "name": "Meerkat Garden Vest",
+    "color": "#72a06c",
+    "price": 45,
+    "file": "meerkat-shirt-2.png"
+  },
+  {
+    "id": "meerkat-hat-0",
+    "animal": "meerkat",
+    "slot": "hat",
+    "style": 0,
+    "name": "Meerkat City Cap",
+    "color": "#d1a451",
+    "price": 20,
+    "file": "meerkat-hat-0.png"
+  },
+  {
+    "id": "meerkat-hat-1",
+    "animal": "meerkat",
+    "slot": "hat",
+    "style": 1,
+    "name": "Meerkat Moon Beanie",
+    "color": "#9a79bc",
+    "price": 30,
+    "file": "meerkat-hat-1.png"
+  },
+  {
+    "id": "meerkat-hat-2",
+    "animal": "meerkat",
+    "slot": "hat",
+    "style": 2,
+    "name": "Meerkat Sunday Fedora",
+    "color": "#9e7359",
+    "price": 40,
+    "file": "meerkat-hat-2.png"
+  },
+  {
+    "id": "meerkat-pants-0",
+    "animal": "meerkat",
+    "slot": "pants",
+    "style": 0,
+    "name": "Meerkat Denim Trousers",
+    "color": "#587ca0",
+    "price": 25,
+    "file": "meerkat-pants-0.png"
+  },
+  {
+    "id": "meerkat-pants-1",
+    "animal": "meerkat",
+    "slot": "pants",
+    "style": 1,
+    "name": "Meerkat Plaid Slacks",
+    "color": "#9a6c80",
+    "price": 35,
+    "file": "meerkat-pants-1.png"
+  },
+  {
+    "id": "meerkat-pants-2",
+    "animal": "meerkat",
+    "slot": "pants",
+    "style": 2,
+    "name": "Meerkat Cargo Pants",
+    "color": "#8c9868",
+    "price": 45,
+    "file": "meerkat-pants-2.png"
+  },
+  {
+    "id": "tortoise-shirt-0",
+    "animal": "tortoise",
+    "slot": "shirt",
+    "style": 0,
+    "name": "Tortoise Sunset Stripe",
+    "color": "#db7855",
+    "price": 25,
+    "file": "tortoise-shirt-0.png"
+  },
+  {
+    "id": "tortoise-shirt-1",
+    "animal": "tortoise",
+    "slot": "shirt",
+    "style": 1,
+    "name": "Tortoise Midnight Check",
+    "color": "#6679bd",
+    "price": 35,
+    "file": "tortoise-shirt-1.png"
+  },
+  {
+    "id": "tortoise-shirt-2",
+    "animal": "tortoise",
+    "slot": "shirt",
+    "style": 2,
+    "name": "Tortoise Garden Vest",
+    "color": "#72a06c",
+    "price": 45,
+    "file": "tortoise-shirt-2.png"
+  },
+  {
+    "id": "tortoise-hat-0",
+    "animal": "tortoise",
+    "slot": "hat",
+    "style": 0,
+    "name": "Tortoise City Cap",
+    "color": "#d1a451",
+    "price": 20,
+    "file": "tortoise-hat-0.png"
+  },
+  {
+    "id": "tortoise-hat-1",
+    "animal": "tortoise",
+    "slot": "hat",
+    "style": 1,
+    "name": "Tortoise Moon Beanie",
+    "color": "#9a79bc",
+    "price": 30,
+    "file": "tortoise-hat-1.png"
+  },
+  {
+    "id": "tortoise-hat-2",
+    "animal": "tortoise",
+    "slot": "hat",
+    "style": 2,
+    "name": "Tortoise Sunday Fedora",
+    "color": "#9e7359",
+    "price": 40,
+    "file": "tortoise-hat-2.png"
+  },
+  {
+    "id": "tortoise-pants-0",
+    "animal": "tortoise",
+    "slot": "pants",
+    "style": 0,
+    "name": "Tortoise Denim Trousers",
+    "color": "#587ca0",
+    "price": 25,
+    "file": "tortoise-pants-0.png"
+  },
+  {
+    "id": "tortoise-pants-1",
+    "animal": "tortoise",
+    "slot": "pants",
+    "style": 1,
+    "name": "Tortoise Plaid Slacks",
+    "color": "#9a6c80",
+    "price": 35,
+    "file": "tortoise-pants-1.png"
+  },
+  {
+    "id": "tortoise-pants-2",
+    "animal": "tortoise",
+    "slot": "pants",
+    "style": 2,
+    "name": "Tortoise Cargo Pants",
+    "color": "#8c9868",
+    "price": 45,
+    "file": "tortoise-pants-2.png"
+  },
+  {
+    "id": "flamingo-shirt-0",
+    "animal": "flamingo",
+    "slot": "shirt",
+    "style": 0,
+    "name": "Flamingo Sunset Stripe",
+    "color": "#db7855",
+    "price": 25,
+    "file": "flamingo-shirt-0.png"
+  },
+  {
+    "id": "flamingo-shirt-1",
+    "animal": "flamingo",
+    "slot": "shirt",
+    "style": 1,
+    "name": "Flamingo Midnight Check",
+    "color": "#6679bd",
+    "price": 35,
+    "file": "flamingo-shirt-1.png"
+  },
+  {
+    "id": "flamingo-shirt-2",
+    "animal": "flamingo",
+    "slot": "shirt",
+    "style": 2,
+    "name": "Flamingo Garden Vest",
+    "color": "#72a06c",
+    "price": 45,
+    "file": "flamingo-shirt-2.png"
+  },
+  {
+    "id": "flamingo-hat-0",
+    "animal": "flamingo",
+    "slot": "hat",
+    "style": 0,
+    "name": "Flamingo City Cap",
+    "color": "#d1a451",
+    "price": 20,
+    "file": "flamingo-hat-0.png"
+  },
+  {
+    "id": "flamingo-hat-1",
+    "animal": "flamingo",
+    "slot": "hat",
+    "style": 1,
+    "name": "Flamingo Moon Beanie",
+    "color": "#9a79bc",
+    "price": 30,
+    "file": "flamingo-hat-1.png"
+  },
+  {
+    "id": "flamingo-hat-2",
+    "animal": "flamingo",
+    "slot": "hat",
+    "style": 2,
+    "name": "Flamingo Sunday Fedora",
+    "color": "#9e7359",
+    "price": 40,
+    "file": "flamingo-hat-2.png"
+  },
+  {
+    "id": "flamingo-pants-0",
+    "animal": "flamingo",
+    "slot": "pants",
+    "style": 0,
+    "name": "Flamingo Denim Trousers",
+    "color": "#587ca0",
+    "price": 25,
+    "file": "flamingo-pants-0.png"
+  },
+  {
+    "id": "flamingo-pants-1",
+    "animal": "flamingo",
+    "slot": "pants",
+    "style": 1,
+    "name": "Flamingo Plaid Slacks",
+    "color": "#9a6c80",
+    "price": 35,
+    "file": "flamingo-pants-1.png"
+  },
+  {
+    "id": "flamingo-pants-2",
+    "animal": "flamingo",
+    "slot": "pants",
+    "style": 2,
+    "name": "Flamingo Cargo Pants",
+    "color": "#8c9868",
+    "price": 45,
+    "file": "flamingo-pants-2.png"
+  }
+]

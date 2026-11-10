@@ -1,3 +1,4 @@
+import {drawOutfit} from './clothing.js';
 // Canvas renderer: crisp integer-scaled pixel art, night lighting, vision cones, effects.
 
 import { IMAGES, atlasDraw, objectArt, carArt } from './assets.js';
@@ -67,11 +68,14 @@ export class Renderer {
     const g = this.mctx;
     for (const d of this.world.zoo.decor) {
       const ox = d.x * TS, oy = d.y * TS;
+      if(d.kind==='parkingBay'){g.strokeStyle='#d8d8b7';g.lineWidth=1;g.strokeRect(ox,oy,d.w*16,d.h*16);continue;}
+      if(d.kind==='interiorSign'){g.fillStyle='#e6c879';g.font='bold 12px monospace';g.textAlign='left';g.fillText(d.text,ox,oy);continue;}
+      if(d.kind==='cityCounter'||d.kind==='clothesRack'){g.fillStyle=d.kind==='cityCounter'?'#6b756e':'#7b6452';g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle='#c4b594';g.fillRect(ox,oy,d.w*16,4);if(d.kind==='clothesRack')for(let i=5;i<d.w*16;i+=14){g.fillStyle=['#db7855','#6679bd','#72a06c'][Math.floor(i/14)%3];g.fillRect(ox+i,oy+5,10,16);}continue;}
       if(d.kind==='cityBuilding'){g.fillStyle='#263b43';g.fillRect(ox-3,oy-3,d.w*16+6,d.h*16+6);g.fillStyle=d.color;g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle=d.zoo?'#739166':'#baae8b';g.fillRect(ox+5,oy+5,d.w*16-10,12);g.fillStyle='#345464';for(let x=12;x<d.w*16-12;x+=24)for(let y=25;y<d.h*16-24;y+=28)g.fillRect(ox+x,oy+y,14,17);g.fillStyle='#e1c884';g.font='bold 12px monospace';g.textAlign='center';g.fillText(d.text,ox+d.w*8,oy+d.h*16-12);continue;}
       if(d.kind==='street'){g.fillStyle='#dddaa8';g.font='bold 5px monospace';g.textAlign='center';g.fillText(d.text,ox,oy);continue;}
       if(d.kind==='lotExit'){g.fillStyle='#375d51';g.fillRect(ox,oy,d.w*16,d.h*16);g.strokeStyle='#d4d6a4';g.lineWidth=2;g.strokeRect(ox+1,oy+1,d.w*16-2,d.h*16-2);g.fillStyle='#efe7b0';g.font='bold 12px monospace';g.textAlign='center';g.fillText('EXIT',ox+d.w*8,oy+d.h*8+4);continue;}
       if(d.kind==='parkedCar'){
-        for(let y=0;y<d.h;y++)for(let x=0;x<d.w;x++)drawTile(g,T.PATH,d.x+x,d.y+y,ox+x*16,oy+y*16,'outside',null);
+        if(this.world.zoo.id!=='city')for(let y=0;y<d.h;y++)for(let x=0;x<d.w;x++)drawTile(g,T.PATH,d.x+x,d.y+y,ox+x*16,oy+y*16,'outside',null);
         g.strokeStyle='#b7b99a';g.lineWidth=1;g.strokeRect(ox-2,oy-3,d.w*16+4,d.h*16+6);
         if(!d.getaway){g.save();g.translate(ox+d.w*8,oy+d.h*8);g.rotate(d.angle||0);carArt(g,-32,-24,64,48,d.colorIndex||0);g.restore();}continue;
       }
@@ -237,6 +241,8 @@ export class Renderer {
     if(car&&visible(car.x,car.y)){
       ctx.save();ctx.translate(car.x*TS,car.y*TS);ctx.rotate(car.angle);carArt(ctx,-32,-24,64,48,car.colorIndex||0);ctx.restore();
     }
+    // City customers share depth sorting with animals and keepers.
+    const humans=snap.humans||[];
     // characters sorted by y
     const ents = [];
     for (const n of npcs) ents.push({ y: n.y, draw: () => this._drawAnimal(ctx, n.a, n.x, n.y, n.f || 'down', n.mv, 0, now, { npc: true, state: n.s }) });
@@ -244,6 +250,7 @@ export class Renderer {
       if (p.car || (p.s & PF.UNDER)) continue;
       ents.push({ y: p.y, draw: () => this._drawPlayer(ctx, p, now) });
     }
+    for(const human of humans)ents.push({y:human.y,draw:()=>this._drawHuman(ctx,human,now)});
     for (const s of staff) ents.push({ y: s.y, draw: () => this._drawStaff(ctx, s, now) });
     ents.sort((a, b) => a.y - b.y);
     for (const e of ents) e.draw();
@@ -318,7 +325,7 @@ export class Renderer {
       label(tag, sx, top, mine ? '#ffe36a' : '#ffffff');
       if(p.mu)label('MUZZLED',sx,top-fs*1.35,'#ffb796');
       if (p.c&&!this.settings.compactHUD) label(p.c === 'wood' ? 'carrying log' : 'carrying fuse', sx, top - fs * 1.35, '#ffd27a');
-      if (mine&&!this.settings.compactHUD) label(this.world.zoo.id==='parking'?`Car keys: ${p.ck||0}`:`Cage keys: ${p.ck || 0} · Bundles: ${p.supplies || 0}/2`, sx, top - fs * 2.7, '#ffe36a');
+      if (mine&&!this.settings.compactHUD&&this.world.zoo.id!=='city') label(this.world.zoo.id==='parking'?`Car keys: ${p.ck||0}`:`Cage keys: ${p.ck || 0} · Bundles: ${p.supplies || 0}/2`, sx, top - fs * 2.7, '#ffe36a');
     }
     for (const b of this.bubbles) {
       const p = players.find((q) => q.id === b.pid); if (!p) continue;
@@ -394,6 +401,11 @@ export class Renderer {
     }
     switch (o.kind) {
       case 'vehicle': break;
+      case 'cityDoor':ctx.fillStyle='#23464c';ctx.fillRect(ox+1,oy,14,16);ctx.strokeStyle='#ffe9a1';ctx.strokeRect(ox+1,oy,14,16);ctx.fillStyle='#ffe9a1';ctx.fillRect(ox+10,oy+8,2,2);break;
+      case 'vaultWheel':ctx.strokeStyle='#e7c76f';ctx.lineWidth=2;ctx.beginPath();ctx.arc(ox+8,oy+8,9,0,Math.PI*2);ctx.moveTo(ox-1,oy+8);ctx.lineTo(ox+17,oy+8);ctx.moveTo(ox+8,oy-1);ctx.lineTo(ox+8,oy+17);ctx.stroke();break;
+      case 'vaultCash':ctx.fillStyle='#55905d';for(let i=0;i<4;i++){ctx.fillRect(ox+i*3,oy+8-i*3,14,5);ctx.fillStyle='#bad69b';ctx.fillRect(ox+i*3+6,oy+8-i*3,2,5);ctx.fillStyle='#55905d';}break;
+      case 'controlLatch':ctx.fillStyle='#e0a45e';ctx.fillRect(ox+4,oy+3,8,11);ctx.fillStyle='#ffeabc';ctx.fillRect(ox+6,oy+5,4,4);break;
+      case 'shopCounter':ctx.fillStyle='#e3c58b';ctx.fillRect(ox,oy+4,16,12);ctx.fillStyle='#80576d';ctx.fillRect(ox+3,oy,10,7);break;
       case 'fusePassage': ctx.fillStyle='#172538';ctx.fillRect(ox,oy,16,16);for(let i=0;i<4;i++){ctx.fillStyle=i%2?'#b9a96d':'#dbc78d';ctx.fillRect(ox+2+i*3,oy+11-i*3,12-i*3,3);}ctx.strokeStyle='#ffe29a';ctx.strokeRect(ox,oy,16,16);break;
       case 'controlDoor':
         ctx.fillStyle=state?'#182b29':'#745737';ctx.fillRect(ox+1,oy,14,16);ctx.strokeStyle='#bba56b';ctx.strokeRect(ox+1,oy,14,16);ctx.fillStyle='#ffe4a0';ctx.font='bold 8px monospace';ctx.textAlign='center';ctx.fillText(String.fromCharCode(65+o.index),ox+8,oy+10);break;
@@ -484,6 +496,7 @@ export class Renderer {
     ctx.strokeStyle = ANIMALS[p.a].color; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.ellipse(p.x * TS, p.y * TS + 5, 7, 3, 0, 0, Math.PI * 2); ctx.stroke();
     this._drawAnimal(ctx, id, p.x, y, face, p.mv || (p.s & PF.SPRINT), (p.s & PF.WOBBLE) ? Math.min(1, p.wb * 1.5) : 0, now,{action:p.ba?'bite':p.mv?'run':'walk'});
+    drawOutfit(ctx,p.a,p.outfit,p.x*TS-8,y*TS-10,16,16,face);
     ctx.globalAlpha = 1;
     if(p.mu&&!objectArt(ctx,15,Math.round(p.x*TS+(face==='left'?-10:0)),Math.round(y*TS-7),10,9)){ctx.fillStyle='#aeb8b9';ctx.fillRect(p.x*TS+(face==='left'?-7:1),y*TS-5,6,4);}
     if (p.s & PF.HIDDEN) { ctx.fillStyle = 'rgba(46,122,58,0.7)'; ctx.fillRect(Math.round(p.x * TS - 8), Math.round(p.y * TS - 2), 16, 8); }
@@ -493,6 +506,10 @@ export class Renderer {
     if (p.hk === 'chew' || p.hk === 'dig') { if (Math.floor(now / 100) % 2) { ctx.fillStyle = p.hk === 'chew' ? '#c8904e' : '#8a6034'; ctx.fillRect(Math.round(p.x * TS + (Math.random() * 12 - 6)), Math.round(p.y * TS - 2), 2, 2); } }
   }
 
+  _drawHuman(ctx,n,now){
+    ctx.save();ctx.translate(n.x*TS,n.y*TS);if(n.asleep){ctx.rotate(Math.PI/2);ctx.translate(-4,0);}const bob=n.asleep?0:Math.floor(now/220+n.x)%2;
+    ctx.fillStyle=['#66849e','#a17980','#7d9565','#a78d60'][n.color];ctx.fillRect(-5,-7-bob,10,9);ctx.fillStyle='#e8bd98';ctx.fillRect(-3,-13-bob,7,6);ctx.fillStyle='#493b35';ctx.fillRect(-3,-14-bob,7,2);ctx.fillStyle='#202c37';ctx.fillRect(-4,2-bob,3,5);ctx.fillRect(2,2-bob,3,5);ctx.fillStyle='#241e21';ctx.fillRect(1,-11-bob,1,1);ctx.fillStyle='#e3d8a6';ctx.fillRect(0,-6-bob,1,5);if(n.asleep){ctx.fillStyle='#fff0bf';ctx.font='8px monospace';ctx.fillText('z',8,-8);}ctx.restore();
+  }
   _drawStaff(ctx, s, now) {
     if(s.s===6){const image=SPRITES.staffDown.r[0];ctx.drawImage(image,s.x*TS-16,s.y*TS-14,32,22);return;}
     this._drawAnimal(ctx,'staff',s.x,s.y,Math.cos(s.d)<0?'left':'right',s.mv,0,now,{action:s.s===2?'run':'walk'});

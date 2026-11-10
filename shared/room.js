@@ -1,6 +1,7 @@
 // Transport-agnostic room: lobby, animal picks, readiness, mission lifecycle, reconnection.
 // The Node server wraps it with WebSockets; solo play wraps it with a direct in-browser link.
 
+import { CityGame } from './city-game.js';
 import { ParkingGame } from './parking-game.js';
 import { Game, TICK } from './game.js';
 import { ANIMAL_IDS, ANIMALS } from './animals.js';
@@ -155,11 +156,11 @@ export class Room {
       }
       case 'continue': {
         if(pid!==this.hostId)return this.error(pid,'not_host','Only the host can continue the team to the parking lot.');
-        if(this.phase!=='complete'||this.game?.zooId!=='moonleaf')return;
+        if(this.phase!=='complete'||!['moonleaf','parking'].includes(this.game?.zooId))return;
         const remaining=[...this.players.values()].filter(p=>this.game.players.get(p.id)?.active&&!p.spectator);
         if(!remaining.length)return this.error(pid,'no_crew','Return to the lobby to choose a new crew.');
         if(remaining.some(p=>!p.connected))return this.error(pid,'waiting','Wait for your teammates to reconnect before continuing.');
-        this.startMission('parking');break;
+        this.startMission(this.game.zooId==='parking'?'city':'parking');break;
       }
       case 'vehicle': if(this.phase==='playing')this.game?.vehicleAction?.(pid,msg);break;
       case 'panel': this.game?.controlAction(pid,msg);break;
@@ -201,7 +202,7 @@ export class Room {
       case 'replay':
         if (pid !== this.hostId) return this.error(pid, 'not_host', 'Only the host can restart the mission.');
         if (this.phase === 'lobby') return;
-        this.startMission(this.game?.zooId==='parking'?'parking':'zoo');
+        this.startMission(['parking','city'].includes(this.game?.zooId)?this.game.zooId:'zoo');
         break;
       case 'toLobby':
         if (pid !== this.hostId) return this.error(pid, 'not_host', 'Only the host can return everyone to the lobby.');
@@ -220,13 +221,15 @@ export class Room {
   }
 
   startMission(stage='zoo') {
-    const continuing=stage==='parking'&&this.game?.zooId==='moonleaf';
+    const continuing=(stage==='parking'&&this.game?.zooId==='moonleaf')||(stage==='city'&&this.game?.zooId==='parking');
+    const carColor=this.game?.vehicle?.colorIndex;
     const eligible=continuing?new Set(this.game.activePlayers().map(p=>p.id)):null;
     for (const p of this.players.values()) { p.spectator = false; }
     const list = [...this.players.values()].filter((p) => p.animal && p.connected && (!eligible||eligible.has(p.id))).sort((a, b) => a.joinedAt - b.joinedAt);
     const seed = Math.floor(this.rng() * 1e9);
-    this.game = new (stage==='parking'?ParkingGame:Game)({ zooId: this.zooId, players: list.map((p) => ({ id: p.id, name: p.name, animal: p.animal })), seed, options: this.options });
+    this.game = new (stage==='city'?CityGame:stage==='parking'?ParkingGame:Game)({previousCarSlot:this.lastCarSlot,carColor:stage==='city'?carColor:null,zooId: this.zooId, players: list.map((p) => ({ id: p.id, name: p.name, animal: p.animal })), seed, options: this.options });
     for (const p of this.players.values()) if (!list.includes(p)) p.spectator = true;
+    if(stage==='parking')this.lastCarSlot=this.game.vehicle.slot;
     this.phase = 'playing';
     this.paused = false;
     this.results = null;
@@ -294,7 +297,7 @@ export class Room {
     }
     if (this.game.phase === 'complete') {
       this.phase = 'complete';
-      this.results = {...this.game.results(),stage:this.game.zooId==='parking'?'parking':'zoo',next:this.game.zooId==='moonleaf'?'parking':null};
+      this.results = {...this.game.results(),stage:this.game.zooId==='city'?'city':this.game.zooId==='parking'?'parking':'zoo',next:this.game.zooId==='moonleaf'?'parking':this.game.zooId==='parking'?'city':null};
       this.broadcast({ t: 'end', results: this.results });
       this.broadcastLobby();
     }

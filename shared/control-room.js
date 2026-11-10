@@ -45,8 +45,11 @@ export function controlPersonal(g,pid){
 
 export function enterControlRoom(g,p,door){
  if(!g.keysActive())return g.msg(p,'Restore power and free your animal friends first.');
- const order=g.controlRoom.panels[p.id]?.doorIndex;
- if(door.index!==order)return g.msg(p,`This door belongs to ${g.activePlayers().find(q=>g.controlRoom.panels[q.id]?.doorIndex===door.index)?.name||'another operator'}. Find your own entrance.`);
+ const c=g.controlRoom,occupant=g.activePlayers().find(q=>q.id!==p.id&&q.inControlRoom&&c.entered[q.id]===door.index);
+ if(occupant)return g.msg(p,`${occupant.name} is already in this room. Choose a free door.`);
+ const old=c.panels[p.id]?.doorIndex,other=g.activePlayers().find(q=>q.id!==p.id&&!q.inControlRoom&&c.panels[q.id]?.doorIndex===door.index);
+ if(other)c.panels[other.id].doorIndex=old;
+ c.panels[p.id].doorIndex=door.index;
  if(g.controlRoom.phase==='complete')return;
  p.inControlRoom=true;p.hold=null;p.hidden=false;p.x=67.5;p.y=28.5;
  g.controlRoom.entered[p.id]=door.index;door.state=1;
@@ -72,7 +75,7 @@ export function controlAction(g,pid,msg){
 
 export function stepControlRoom(g,dt){
  const c=g.controlRoom,players=g.activePlayers();
- for(const id of Object.keys(c.panels))if(!players.some(p=>p.id===id)){delete c.panels[id];delete c.entered[id];}
+ for(const id of Object.keys(c.panels))if(!players.some(p=>p.id===id)){const door=g.objects.find(o=>o.kind==='controlDoor'&&o.index===c.entered[id]);if(door)door.state=0;delete c.panels[id];delete c.entered[id];}
  if(!players.length||c.phase==='complete'||players.some(p=>!p.connected))return;
  if(c.phase==='waiting'&&players.every(p=>p.inControlRoom)){c.phase='arming';g.emit({k:'panelready'});}
  if(c.phase==='arming'&&players.every(p=>c.panels[p.id]?.powered))c.phase='running';

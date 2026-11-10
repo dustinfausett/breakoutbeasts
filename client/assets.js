@@ -18,4 +18,4 @@ export function objectArt(ctx,index,x,y,w=16,h=16){
  atlasDraw(ctx,IMAGES.objects,index,4,4,x,y,w,h);return true;
 }
 
-export function carArt(ctx,x,y,w=64,h=48){if(!IMAGES.car)return;ctx.drawImage(IMAGES.car,x,y,w,h);}
+export function carArt(ctx,x,y,w=64,h=48,color=0){if(!IMAGES.car)return;ctx.save();ctx.filter=`hue-rotate(${[0,165,225,75,285,315][color%6]}deg)`;ctx.drawImage(IMAGES.car,x,y,w,h);ctx.restore();}

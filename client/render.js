@@ -44,8 +44,8 @@ export class Renderer {
     this.world = world;
     const z = world.zoo;
     this.map = document.createElement('canvas');
-    this.map.width = z.w * TS * 3; this.map.height = z.h * TS * 3;
-    this.mctx = this.map.getContext('2d');this.mctx.scale(3,3);this.mctx.imageSmoothingEnabled=false;
+    this.map.width = z.w * TS * (z.id==='city'?1:3); this.map.height = z.h * TS * (z.id==='city'?1:3);
+    this.mctx = this.map.getContext('2d');this.mctx.scale(z.id==='city'?1:3,z.id==='city'?1:3);this.mctx.imageSmoothingEnabled=false;
     this.redrawAll();
     this.fx = []; this.bubbles = [];
   }
@@ -67,11 +67,13 @@ export class Renderer {
     const g = this.mctx;
     for (const d of this.world.zoo.decor) {
       const ox = d.x * TS, oy = d.y * TS;
+      if(d.kind==='cityBuilding'){g.fillStyle='#263b43';g.fillRect(ox-3,oy-3,d.w*16+6,d.h*16+6);g.fillStyle=d.color;g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle=d.zoo?'#739166':'#baae8b';g.fillRect(ox+5,oy+5,d.w*16-10,12);g.fillStyle='#345464';for(let x=12;x<d.w*16-12;x+=24)for(let y=25;y<d.h*16-24;y+=28)g.fillRect(ox+x,oy+y,14,17);g.fillStyle='#e1c884';g.font='bold 12px monospace';g.textAlign='center';g.fillText(d.text,ox+d.w*8,oy+d.h*16-12);continue;}
+      if(d.kind==='street'){g.fillStyle='#dddaa8';g.font='bold 5px monospace';g.textAlign='center';g.fillText(d.text,ox,oy);continue;}
       if(d.kind==='lotExit'){g.fillStyle='#375d51';g.fillRect(ox,oy,d.w*16,d.h*16);g.strokeStyle='#d4d6a4';g.lineWidth=2;g.strokeRect(ox+1,oy+1,d.w*16-2,d.h*16-2);g.fillStyle='#efe7b0';g.font='bold 12px monospace';g.textAlign='center';g.fillText('EXIT',ox+d.w*8,oy+d.h*8+4);continue;}
       if(d.kind==='parkedCar'){
         for(let y=0;y<d.h;y++)for(let x=0;x<d.w;x++)drawTile(g,T.PATH,d.x+x,d.y+y,ox+x*16,oy+y*16,'outside',null);
         g.strokeStyle='#b7b99a';g.lineWidth=1;g.strokeRect(ox-2,oy-3,d.w*16+4,d.h*16+6);
-        if(!d.getaway)carArt(g,ox,oy,d.w*16,d.h*16);continue;
+        if(!d.getaway){g.save();g.translate(ox+d.w*8,oy+d.h*8);g.rotate(d.angle||0);carArt(g,-32,-24,64,48,d.colorIndex||0);g.restore();}continue;
       }
       if(d.kind==='controlHouse'&&!IMAGES.terrain){g.fillStyle='#394d59';g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle='#57717c';for(let y=0;y<d.h;y++)g.fillRect(ox,oy+y*16,d.w*16,2);continue;}
       if(d.kind==='controlHouse'){for(let y=0;y<d.h;y++)for(let x=0;x<d.w;x++)atlasDraw(g,IMAGES.terrain,13,4,4,ox+x*16,oy+y*16,16,16);continue;}
@@ -137,6 +139,7 @@ export class Renderer {
   draw(now, dt, view) {
     const ctx = this.ctx, w = this.world;
     if (!w || !w.snap || !w.defs) return;
+    if(w.dirtyDecor){this.redrawAll();w.dirtyDecor=false;}
     if (w.dirtyTiles) { this.updateTiles(); w.dirtyTiles = false; }
     this._stepFx(dt);
     const S = this.scale;
@@ -243,7 +246,7 @@ export class Renderer {
 
     const car=snap.obj.parking?.car;
     if(car&&visible(car.x,car.y)){
-      ctx.save();ctx.translate(car.x*TS,car.y*TS);ctx.rotate(car.angle);carArt(ctx,-32,-24,64,48);ctx.restore();
+      ctx.save();ctx.translate(car.x*TS,car.y*TS);ctx.rotate(car.angle);carArt(ctx,-32,-24,64,48,car.colorIndex||0);ctx.restore();
     }
     // characters sorted by y
     const ents = [];
@@ -468,16 +471,16 @@ export class Renderer {
     }
   }
 
-  _sprite(id, face, moving, now) {
+  _sprite(id, face, moving, now, action='walk') {
     const set = SPRITES[id];
-    const direction=face==='left'?'l':'r',frames=set[direction];
-    if(!moving||this.settings.reducedMotion)return set.idle?.[direction]||frames[0];
-    const interval=id==='tortoise'?200:id==='staff'?115:140;
+    const direction=face==='left'?'l':'r',frames=(set[action]||set)[direction];
+    if((!moving&&action!=='bite')||this.settings.reducedMotion)return set.idle?.[direction]||frames[0];
+    const interval=action==='bite'?100:action==='run'?(id==='tortoise'?150:90):id==='tortoise'?200:id==='staff'?115:140;
     return frames[Math.floor(now/interval)%frames.length];
   }
 
   _drawAnimal(ctx, animal, x, y, face, moving, wobble, now, opts = {}) {
-    const img = this._sprite(animal, face, moving, now);
+    const img = this._sprite(animal, face, moving, now,opts.action);
     const bob = !moving && !this.settings.reducedMotion ? (Math.floor(now / 500 + x) % 2) : 0;
     const iw=IMAGES.actors?24:16,ih=iw;
     const dx = Math.round(x * TS - iw / 2), dy = Math.round(y * TS - ih + 6 - bob);
@@ -500,7 +503,7 @@ export class Renderer {
     // ring marker under each player (colour per animal)
     ctx.strokeStyle = ANIMALS[p.a].color; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.ellipse(p.x * TS, p.y * TS + 5, 7, 3, 0, 0, Math.PI * 2); ctx.stroke();
-    this._drawAnimal(ctx, id, p.x, y, face, p.mv || (p.s & PF.SPRINT), (p.s & PF.WOBBLE) ? Math.min(1, p.wb * 1.5) : 0, now);
+    this._drawAnimal(ctx, id, p.x, y, face, p.mv || (p.s & PF.SPRINT), (p.s & PF.WOBBLE) ? Math.min(1, p.wb * 1.5) : 0, now,{action:p.ba?'bite':p.mv?'run':'walk'});
     ctx.globalAlpha = 1;
     if(p.mu&&!objectArt(ctx,15,Math.round(p.x*TS+(face==='left'?-10:0)),Math.round(y*TS-7),10,9)){ctx.fillStyle='#aeb8b9';ctx.fillRect(p.x*TS+(face==='left'?-7:1),y*TS-5,6,4);}
     if (p.s & PF.HIDDEN) { ctx.fillStyle = 'rgba(46,122,58,0.7)'; ctx.fillRect(Math.round(p.x * TS - 8), Math.round(p.y * TS - 2), 16, 8); }
@@ -512,10 +515,11 @@ export class Renderer {
 
   _drawStaff(ctx, s, now) {
     if(s.s===6){const image=SPRITES.staffDown.r[0];ctx.drawImage(image,s.x*TS-16,s.y*TS-14,32,22);return;}
-    this._drawAnimal(ctx,'staff',s.x,s.y,Math.cos(s.d)<0?'left':'right',s.mv,0,now);
+    this._drawAnimal(ctx,'staff',s.x,s.y,Math.cos(s.d)<0?'left':'right',s.mv,0,now,{action:s.s===2?'run':'walk'});
   }
 
   _drawLighting(players, staff, toS, now) {
+    if(this.world.zoo.daylight)return;
     const L = this.lctx, lw = this.light.width, lh = this.light.height;
     const S = this.scale, f = 0.5; // light canvas is half resolution
     L.setTransform(1, 0, 0, 1, 0, 0);

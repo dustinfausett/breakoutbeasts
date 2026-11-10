@@ -32,7 +32,7 @@ test('each of eight players has a unique, reachable assigned doorway and a maint
  for(const p of g.activePlayers()){
   const index=g.controlRoom.panels[p.id].doorIndex,door=doors.find(o=>o.index===index);
   assert.ok(bfs(g.w,g.h,60,28,door.stand,(x,y)=>canOccupy(g,p.animal,x+.5,y+.5,null)),'reachable door '+index);
-  const wrong=doors.find(o=>o.index!==index);p.x=wrong.stand[0]+.5;p.y=wrong.stand[1]+.5;g._objectInteraction(p,wrong).run();assert.equal(!!p.inControlRoom,false);
+
   enter(g,p);assert.equal(p.inControlRoom,true);
  }
  assert.equal(new Set(Object.values(g.controlRoom.entered)).size,8);
@@ -97,3 +97,7 @@ test('solo radio-partner mode provides five valid tasks without needing another 
  for(let i=0;i<5;i++){const clue=controlPersonal(g,p.id).instruction;assert.match(clue.text,/radio/);g.controlAction(p.id,{op:'set',control:clue.control,value:clue.value});g.step();}
  assert.equal(g.controlRoom.phase,'complete');
 });
+
+test('any animal may choose an unoccupied room but cannot share an occupied room',()=>{const g=ready(2),[a,b]=g.activePlayers(),doors=g.objects.filter(o=>o.kind==='controlDoor'),door=doors[1];for(const p of [a,b]){p.x=door.stand[0]+.5;p.y=door.stand[1]+.5;g._objectInteraction(p,door).run?.();}assert.equal(a.inControlRoom,true);assert.equal(!!b.inControlRoom,false);enter(g,b);assert.equal(b.inControlRoom,true);assert.notEqual(g.controlRoom.panels[a.id].doorIndex,g.controlRoom.panels[b.id].doorIndex);});
+
+test('leaving a waiting room frees that same entrance for another animal',()=>{const g=ready(2),[a,b]=g.activePlayers();enter(g,a);const door=g.objects.find(o=>o.kind==='controlDoor'&&o.index===g.controlRoom.entered[a.id]);g.controlAction(a.id,{op:'leave'});assert.equal(door.state,0);b.x=door.stand[0]+.5;b.y=door.stand[1]+.5;g._interact(b);assert.equal(b.inControlRoom,true);assert.equal(g.controlRoom.entered[b.id],door.index);});

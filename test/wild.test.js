@@ -77,7 +77,7 @@ test('projectiles stop at obstacles and have finite travel distance',()=>{
 test('a teammate bites off a muzzle, restoring beaver chewing without triggering human aggression',()=>{
  const g=new Game({players:[{id:'a',animal:'beaver'},{id:'b',animal:'monkey'}],options:{staff:false}}),a=g.players.get('a'),b=g.players.get('b');
  a.muzzled=true;a.x=56.5;a.y=24.5;a.face='right';assert.equal(g.abilityTarget(a).idle,true);
- a.x=19.5;a.y=14.5;b.x=18.5;b.y=14.5;b.face='right';g._bite(b);assert.equal(a.muzzled,false);assert.equal(g.permanentAlert,false);
+ a.x=19.5;a.y=14.5;b.x=18.5;b.y=14.5;b.face='right';g._bite(b);assert.equal(a.muzzled,true);for(let i=0;i<51;i++)g._continueHold(b,{b:true},TICK);assert.equal(a.muzzled,false);assert.equal(g.permanentAlert,false);
  a.x=56.5;a.y=24.5;assert.equal(typeof g.abilityTarget(a).run,'function');
  a.muzzled=true;a.carry='wood';a.x=20.5;a.y=14.5;a.face='right';g.setTile(21,14,T.BRIDGE_SPOT);
  g.abilityTarget(a).run();assert.equal(g.tileAt(21,14),T.BRIDGE,'muzzles do not block construction with paws');
@@ -93,14 +93,14 @@ test('capture countdown reaches exactly zero so returned animals can receive tea
  a.muzzled=true;g._capture(g.staff[0],a);
  for(let i=0;i<24;i++)g._stepPlayer(a,TICK);
  assert.equal(a.capturedT,0,'no negative floating-point remainder');
- b.x=a.x-1;b.y=a.y;b.face='right';g._bite(b);
+ b.x=a.x-1;b.y=a.y;b.face='right';g._bite(b);for(let i=0;i<51;i++)g._continueHold(b,{b:true},TICK);
  assert.equal(a.muzzled,false,'a real returned animal is a valid muzzle-removal target');
 });
 
 test('a freed NPC animal can bite off a solo animal’s muzzle on request',()=>{
  const {g,p}=fixture('beaver');g.staff=[];p.muzzled=true;const friend=g.npcs[0];friend.x=p.x+1;friend.y=p.y;
  friend.state='caged';g._interact(p);assert.equal(p.muzzled,true);
- friend.state='free';g._interact(p);assert.equal(p.muzzled,false,'solo muzzle removal still requires another freed animal');
+ friend.state='free';g._interact(p);for(let i=0;i<51;i++)g._continueHold(p,{e:true},TICK);assert.equal(p.muzzled,false,'solo muzzle removal still requires another freed animal');
 });
 
 test('Hard vision is forward, uncapped in distance, and blocked by obstacles and diagonal corners',()=>{
@@ -111,3 +111,6 @@ test('Hard vision is forward, uncapped in distance, and blocked by obstacles and
  p.face='left';assert.equal(animalCanSee(w,p,1.5,5.5),true);assert.equal(animalCanSee(w,p,3.5,5.5),false);
  p.face='right';walls.clear();walls.add('3,5');walls.add('2,6');assert.equal(animalCanSee(w,p,4.5,7.5),false);
 });
+
+test('three garbage-bin rattles loosen a muzzle, with a cooldown between rattles',()=>{const {g,p}=fixture('beaver');g.staff=[];p.muzzled=true;const bin=g.objects.find(o=>o.kind==='can');assert.ok(bin);const target=()=>g._objectInteraction(p,bin);target().run();assert.equal(p.muzzleRattles,1);assert.equal(p.muzzled,true);assert.equal(target().idle,true);bin.cool=0;target().run();assert.equal(p.muzzled,true);bin.cool=0;target().run();assert.equal(p.muzzled,false);});
+test('releasing bite early cancels muzzle removal',()=>{const g=new Game({players:[{id:'a',animal:'beaver'},{id:'b',animal:'monkey'}],options:{staff:false}}),a=g.players.get('a'),b=g.players.get('b');a.muzzled=true;a.x=19.5;a.y=14.5;b.x=18.5;b.y=14.5;b.face='right';g._bite(b);g._continueHold(b,{b:true},1);assert.equal(a.muzzled,true);g._continueHold(b,{b:false},TICK);assert.equal(b.hold,null);assert.equal(a.muzzled,true);});

@@ -141,7 +141,7 @@ export class Game {
       input: { mx: 0, my: 0, sp: false, e: false }, prevSp: false, prevE: false, lastSeq: 0,
       carry: null, shell: false, slide: null, sprintT: 0, noiseT: 0, cd: 0, cdMax: 1, grace: 0, capturedT: 0,
       under: null, hop: null, hold: null, lookout: 0, wobble: 0, onBeam: false, safe: null,
-      muzzled:false, biteCool:0, prevB:false, flinch:0,
+      muzzled:false, muzzleRattles:0, biteAnimT:0, biteCool:0, prevB:false, flinch:0,
       escaped: false, hidden: false, exposed: false, prepared: false, materials: 0, cageKeys: 0, ramCool: 0,
       inExit: false, moving: false, msgCool: 0, everCaught: 0,
     };
@@ -190,7 +190,7 @@ export class Game {
       if (g.state !== 0) continue;
       for (const [x, y] of g.tiles) { const i = this.idx(x, y); this.entSolid[i] = 1; if (g.vis === 'solid') this.entVis[i] = 1; }
     }
-    for (const o of this.objects) if (!['escapeBuild','escapeDig','supplies','vehicle'].includes(o.kind)) this.entSolid[this.idx(o.x, o.y)] = 1;
+    for (const o of this.objects) if (!['escapeBuild','escapeDig','supplies','vehicle','holdingCageDoor'].includes(o.kind)) this.entSolid[this.idx(o.x, o.y)] = 1;
     for (const c of this.crates) { const i = this.idx(c.x, c.y); this.entSolid[i] = 1; this.entVis[i] = 1; }
   }
 
@@ -284,7 +284,7 @@ export class Game {
     const spEdge = inp.sp && !p.prevSp;
     const eEdge = inp.e && !p.prevE;
     const bEdge = inp.b && !p.prevB;
-    p.prevB=!!inp.b;p.biteCool=Math.max(0,p.biteCool-dt);p.flinch=Math.max(0,p.flinch-dt);
+    p.prevB=!!inp.b;p.biteCool=Math.max(0,p.biteCool-dt);p.biteAnimT=Math.max(0,(p.biteAnimT||0)-dt);p.flinch=Math.max(0,p.flinch-dt);
     p.prevSp = inp.sp; p.prevE = inp.e;
     p.cd = Math.max(0, p.cd - dt);
     p.grace = Math.max(0, p.grace - dt);
@@ -398,12 +398,17 @@ export class Game {
   _continueHold(p, inp, dt) {
     const h = p.hold;
     if (h.kind==='ram' && Math.hypot(inp.mx||0,inp.my||0)>.15) {p.hold=null;return;}
-    const held = h.btn === 'sp' ? inp.sp : inp.e;
+    const held = h.btn === 'sp' ? inp.sp : h.btn==='b'?inp.b:inp.e;
     if (!held) {
       if (h.kind === 'chew') this.chew.set(h.key, h.t);
       p.hold = null; return;
     }
     if(h.kind==='steal'){const s=this.staff.find(s=>s.id===h.staff);if(!s||!this._canSteal(p,s)){p.hold=null;this.msg(p,'Stay close and out of sight to steal the key.');return;}}
+    if(h.kind==='muzzleHelp'){
+      const victim=h.target?this.players.get(h.target):p,helper=h.npcEnc!=null?this.npcs.find(n=>n.enc===h.npcEnc&&n.state==='free'):p;
+      if(!victim?.muzzled||!helper||victim.capturedT>0||(h.target&&(!victim.connected||p.muzzled))||dist(helper.x,helper.y,victim.x,victim.y)>1.4||!lineOfSight(helper.x,helper.y,victim.x,victim.y,(x,y)=>this.visionBlocked(x,y))){p.hold=null;return;}
+      p.biteAnimT=.2;
+    }
     h.t += dt;
     if (h.kind === 'key') {
       const key = this.obj(h.obj);
@@ -412,7 +417,8 @@ export class Game {
     }
     if (h.t >= h.need) {
       p.hold = null;
-      if (h.kind === 'ram') {
+      if(h.kind==='muzzleHelp'){const victim=h.target?this.players.get(h.target):p;if(victim?.muzzled){victim.muzzled=false;victim.muzzleRattles=0;this.emit({k:'muzzleoff',pid:victim.id,name:victim.name});}}
+      else if (h.kind === 'ram') {
         const gate = this.gate(h.gate);
         if (gate && !gate.state && gate.tiles.some(([x,y]) => dist(p.x,p.y,x+.5,y+.5)<1.65)) this._ramGate(p,gate);
       } else if (h.kind === 'steal') {
@@ -600,8 +606,8 @@ export class Game {
     if(p.muzzled){
       const friend=this.npcs.find(n=>n.state==='free' && dist(p.x,p.y,n.x,n.y)<1.35 &&
         lineOfSight(p.x,p.y,n.x,n.y,(x,y)=>this.visionBlocked(x,y)));
-      if(friend)return {text:`Ask ${ANIMALS[friend.animal].name} to bite off your muzzle`,run:()=>{
-        p.muzzled=false;this.emit({k:'muzzleoff',pid:p.id,name:p.name});
+      if(friend)return {text:`Hold E: ask ${ANIMALS[friend.animal].name} to chew off your muzzle`,run:()=>{
+        p.hold={kind:'muzzleHelp',btn:'e',npcEnc:friend.enc,t:0,need:2.5};
       }};
     }
     const guard = this.staff.find(s => this._canSteal(p, s));
@@ -712,7 +718,7 @@ export class Game {
       }
       case 'can':
         if (o.cool > 0) return { text: 'Rattled — wait a moment', idle: true };
-        return { text: 'Rattle the bin (distract keepers)', run: () => { o.cool = 6; this.noise(o.x + 0.5, o.y + 0.5, 9, p); this.emit({ k: 'rattle', x: o.x, y: o.y }); } };
+        return { text: p.muzzled?`Rattle the bin to loosen your muzzle (${p.muzzleRattles||0}/3)`:'Rattle the bin (distract keepers)', run: () => { o.cool = 6;if(p.muzzled){p.muzzleRattles=(p.muzzleRattles||0)+1;if(p.muzzleRattles>=3){p.muzzled=false;p.muzzleRattles=0;this.emit({k:'muzzleoff',pid:p.id,name:p.name});}else this.msg(p,`Muzzle loosened: ${p.muzzleRattles}/3 rattles.`);} this.noise(o.x + 0.5, o.y + 0.5, 9, p); this.emit({ k: 'rattle', x: o.x, y: o.y }); } };
     }
     return null;
   }
@@ -893,9 +899,9 @@ export class Game {
     const near=q=>dist(p.x,p.y,q.x,q.y)<1.35 && (q.x-p.x)*fx+(q.y-p.y)*fy>-.1 &&
       lineOfSight(p.x,p.y,q.x,q.y,(x,y)=>this.visionBlocked(x,y));
     const friend=this.activePlayers().find(q=>q!==p && q.connected && q.capturedT<=0 && !q.under && near(q));
-    p.biteCool=1.2;p.hold=null;
+    p.biteCool=1.2;p.biteAnimT=.4;p.hold=null;
     if(friend){
-      if(friend.muzzled){friend.muzzled=false;this.emit({k:'muzzleoff',pid:friend.id,name:friend.name});}
+      if(friend.muzzled){p.hold={kind:'muzzleHelp',btn:'b',target:friend.id,t:0,need:2.5};this.msg(p,'Hold B and stay close to chew off the muzzle.');}
       else {friend.flinch=.3;this.emit({k:'nip',pid:friend.id});}
       return;
     }
@@ -926,7 +932,7 @@ export class Game {
         const step=Math.min(.1,travel);travel-=step;d.left-=step;d.x+=d.dx*step;d.y+=d.dy*step;
         if(this.visionBlocked(Math.floor(d.x),Math.floor(d.y)))return false;
         const p=this.activePlayers().find(p=>p.capturedT<=0 && !p.under && p.grace<=0 && !this.inOwnEnclosure(p) && dist(d.x,d.y,p.x,p.y)<.4);
-        if(p){const s=this.staff.find(s=>s.id===d.guard);if(s){p.muzzled=true;this._capture(s,p);this.emit({k:'tranquilized',pid:p.id,name:p.name});}return false;}
+        if(p){const s=this.staff.find(s=>s.id===d.guard);if(s){p.muzzled=true;p.muzzleRattles=0;this._capture(s,p);this.emit({k:'tranquilized',pid:p.id,name:p.name});}return false;}
       }
       return d.left>0;
     });
@@ -1326,7 +1332,7 @@ export class Game {
       pd: this.plates.map((p) => (p.down ? 1 : 0)),
       pl: this.order.map((id) => {
         const p = this.players.get(id);
-        return { id, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, room:!!p.inControlRoom, mu:!!p.muzzled, ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
+        return { id, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, room:!!p.inControlRoom, mu:!!p.muzzled,ba:(p.biteAnimT||0)>0||p.hold?.kind==='muzzleHelp', ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
       }),
       permanent:this.permanentAlert,
       darts:this.darts.map(d=>({x:r2(d.x),y:r2(d.y),dx:d.dx,dy:d.dy})),

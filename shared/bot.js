@@ -18,7 +18,7 @@ export function viewFromGame(game, pid) {
     panel:controlPersonal(game,pid),
     teamClues:p.inControlRoom?game.activePlayers().map(q=>controlPersonal(game,q.id)?.instruction).filter(Boolean):[],
     world: game, zoo: game.zoo, staff:game.staff.map(s=>({x:s.x,y:s.y,d:s.dir,ar:game.time<game.alertUntil})),
-    me: { keys:p.cageKeys,id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, materials: p.materials, enc: p.enc },
+    me: { caged:!!p.caged,keys:p.cageKeys,id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, materials: p.materials, enc: p.enc },
     obj: game.objectives(),
     objects: game.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, index: o.index, bay: o.bay, keeper: o.keeper, enc: o.enc, state: o.state, public:!!o.public, stand:o.stand })),
     gates: game.gates.map((g) => ({ id: g.id, state: g.state, enc: g.enc, kind: g.kind })),
@@ -46,7 +46,7 @@ export class Autopilot {
   update(v, dt) {
     const me = v.me;
     const idle = { mx: 0, my: 0, sp: false, e: false };
-    if(v.obj.stage==='parking')return this._parkingUpdate(v,dt);
+    if(['parking','city'].includes(v.obj.stage))return this._parkingUpdate(v,dt);
     if(v.panel){
       if(v.panel.ready&&!v.panel.powered&&v.panel.phase==='arming')return {...idle,panel:{op:'power'}};
       const clue=(v.teamClues||[]).find(c=>c.target===me.id&&c.index===v.panel.done);
@@ -68,23 +68,30 @@ export class Autopilot {
   _parkingUpdate(v,dt){
     const idle={mx:0,my:0,e:false,sp:false};
     if(v.vehicle){
+      if(v.obj.parking.holding?.captured>0)return {...idle,vehicle:{op:'leave'}};
       if(v.vehicle.inCar<v.vehicle.need||v.vehicle.team.some(p=>!p.connected))return idle;
       const car=v.vehicle.car;
-      this.carWaypoint=this.carWaypoint||0;if(car.x>59.5)this.carWaypoint=1;
-      const target=this.carWaypoint?[60.5,38]:[60,18.5],distance=dist(car.x,car.y,60.5,38);
+      let target,distance;
+      if(v.obj.stage==='city'){
+        const site=v.vehicle.city.destinations.find(d=>!d.visited)||v.vehicle.city.destinations[0];
+        if(this.citySite!==site.id){this.citySite=site.id;const cols=[12,50,88,126],rows=[12,44,76,108],cx=cols.reduce((a,b)=>Math.abs(b-car.x)<Math.abs(a-car.x)?b:a),cy=rows.reduce((a,b)=>Math.abs(b-car.y)<Math.abs(a-car.y)?b:a);this.cityRoute=[[cx,cy],[cx,site.y],[site.x,site.y]];}
+        while(this.cityRoute.length>1&&dist(car.x,car.y,...this.cityRoute[0])<2)this.cityRoute.shift();target=this.cityRoute[0];distance=dist(car.x,car.y,site.x,site.y);
+      }else{this.carWaypoint=this.carWaypoint||0;const route=v.obj.parking.route;while(this.carWaypoint<route.length-1&&dist(car.x,car.y,...route[this.carWaypoint])<1.5)this.carWaypoint++;target=route[this.carWaypoint];distance=99;}
       const turn=Math.max(-1,Math.min(1,angleDiff(Math.atan2(target[1]-car.y,target[0]-car.x),car.angle)*1.8));
       const controls=v.vehicle.controls;this.carControlTick=(this.carControlTick||0)+1;
       for(let i=0;i<controls.length;i++){
         const c=controls[(this.carControlTick+i)%controls.length];
-        if(c.kind==='select'){if(c.value!==c.goal)return {...idle,vehicle:{control:c.id,value:c.goal}};continue;}
-        const value=c.id==='steering'?turn:c.id==='gas'?(distance>1.5&&Math.abs(car.speed)<3.2?1:0):(distance<=1.5||Math.abs(car.speed)>3.8?1:0);
+        if(c.kind==='select'||c.kind==='gear'){if(c.value!==c.goal)return {...idle,vehicle:{control:c.id,value:c.goal,held:c.kind==='gear'}};continue;}
+        const value=c.id==='steering'?turn:c.id==='gas'?(distance>1.5&&Math.abs(car.speed)<2.5?1:0):(distance<=1.5||Math.abs(car.speed)>3.1?1:0);
         return {...idle,vehicle:{control:c.id,value,held:true}};
       }return idle;
     }
+    if(v.me.caged)return {...idle,e:true};
+    if(v.obj.parking.holding?.captured>0){const door=v.objects.find(o=>o.kind==='holdingCageDoor');if(door){this.setScript('holding-rescue',[{go:door.stand},{e:1},{wait:.2}]);return this._runStep(v,dt)||idle;}}
     if(v.me.keys&&!v.obj.parking.unlocked)return {...idle,vehicle:{op:'unlock'}};
     if(v.me.flags&PF.CAUGHT){this.script=null;return idle;}
     if(v.obj.parking.unlocked||v.me.keys){
-      const car=v.objects.find(o=>o.kind==='vehicle');
+      const car={...v.objects.find(o=>o.kind==='vehicle')},state=v.obj.parking.car;car.stand=[Math.floor(state.x-Math.sin(state.angle)*2.15),Math.floor(state.y+Math.cos(state.angle)*2.15)];
       if(!this.scriptName.startsWith('car-')||!this.script||this.si>=this.script.length)this.setScript('car-enter',[{go:car.stand},{e:1},{wait:.2}]);
       return this._runStep(v,dt)||idle;
     }

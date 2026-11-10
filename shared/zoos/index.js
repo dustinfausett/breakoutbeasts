@@ -1,8 +1,10 @@
 // Zoo registry. Add new zoos here; each builder returns a static zoo definition.
+import { buildCity } from './city.js';
 import { buildParking } from './parking.js';
 import { buildMoonleaf } from './moonleaf.js';
 
 export const ZOOS = {
+  city:{id:'city',name:'Breakout City',build:buildCity,available:false},
   parking:{id:'parking',name:'Moonleaf Parking Lot',build:buildParking,available:false},
   moonleaf: { id: 'moonleaf', name: 'Moonleaf Zoo', blurb: 'A quiet woodland zoo under the moon. Perfect for a first breakout.', build: buildMoonleaf, available: true },
 };

@@ -282,6 +282,24 @@ function walkFrame(rows) {
   return out;
 }
 
+const MOUTHS={redpanda:[13,9],elephant:[14,9],monkey:[12,8],beaver:[13,8],giraffe:[13,4],penguin:[14,7],zebra:[14,7],meerkat:[11,6],tortoise:[14,10],flamingo:[13,2]};
+function buildActionSprites(){
+ for(const id of [...Object.keys(ART),'staff']){
+  const set=SPRITES[id];if(!set)continue;const art=id==='staff'?STAFF:ART[id],base=set.idle?.r||set.r[0],size=base.width;
+  const run=Array.from({length:4},(_,phase)=>{
+   if(IMAGES.actors){const c=document.createElement('canvas');c.width=size;c.height=size;c.getContext('2d').drawImage(set.r[phase%set.r.length],0,phase%2?-1:0);return c;}
+   const rows=art.rows.map(r=>[...r]),h=rows.length,w=rows[0].length,stride=[-1,0,1,0][phase];
+   for(let y=h-4;y<h;y++)rows[y].fill('.');
+   for(let y=h-4;y<h;y++)for(let x=0;x<w;x++){
+    const pixel=art.rows[y][x];if(!pixel||pixel==='.')continue;const group=Math.floor(x/2)%2,lift=phase%2===group?1:0,nx=Math.max(0,Math.min(w-1,x+(group?stride:-stride))),ny=Math.max(h-4,y-lift);rows[ny][nx]=pixel;
+   }
+   const frame=make(rows.map(r=>r.join('')),art.pal),c=document.createElement('canvas');c.width=frame.width;c.height=frame.height;c.getContext('2d').drawImage(frame,phase>=2?1:0,phase%2?-1:0);return c;
+  });set.run={r:run,l:run.map(flip)};
+  if(id==='staff')continue;
+  const bite=Array.from({length:4},(_,phase)=>{const c=document.createElement('canvas');c.width=size;c.height=base.height;const g=c.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(base,0,0);if(phase){const [mx,my]=MOUTHS[id],scale=size/16;g.fillStyle='#211b27';g.fillRect((mx-1)*scale,my*scale,3*scale,(phase===2?3:phase===3?1:2)*scale);g.fillStyle='#f5e9bd';g.fillRect(mx*scale,my*scale,scale,scale);g.fillStyle='#c57779';g.fillRect(mx*scale,(my+1)*scale,scale,scale);}return c;});set.bite={r:bite,l:bite.map(flip)};
+ }
+}
+
 export const SPRITES = {};
 export function buildSprites() {
   if(IMAGES.actors){
@@ -302,7 +320,7 @@ export function buildSprites() {
       }):[idle];
       SPRITES[id]={r:frames,l:frames.map(flip),idle:{r:idle,l:flip(idle)}};
     });
-    SPRITES.shell=SPRITES.tortoise;SPRITES.penguinSlide=SPRITES.penguin;return;
+    SPRITES.shell=SPRITES.tortoise;SPRITES.penguinSlide=SPRITES.penguin;buildActionSprites();return;
   }
   for (const [id, a] of Object.entries(ART)) {
     const f0 = make(a.rows, a.pal);
@@ -318,6 +336,7 @@ export function buildSprites() {
   SPRITES.staff = { r: [st, st1], l: [flip(st), flip(st1)] };
   const down=document.createElement('canvas');down.width=16;down.height=16;const dg=down.getContext('2d');dg.translate(16,0);dg.rotate(Math.PI/2);dg.drawImage(st,0,0);
   SPRITES.staffDown={r:[down],l:[flip(down)]};
+  buildActionSprites();
 }
 
 const portraitCache = {};

@@ -26,7 +26,7 @@ export async function run(){
   for(const part of g.parts)part.inserted=true;g.stats.rescued=g.requiredRescues;
   async function enterAll(){
    for(let i=0;i<8;i++){
-    const page=pages[i],p=g.players.get('p'+(i+1)),door=g.objects.find(o=>o.kind==='controlDoor'&&o.index===g.controlRoom.panels[p.id].doorIndex);
+    const page=pages[i],p=g.players.get('p'+(i+1)),door=g.objects.find(o=>o.kind==='controlDoor'&&o.index===(i===0?7:g.controlRoom.panels[p.id].doorIndex));
     await page.bringToFront();p.x=door.stand[0]+.5;p.y=door.stand[1]+.5;p.input={mx:0,my:0};p.prevE=false;p.capturedT=0;p.escaped=true;room.queues.clear();
     await page.waitForTimeout(100);await page.click('#tbtn-e');await waitFor(()=>!!p.inControlRoom,{what:'separate entrance '+i});
     await waitFor(()=>page.locator('#control-room').isVisible());
@@ -34,7 +34,7 @@ export async function run(){
    }
   }
   await enterAll();await waitFor(()=>g.controlRoom.phase==='arming');
-  R.ok('each operator has a separate assigned entrance',new Set(Object.values(g.controlRoom.entered)).size===8);
+  R.ok('animals choose free rooms and each operator occupies a separate room',new Set(Object.values(g.controlRoom.entered)).size===8);
   await waitFor(()=>host.locator('#panel-power').getAttribute('class').then(c=>c.includes('flashing')));
   R.ok('red power buttons flash when the entire team is in place',true);
   await host.fill('#panel-chat-input','Tell me what your screen says!');await host.locator('#panel-chat-form button').click();
@@ -61,7 +61,7 @@ export async function run(){
    }else{
     while(control.value!==clue.value){
      const expected=(control.value+1)%(control.max+1);await page.locator(`[data-control="${clue.control}"][data-delta="1"]`).click();
-     await waitFor(()=>g.controlRoom.panels[clue.target].done>round||page.evaluate(([i,value])=>window.__bb.app.world.snap.me?.control?.controls[i]?.value===value,[clue.control,expected]));control.value=expected;
+     await waitFor(async()=>g.controlRoom.phase==='complete'||(await page.locator(`[data-slot="${clue.control}"] output`).innerText())===String(expected),{what:'dial display update'});control.value=expected;
     }
    }
    await waitFor(()=>g.controlRoom.panels[clue.target].done>round,{what:'communicated task '+round});

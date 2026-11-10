@@ -27,7 +27,7 @@ export async function run(){
   keeper.x=20.5;keeper.y=14.5;keeper.dir=0;keeper.route=[[40,14]];keeper.wp=0;keeper.path=null;
   p.x=18.8;p.y=14.5;p.face='right';p.capturedT=0;p.grace=0;
   await host.waitForTimeout(150);const start=p.x;
-  await host.keyboard.down('e');await host.keyboard.down('ArrowRight');await host.waitForTimeout(1050);await host.keyboard.up('ArrowRight');await host.keyboard.up('e');
+  await host.keyboard.down('e');await host.keyboard.down('ArrowRight');await waitFor(()=>p.cageKeys===1,{what:'moving key theft',timeout:5000,interval:50});await host.keyboard.up('ArrowRight');await host.keyboard.up('e');
   R.ok('holding E while walking steals a key in the live online game',p.cageKeys===1&&p.x>start+1,`keys=${p.cageKeys}, animal=${p.x.toFixed(2)}, guard=${keeper.x.toFixed(2)}, hold=${p.hold?.kind||'none'}`);
   await host.waitForTimeout(150);room.queues.clear();p.input={mx:0,my:0,e:false,sp:false,b:false};p.prevB=false;
   keeper.x=20.5;keeper.y=14.5;keeper.dir=0;keeper.route=[[20,14]];keeper.wp=0;keeper.path=[];keeper.state='patrol';
@@ -44,7 +44,7 @@ export async function run(){
   await guest.screenshot({path:`${SHOTS}/muzzled-beaver.png`});
   await host.bringToFront();await host.waitForTimeout(100);
   p.x=friend.x-1;p.y=friend.y;p.face='right';p.biteCool=0;p.capturedT=0;p.grace=5;
-  await host.keyboard.down('b');await host.waitForTimeout(150);await host.keyboard.up('b');await waitFor(()=>!friend.muzzled,{what:'teammate bites off muzzle',timeout:5000}).catch(e=>{console.log('Muzzle fixture',JSON.stringify({p:{x:p.x,y:p.y,mu:p.muzzled,cap:p.capturedT,face:p.face,input:p.input,prevB:p.prevB,biteCool:p.biteCool},friend:{x:friend.x,y:friend.y,cap:friend.capturedT,mu:friend.muzzled}}));throw e;});
+  await host.keyboard.down('b');await host.waitForTimeout(2800);await host.keyboard.up('b');await waitFor(()=>!friend.muzzled,{what:'teammate bites off muzzle',timeout:5000}).catch(e=>{console.log('Muzzle fixture',JSON.stringify({p:{x:p.x,y:p.y,mu:p.muzzled,cap:p.capturedT,face:p.face,input:p.input,prevB:p.prevB,biteCool:p.biteCool},friend:{x:friend.x,y:friend.y,cap:friend.capturedT,mu:friend.muzzled}}));throw e;});
   R.ok('a real teammate can bite off the muzzle',true);
   R.ok('minimap and map toggle are absent',await guest.locator('#minimap').count()===0);
   await guest.keyboard.press('m');

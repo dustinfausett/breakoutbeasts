@@ -32,7 +32,7 @@ export function updateControlPanel(panel){
  root.querySelector('#panel-power').disabled=!panel.ready||panel.powered||panel.phase!=='arming';
  root.querySelector('#panel-power').classList.toggle('flashing',panel.ready&&!panel.powered&&panel.phase==='arming');
  root.querySelector('#panel-power').textContent=panel.powered?'ON':'POWER';
- root.querySelector('#panel-instruction').textContent=panel.phase==='waiting'?'Find your own door. Waiting for every animal to take a station.':!panel.powered?'Everyone is in place! Press your flashing red power button.':panel.phase==='arming'?'Panel powered. Waiting for the other operators to switch on.':panel.instruction?.text||'Your teammate has finished all five tasks. Keep helping the rest of the team!';
+ root.querySelector('#panel-instruction').textContent=panel.phase==='waiting'?'Choose any free door. Waiting for every animal to take a station.':!panel.powered?'Everyone is in place! Press your flashing red power button.':panel.phase==='arming'?'Panel powered. Waiting for the other operators to switch on.':panel.instruction?.text||'Your teammate has finished all five tasks. Keep helping the rest of the team!';
  root.querySelector('#panel-team').innerHTML=panel.team.map(p=>`<span class="${p.done===5?'finished':''}">${escape(p.name)} · ${p.inside?(p.powered?`${p.done}/5`:'at station'):'finding door'}</span>`).join('');
  panel.controls.forEach((c,i)=>{
   const slot=root.querySelector(`[data-slot="${i}"]`);slot.querySelector('output').textContent=c.kind==='lever'?(c.value?'UP':'DOWN'):String(c.value);

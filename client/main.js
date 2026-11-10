@@ -349,6 +349,9 @@ function handleEvent(ev) {
     case 'adapt': caption('Tasks adjusted for the remaining team. Finished work was kept.', 'good'); break;
     case 'unlock': audio.play('pickup'); break;
     case 'keyturn': audio.play('click'); break;
+    case 'cityvisit': caption(`Discovered ${ev.name}!`, 'good');break;
+    case 'runover': audio.play('capture');caption('Keeper knocked out for this chapter.', 'good');break;
+    case 'cagerescue': caption(`${ev.name} opened the holding cage!`, 'good');break;
     case 'carunlock': audio.play('fob');caption(`${ev.name} pressed Unlock. Look for the flashing headlights!`, 'good');break;
     case 'caralarm': audio.play('caralarm');if(performance.now()-(app.lastAlarmCaption||-10000)>6000){caption('A car alarm is sounding. Keepers will investigate!', 'alert');app.lastAlarmCaption=performance.now();}break;
     case 'carbump': audio.play('carbump');caption('Bump! Check your steering and reverse if needed.', 'alert');break;
@@ -366,9 +369,9 @@ function onEnd(res) {
   app.results = res;
   input.releaseAll();
   const mins = Math.floor(res.time / 60), secs = String(res.time % 60).padStart(2, '0');
-  $('#complete-h').textContent=res.stage==='parking'?'Car stolen!':'Zoo escaped!';
-  $('#complete .tagline').textContent=res.stage==='parking'?'The whole crew drove the getaway car out of the lot.':'You escaped the zoo. The parking lot is next.';
-  const continueButton=document.querySelector('[data-act="continue"]');continueButton.hidden=res.next!=='parking';continueButton.disabled=app.lobby?.hostId!==app.myId;
+  $('#complete-h').textContent=res.stage==='city'?'City explored!':res.stage==='parking'?'Parking lot escaped!':'Zoo escaped!';
+  $('#complete .tagline').textContent=res.stage==='parking'?'The crew drove through the exit. Continue into Breakout City.':'You escaped the zoo. The parking lot is next.';
+  const continueButton=document.querySelector('[data-act="continue"]');continueButton.hidden=!['parking','city'].includes(res.next);continueButton.disabled=app.lobby?.hostId!==app.myId;
   $('#complete-stats').innerHTML = `<p><b>${esc(res.zoo)}</b> escaped in <b>${mins}:${secs}</b></p>
     ${res.stage==='parking'?'<p>Getaway wagon stolen · every animal has a car responsibility.</p>':`<p>Animals freed: <b>${res.rescued}/${res.total}</b>${res.rescued === res.total ? ' — every animal is free! ★' : ''}</p>`}
     <p>Times caught: <b>${res.captures}</b>${res.captures === 0 ? ' — perfectly sneaky! ★' : ''}</p>
@@ -388,9 +391,9 @@ function updateHUD() {
   const s = w.snap, o = s.obj, me = w.me();
   const ck = (d) => `<span class="mark">${d ? '✓' : '○'}</span>`;
   let h='';
-  if(o.stage==='parking'){
+  if(o.stage==='city'){const city=o.parking.city;h=`<h4>Breakout City</h4><div class="detail"><div class="o">Explore stores and zoos: ${city.visited}/${city.destinations.length}</div><p>Selected destination: ${esc(city.selected)}</p>${city.destinations.map(d=>`<div class="sub">${d.visited?'✓':'○'} ${esc(d.name)}</div>`).join('')}<p>Stop near an address to discover it. Destination interiors are for future missions.</p></div>`;}else if(o.stage==='parking'){
     const lot=o.parking;
-    h=`<h4 tabindex="0" id="obj-h">Parking Lot — Steal a car</h4><div class="detail"><div class="o">${ck(lot.keys.length>0||lot.unlocked)}Sneak behind a keeper and hold E to steal car keys.</div><div class="o">${ck(lot.unlocked)}Use the key fob to unlock and flash your car.</div><div class="o">${ck(lot.inCar===lot.need)}Get the whole crew aboard: ${lot.inCar}/${lot.need}</div><div class="o">${ck(o.exit.done)}Drive out together and brake at the exit.</div><div class="now">${lot.inCar===lot.need?'Drive to the bottom-right exit road, then brake to a stop.':lot.unlocked?'Find the flashing car and get the crew aboard.':'Steal a key fob. Unlock flashes the lights; Panic sounds the alarm.'}</div><div class="sub">${lot.keepers} keepers are searching the lot.</div></div>`;
+    h=`<h4 tabindex="0" id="obj-h">Parking Lot — Steal a car</h4><div class="detail"><div class="o">${ck(lot.keys.length>0||lot.unlocked)}Sneak behind a keeper and hold E to steal car keys.</div><div class="o">${ck(lot.unlocked)}Use the key fob to unlock and flash your car.</div><div class="o">${ck(lot.inCar===lot.need)}Get the whole crew aboard: ${lot.inCar}/${lot.need}</div><div class="o">${ck(o.exit.done)}Drive through the exit together.</div><div class="now">${lot.inCar===lot.need?'Drive through the bottom-right opening.':lot.unlocked?'Find the flashing car and get the crew aboard.':'Steal a key fob. Unlock flashes the lights; Panic sounds the alarm.'}</div><div class="sub">${lot.keepers} keepers are searching the lot.</div></div>`;
   }else{
   h = `<h4 tabindex="0" id="obj-h">Moonleaf Zoo — Objectives</h4><div class="detail">`;
   if(s.permanent) h += '<div class="o">⚠ HIGH ALERT · tranquilizers enabled until the zoo escape ends</div>';
@@ -416,12 +419,13 @@ function updateHUD() {
   const myPart = o.power.parts.find((p) => p.pid === app.myId && !p.done);
   if (me && (me.s & PF.IN_ENC) && myEnc) now = myEnc.hint;
   else if (o.exit.open) now = 'Everyone to the Moonleaf Gate!';
-  else if (o.keys.active) { const station=o.control?.team.find(p=>p.id===app.myId); now = `Enter control-house door ${String.fromCharCode(65+(station?.doorIndex||0))} and read your instructions to your team.`; }
+  else if (o.keys.active) { const station=o.control?.team.find(p=>p.id===app.myId); now = 'Enter any free control-house room. One animal per room.'; }
   else if (myPart) now = `${myPart.location||'Main yard'} · ${myPart.steps[myPart.step]?.label||''}`;
   else if (!o.rescue.done) now = `Free caged animals (${o.rescue.n}/${o.rescue.need})`;
   else if (!o.power.done) now = 'Help teammates restore power';
   h += `<div class="now">➤ ${esc(now)}</div>`;
   }
+  if(o.parking?.holding?.captured)h+=`<p class="o">${o.parking.holding.captured} animals in the holding cage. ${o.parking.holding.allCaptured?'Everyone hold E at separate walls!':'An uncaptured animal can open its door.'}</p>`;
   const box = $('#objectives');
   if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h;  }
 
@@ -437,7 +441,7 @@ function updateHUD() {
     else if (p.s & PF.HIDDEN) st = 'Hidden';
     else if (p.s & PF.SHELL) st = 'In shell';
     if(o.stage==='parking'&&(p.s&PF.IN_ENC))st='At service exit';
-    if(p.car)st='Aboard getaway wagon';
+    if(p.car)st='Aboard getaway wagon';if(p.caged)st='In holding cage';
     if(p.mu)st+=' · MUZZLED';
     if (p.c) st += p.c === 'wood' ? ' · log' : ' · fuse';
     if (p.s & PF.GRACE) st += ' · safe';
@@ -464,8 +468,8 @@ function updateHUD() {
   if (pm) {
     if (pm.pe) ph += `<div class="prompt ${pm.pe.ok ? 'action' : 'no'}"><kbd>E</kbd> ${esc(pm.pe.t)}</div>`;
     if (pm.ps && (pm.ps.ok || !pm.pe)) ph += `<div class="prompt ${pm.ps.ok ? 'action' : 'no'}"><kbd>Space</kbd> ${esc(pm.ps.t)}</div>`;
-    if(me?.mu)ph+='<div class="prompt no">Muzzled: no biting or chewing. A teammate can bite it off; ask a rescued friend with E.</div>';
-    else ph+='<div class="prompt"><kbd>B</kbd> Bite / remove a friend’s muzzle</div>';
+    if(me?.mu)ph+='<div class="prompt no">Muzzled: hold B with a teammate to remove it, or rattle a garbage can three times.</div>';
+    else ph+='<div class="prompt"><kbd>B</kbd> Bite / hold to remove a friend’s muzzle</div>';
     if (pm.grace > 0) ph += `<div class="prompt">Keepers ignore you for ${Math.ceil(pm.grace)}s</div>`;
   } else if (app.inGame) ph = '<div class="prompt">You are watching the mission</div>';
   if ($('#prompts').dataset.h !== ph) { $('#prompts').innerHTML = ph; $('#prompts').dataset.h = ph; }
@@ -532,7 +536,7 @@ function clientView() {
     panel:s.me?.control,teamClues:Object.values(app.teamClues),
     world: w, zoo: w.zoo, staff:s.st,
     vehicle:s.me?.vehicle,
-    me: { keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
+    me: { caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
     obj: s.obj,
     objects: d.objects.map((o, i) => ({ ...o, state: s.os[i] })),
     gates: d.gates.map((g, i) => ({ ...g, state: Number(s.g[i]) })),

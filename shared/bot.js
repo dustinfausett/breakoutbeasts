@@ -69,8 +69,19 @@ export class Autopilot {
     const idle={mx:0,my:0,e:false,sp:false};
     if(v.vehicle){
       if(v.vehicle.inCar<v.vehicle.need||v.vehicle.team.some(p=>!p.connected))return idle;
-      const job=v.vehicle.controls.find(c=>c.value!==c.goal);return job?{...idle,vehicle:{control:job.id,value:job.goal}}:idle;
+      const car=v.vehicle.car;
+      this.carWaypoint=this.carWaypoint||0;if(car.x>59.5)this.carWaypoint=1;
+      const target=this.carWaypoint?[60.5,38]:[60,18.5],distance=dist(car.x,car.y,60.5,38);
+      const turn=Math.max(-1,Math.min(1,angleDiff(Math.atan2(target[1]-car.y,target[0]-car.x),car.angle)*1.8));
+      const controls=v.vehicle.controls;this.carControlTick=(this.carControlTick||0)+1;
+      for(let i=0;i<controls.length;i++){
+        const c=controls[(this.carControlTick+i)%controls.length];
+        if(c.kind==='select'){if(c.value!==c.goal)return {...idle,vehicle:{control:c.id,value:c.goal}};continue;}
+        const value=c.id==='steering'?turn:c.id==='gas'?(distance>1.5&&Math.abs(car.speed)<3.2?1:0):(distance<=1.5||Math.abs(car.speed)>3.8?1:0);
+        return {...idle,vehicle:{control:c.id,value,held:true}};
+      }return idle;
     }
+    if(v.me.keys&&!v.obj.parking.unlocked)return {...idle,vehicle:{op:'unlock'}};
     if(v.me.flags&PF.CAUGHT){this.script=null;return idle;}
     if(v.obj.parking.unlocked||v.me.keys){
       const car=v.objects.find(o=>o.kind==='vehicle');

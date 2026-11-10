@@ -57,6 +57,9 @@ export class Audio {
 
   play(name) {
     switch (name) {
+      case 'fob': this.tone(1200,.08,{vol:.08});this.tone(1600,.08,{vol:.08,delay:.12});break;
+      case 'caralarm': this.tone(660,.24,{type:'square',vol:.11});this.tone(880,.24,{type:'square',vol:.11,delay:.27});break;
+      case 'carbump': this.noise(.12,.09);this.tone(90,.15,{vol:.08});break;
       case 'click': this.tone(660, 0.06, { vol: 0.08 }); break;
       case 'select': this.tone(520, 0.07, { vol: 0.1 }); this.tone(780, 0.09, { vol: 0.1, delay: 0.06 }); break;
       case 'foot': this.tone(140 + Math.random() * 40, 0.04, { type: 'triangle', vol: 0.05 }); break;

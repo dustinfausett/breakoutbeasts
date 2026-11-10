@@ -189,7 +189,7 @@ export class Game {
       if (g.state !== 0) continue;
       for (const [x, y] of g.tiles) { const i = this.idx(x, y); this.entSolid[i] = 1; if (g.vis === 'solid') this.entVis[i] = 1; }
     }
-    for (const o of this.objects) if (!['escapeBuild','escapeDig','supplies'].includes(o.kind)) this.entSolid[this.idx(o.x, o.y)] = 1;
+    for (const o of this.objects) if (!['escapeBuild','escapeDig','supplies','vehicle'].includes(o.kind)) this.entSolid[this.idx(o.x, o.y)] = 1;
     for (const c of this.crates) { const i = this.idx(c.x, c.y); this.entSolid[i] = 1; this.entVis[i] = 1; }
   }
 
@@ -418,7 +418,7 @@ export class Game {
         const s = this.staff.find(s => s.id === h.staff);
         if (s && this._canSteal(p, s)) {
           p.cageKeys=1; s.keyCool = this.time + 12;
-          this.emit({ k: 'msg', pid: p.id, text: this.zooId==='parking'?'Car keys stolen! Find the gold getaway wagon and hold E at its door.':'Key stolen! Reuse it at enclosure locks until you are captured.' });
+          this.emit({ k: 'msg', pid: p.id, text: this.zooId==='parking'?'Key fob stolen! Unlock flashes your car’s lights. Panic sounds its alarm.':'Key stolen! Reuse it at enclosure locks until you are captured.' });
         }
       } else if (h.kind === 'craft') {
         const o = this.obj(h.obj);

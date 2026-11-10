@@ -2,7 +2,7 @@
 import { DIRS } from './tiles.js';
 
 export function animalCanSee(world, animal, x, y) {
-  const [fx, fy] = DIRS[animal.face || animal.f || 'down'];
+  const [fx, fy] = animal.angle==null?DIRS[animal.face || animal.f || 'down']:[Math.cos(animal.angle),Math.sin(animal.angle)];
   const dx = x - animal.x, dy = y - animal.y;
   if (dx * fx + dy * fy < -0.00001) return false;
   let cx = Math.floor(animal.x), cy = Math.floor(animal.y);

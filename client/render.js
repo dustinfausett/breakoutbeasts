@@ -1,8 +1,9 @@
 // Canvas renderer: crisp integer-scaled pixel art, night lighting, vision cones, effects.
 
-import { IMAGES, atlasDraw, objectArt } from './assets.js';
+import { IMAGES, atlasDraw, objectArt, carArt } from './assets.js';
 import { SPRITES, drawTile } from './sprites.js';
-import { T } from './shared/tiles.js';
+import { T, tileBlocksVision } from './shared/tiles.js';
+import { vehicleCells } from './shared/driving.js';
 import { animalCanSee } from './shared/vision.js';
 import { PF, visionPolygon } from './shared/game.js';
 import { lerp, lerpAngle } from './world.js';
@@ -65,12 +66,11 @@ export class Renderer {
     const g = this.mctx;
     for (const d of this.world.zoo.decor) {
       const ox = d.x * TS, oy = d.y * TS;
+      if(d.kind==='lotExit'){g.fillStyle='#375d51';g.fillRect(ox,oy,d.w*16,d.h*16);g.strokeStyle='#d4d6a4';g.lineWidth=2;g.strokeRect(ox+1,oy+1,d.w*16-2,d.h*16-2);g.fillStyle='#efe7b0';g.font='bold 12px monospace';g.textAlign='center';g.fillText('EXIT',ox+d.w*8,oy+d.h*8+4);continue;}
       if(d.kind==='parkedCar'){
-        const width=d.w*16,height=d.h*16;g.fillStyle='#101b25';g.fillRect(ox+3,oy+4,width-6,height-6);
-        g.fillStyle=d.color;g.fillRect(ox+5,oy,width-10,height);g.fillStyle='#253c50';g.fillRect(ox+18,oy+4,width-36,height-8);
-        g.fillStyle='#85adb8';g.fillRect(ox+19,oy+5,8,height-10);g.fillRect(ox+width-27,oy+5,8,height-10);
-        g.fillStyle='#121621';for(const x of [8,width-16])for(const y of [-2,height-4])g.fillRect(ox+x,oy+y,8,6);
-        g.fillStyle='#ffdf92';g.fillRect(ox+width-8,oy+5,4,7);g.fillRect(ox+width-8,oy+height-12,4,7);continue;
+        for(let y=0;y<d.h;y++)for(let x=0;x<d.w;x++)drawTile(g,T.PATH,d.x+x,d.y+y,ox+x*16,oy+y*16,'outside',null);
+        g.strokeStyle='#b7b99a';g.lineWidth=1;g.strokeRect(ox-2,oy-3,d.w*16+4,d.h*16+6);
+        if(!d.getaway)carArt(g,ox,oy,d.w*16,d.h*16);continue;
       }
       if(d.kind==='controlHouse'&&!IMAGES.terrain){g.fillStyle='#394d59';g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle='#57717c';for(let y=0;y<d.h;y++)g.fillRect(ox,oy+y*16,d.w*16,2);continue;}
       if(d.kind==='controlHouse'){for(let y=0;y<d.h;y++)for(let x=0;x<d.w;x++)atlasDraw(g,IMAGES.terrain,13,4,4,ox+x*16,oy+y*16,16,16);continue;}
@@ -173,7 +173,10 @@ export class Renderer {
     ctx.fillStyle='#050b10';ctx.fillRect(0,0,W,H);
     ctx.setTransform(S, 0, 0, S, -cx * S, -cy * S);
     ctx.save();
-    const visible=(x,y)=>!this.settings.hard || animalCanSee(w,{x:me.x,y:me.y,face:me.f},x,y);
+    const drivenCar=me.car?snap.obj.parking?.car:null,ownCarCells=drivenCar?new Set(vehicleCells(drivenCar,w.w,w.h)):null;
+    const visionWorld=drivenCar?{w:w.w,h:w.h,visionBlocked:(x,y)=>ownCarCells.has(y*w.w+x)?tileBlocksVision(w.tiles[y*w.w+x]):w.visionBlocked(x,y)}:w;
+    const observer=drivenCar?{x:me.x,y:me.y,angle:drivenCar.angle}:{x:me.x,y:me.y,face:me.f};
+    const visible=(x,y)=>!this.settings.hard || animalCanSee(visionWorld,observer,x,y);
     if(this.settings.hard){
       ctx.beginPath();
       const lx=Math.max(0,Math.floor(cx/TS)-1), ly=Math.max(0,Math.floor(cy/TS)-1);
@@ -237,6 +240,10 @@ export class Renderer {
       ctx.fill();
     }
 
+    const car=snap.obj.parking?.car;
+    if(car&&visible(car.x,car.y)){
+      ctx.save();ctx.translate(car.x*TS,car.y*TS);ctx.rotate(car.angle);carArt(ctx,-32,-24,64,48);ctx.restore();
+    }
     // characters sorted by y
     const ents = [];
     for (const n of npcs) ents.push({ y: n.y, draw: () => this._drawAnimal(ctx, n.a, n.x, n.y, n.f || 'down', n.mv, 0, now, { npc: true, state: n.s }) });
@@ -267,6 +274,11 @@ export class Renderer {
     // lighting
     this._drawLighting(players, staff, toS, now);
 
+    if(car&&visible(car.x,car.y)&&(car.lightsUntil>snap.time||car.alarmUntil>snap.time)&&Math.floor(now/220)%2===0){
+      ctx.setTransform(S,0,0,S,-cx*S,-cy*S);ctx.save();ctx.translate(car.x*TS,car.y*TS);ctx.rotate(car.angle);
+      ctx.fillStyle='rgba(255,237,153,.25)';ctx.beginPath();ctx.moveTo(26,-12);ctx.lineTo(77,-23);ctx.lineTo(77,23);ctx.lineTo(26,12);ctx.closePath();ctx.fill();
+      ctx.fillStyle='#fff5b2';ctx.fillRect(26,-13,6,7);ctx.fillRect(26,6,6,7);ctx.fillStyle='#ff584a';ctx.fillRect(-31,-12,4,6);ctx.fillRect(-31,6,4,6);ctx.restore();
+    }
     // screen-space labels
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const fs = Math.max(11, Math.round(5.5 * S));
@@ -387,7 +399,7 @@ export class Renderer {
       if(state){ctx.fillStyle='#8affae';ctx.fillRect(ox+12,oy+10,2,2);}return;
     }
     switch (o.kind) {
-      case 'vehicle': ctx.fillStyle=state?'#83d88b':'#e4ba55';ctx.fillRect(ox+3,oy+4,10,8);ctx.fillStyle='#17232b';ctx.fillRect(ox+7,oy+6,2,4);break;
+      case 'vehicle': break;
       case 'controlDoor':
         ctx.fillStyle=state?'#182b29':'#745737';ctx.fillRect(ox+1,oy,14,16);ctx.strokeStyle='#bba56b';ctx.strokeRect(ox+1,oy,14,16);ctx.fillStyle='#ffe4a0';ctx.font='bold 8px monospace';ctx.textAlign='center';ctx.fillText(String.fromCharCode(65+o.index),ox+8,oy+10);break;
       case 'supplies':

@@ -1,4 +1,4 @@
-import { mountVehiclePanel, updateVehiclePanel } from './vehicle-panel.js';
+import { mountVehiclePanel, updateVehiclePanel, updateKeyFob } from './vehicle-panel.js';
 // Breakout Beasts! client controller: menus, lobby, HUD, game loop, audio and captions.
 
 import { mountControlPanel, updateControlPanel, addPanelChat } from './control-panel.js';
@@ -234,6 +234,8 @@ function connStatus(state, info) {
 
 // ---------------- game ----------------
 function enterGame(msg) {
+  app.wasInCar=false;
+  updateKeyFob(false);
   updateVehiclePanel(null);
   app.world = new ClientWorld(msg.zoo);
   app.world.myId = app.myId;
@@ -250,6 +252,7 @@ function enterGame(msg) {
 }
 
 function leaveGameView(toLobby) {
+  updateKeyFob(false);
   updateVehiclePanel(null);
   app.inGame = false;
   updateControlPanel(null);
@@ -329,7 +332,9 @@ function handleEvent(ev) {
     case 'adapt': caption('Tasks adjusted for the remaining team. Finished work was kept.', 'good'); break;
     case 'unlock': audio.play('pickup'); break;
     case 'keyturn': audio.play('click'); break;
-    case 'carunlock': caption(`${ev.name} unlocked the getaway wagon! Everyone aboard.`, 'good');break;
+    case 'carunlock': audio.play('fob');caption(`${ev.name} pressed Unlock. Look for the flashing headlights!`, 'good');break;
+    case 'caralarm': audio.play('caralarm');if(performance.now()-(app.lastAlarmCaption||-10000)>6000){caption('A car alarm is sounding. Keepers will investigate!', 'alert');app.lastAlarmCaption=performance.now();}break;
+    case 'carbump': audio.play('carbump');caption('Bump! Check your steering and reverse if needed.', 'alert');break;
     case 'carstolen': caption('Getaway wagon stolen! The crew is ready for its next adventure.', 'good');break;
     case 'complete': audio.play('complete'); break;
     case 'blocked': caption('A keeper bumped into a shell and turned around!', 'good'); break;
@@ -345,7 +350,7 @@ function onEnd(res) {
   input.releaseAll();
   const mins = Math.floor(res.time / 60), secs = String(res.time % 60).padStart(2, '0');
   $('#complete-h').textContent=res.stage==='parking'?'Car stolen!':'Zoo escaped!';
-  $('#complete .tagline').textContent=res.stage==='parking'?'The whole crew has a getaway wagon.':'You escaped the zoo. The parking lot is next.';
+  $('#complete .tagline').textContent=res.stage==='parking'?'The whole crew drove the getaway car out of the lot.':'You escaped the zoo. The parking lot is next.';
   const continueButton=document.querySelector('[data-act="continue"]');continueButton.hidden=res.next!=='parking';continueButton.disabled=app.lobby?.hostId!==app.myId;
   $('#complete-stats').innerHTML = `<p><b>${esc(res.zoo)}</b> escaped in <b>${mins}:${secs}</b></p>
     ${res.stage==='parking'?'<p>Getaway wagon stolen · every animal has a car responsibility.</p>':`<p>Animals freed: <b>${res.rescued}/${res.total}</b>${res.rescued === res.total ? ' — every animal is free! ★' : ''}</p>`}
@@ -368,7 +373,7 @@ function updateHUD() {
   let h='';
   if(o.stage==='parking'){
     const lot=o.parking;
-    h=`<h4 tabindex="0" id="obj-h">Parking Lot — Steal a car</h4><div class="detail"><div class="o">${ck(lot.keys.length>0||lot.unlocked)}Sneak behind a keeper and hold E to steal car keys.</div><div class="o">${ck(lot.unlocked)}Unlock the gold getaway wagon.</div><div class="o">${ck(lot.inCar===lot.need)}Get the whole crew aboard: ${lot.inCar}/${lot.need}</div><div class="o">${ck(o.exit.done)}Operate your car controls together.</div><div class="now">${lot.unlocked?'Everyone into the gold wagon!':'Hide among cars and planted islands. Keepers carry the keys.'}</div><div class="sub">${lot.keepers} keepers are searching the lot.</div></div>`;
+    h=`<h4 tabindex="0" id="obj-h">Parking Lot — Steal a car</h4><div class="detail"><div class="o">${ck(lot.keys.length>0||lot.unlocked)}Sneak behind a keeper and hold E to steal car keys.</div><div class="o">${ck(lot.unlocked)}Use the key fob to unlock and flash your car.</div><div class="o">${ck(lot.inCar===lot.need)}Get the whole crew aboard: ${lot.inCar}/${lot.need}</div><div class="o">${ck(o.exit.done)}Drive out together and brake at the exit.</div><div class="now">${lot.inCar===lot.need?'Drive to the bottom-right exit road, then brake to a stop.':lot.unlocked?'Find the flashing car and get the crew aboard.':'Steal a key fob. Unlock flashes the lights; Panic sounds the alarm.'}</div><div class="sub">${lot.keepers} keepers are searching the lot.</div></div>`;
   }else{
   h = `<h4 tabindex="0" id="obj-h">Moonleaf Zoo — Objectives</h4><div class="detail">`;
   if(s.permanent) h += '<div class="o">⚠ HIGH ALERT · tranquilizers enabled until the zoo escape ends</div>';
@@ -433,7 +438,10 @@ function updateHUD() {
   // prompts
   const pm = s.me;
   updateControlPanel(pm?.control||null);
-  updateVehiclePanel(pm?.vehicle||null);
+  const inCar=s.phase==='play'&&!!pm?.vehicle;
+  if(app.wasInCar!==inCar){input.releaseAll();app.wasInCar=inCar;}
+  updateVehiclePanel(inCar?pm.vehicle:null);
+  updateKeyFob(o.stage==='parking'&&!!pm?.fob&&s.phase==='play');
   let ph = '';
   if (pm) {
     if (pm.pe) ph += `<div class="prompt ${pm.pe.ok ? '' : 'no'}"><kbd>E</kbd> ${esc(pm.pe.t)}</div>`;

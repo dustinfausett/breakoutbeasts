@@ -490,13 +490,15 @@ function updateHUD() {
   if(app.wasInCar!==inCar){input.releaseAll();app.wasInCar=inCar;}
   updateVehiclePanel(inCar?pm.vehicle:null);
   updateKeyFob(['parking','city'].includes(o.stage)&&!!pm?.fob&&s.phase==='play');
+  document.body.classList.toggle('pushing-car',s.phase==='play'&&!!pm?.carPush);
   let ph = '';
   if (pm) {
-    if (pm.pe) ph += `<div class="prompt ${pm.pe.ok ? 'action' : 'no'}"><kbd>E</kbd> ${esc(pm.pe.t)}</div>`;
+    if(pm.carPush){const h=pm.carPush;ph+=`<div class="prompt action car-push-prompt">${h.blocked?'Car blocked — push from another side':h.ready?'Keep walking to shove the car':'Keep walking against the car to push it'}<progress aria-label="Car push effort" max="${h.need}" value="${h.elapsed}"></progress><span>${h.elapsed.toFixed(1)} / ${h.need}s</span></div>`;}
+    if (pm.pe&&!pm.carPush) ph += `<div class="prompt ${pm.pe.ok ? 'action' : 'no'}"><kbd>E</kbd> ${esc(pm.pe.t)}</div>`;
     if (pm.ps && (pm.ps.ok || !pm.pe)) ph += `<div class="prompt ${pm.ps.ok ? 'action' : 'no'}"><kbd>Space</kbd> ${esc(pm.ps.t)}</div>`;
-    if(me?.mu)ph+='<div class="prompt no">Muzzled: hold B with a teammate to remove it, or rattle a garbage can three times.</div>';
+    if(!pm.carPush){if(me?.mu)ph+='<div class="prompt no">Muzzled: hold B with a teammate to remove it, or rattle a garbage can three times.</div>';
     else ph+='<div class="prompt"><kbd>B</kbd> Bite / hold to remove a friend’s muzzle</div>';
-    if (pm.grace > 0) ph += `<div class="prompt">Keepers ignore you for ${Math.ceil(pm.grace)}s</div>`;
+    if (pm.grace > 0) ph += `<div class="prompt">Keepers ignore you for ${Math.ceil(pm.grace)}s</div>`;}
   } else if (app.inGame) ph = '<div class="prompt">You are watching the mission</div>';
   if ($('#prompts').dataset.h !== ph) { $('#prompts').innerHTML = ph; $('#prompts').dataset.h = ph; }
   if (me) {

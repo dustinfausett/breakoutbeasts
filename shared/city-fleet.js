@@ -1,3 +1,4 @@
+import {carsOverlap,stepAnimalCarPushes} from './car-pushing.js';
 import {Game} from './game.js';
 import {ParkingGame,CAR_CONTROLS} from './parking-game.js';
 import {vehicleCells} from './driving.js';
@@ -43,16 +44,13 @@ export function fleetAction(g,pid,msg){
  withCar(g,car,()=>ParkingGame.prototype.vehicleAction.call(g,pid,msg));
  if(!p.inVehicle){p.vehicleId=null;assignCrew(g,car);}
 }
-export function fleetFits(g,x,y,angle){
- if(!ParkingGame.prototype._carFits.call(g,x,y,angle))return false;
- const c=Math.cos(angle),s=Math.sin(angle);
- // Separating-axis test for oriented car bodies.
- for(const other of g.cars||[])if(other!==g.vehicle){const oc=Math.cos(other.angle),os=Math.sin(other.angle),dx=other.x-x,dy=other.y-y;let separated=false;for(const [ax,ay] of [[c,s],[-s,c],[oc,os],[-os,oc]]){const a=1.8*Math.abs(ax*c+ay*s)+1.15*Math.abs(-ax*s+ay*c),b=1.8*Math.abs(ax*oc+ay*os)+1.15*Math.abs(-ax*os+ay*oc);if(Math.abs(dx*ax+dy*ay)>a+b+.15){separated=true;break;}}if(!separated)return false;}
- return true;
-}
+export function fleetFits(g,x,y,angle){return g._terrainFits(x,y,angle)&&!g.cars.some(other=>other!==g.vehicle&&carsOverlap({...g.vehicle,x,y,angle},other));}
+
 export function stepFleet(g,dt){
+ stepAnimalCarPushes(g,dt);
  for(const car of g.cars){
   if(car.traffic){
+   if(car.pushedUntil>g.time){car.speed=0;continue;}
    const target=car.trafficRoute[car.trafficIndex],dx=target[0]-car.x,dy=target[1]-car.y,distance=Math.hypot(dx,dy),step=Math.min(distance,car.trafficSpeed*dt),angle=Math.atan2(dy,dx),x=car.x+(distance?dx/distance*step:0),y=car.y+(distance?dy/distance*step:0);
    if(withCar(g,car,()=>g._carFits(x,y,angle))&&!g.activePlayers().some(p=>!p.inVehicle&&Math.hypot(p.x-x,p.y-y)<3)){car.x=x;car.y=y;car.angle=angle;car.speed=car.trafficSpeed;if(distance<=step+.01){car.trafficIndex=(car.trafficIndex+1)%4;car.trafficSpeed=1.8+g.rng()*1.2;}}else car.speed=0;
    continue;

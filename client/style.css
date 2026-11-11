@@ -230,3 +230,6 @@ body.shopping #pause,body.shopping #settings,body.shopping #help{z-index:30}
 .gear-handle .control-art{width:44px;height:64px;top:-13px;left:0}.gear-slot{white-space:nowrap}
 /* The navigator can consult a large GPS without stopping the shared world. */
 #navigator-gps{pointer-events:auto}#navigator-gps header{display:flex;align-items:center;gap:6px;justify-content:space-between}#navigator-gps header strong{font-size:12px}#navigator-gps .btn{padding:4px 6px;font-size:11px}#navigator-gps canvas{cursor:zoom-in}#navigator-gps.expanded{width:min(620px,calc(100vw - 28px));max-height:calc(100dvh - 70px);overflow:auto;z-index:18}#navigator-gps.expanded canvas{max-height:calc(100dvh - 180px);object-fit:contain;cursor:default}#gps-choices{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}#gps-choices[hidden]{display:none}#navigator-gps.choosing canvas,#navigator-gps.choosing #gps-turn{display:none}
+.car-push-prompt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}.car-push-prompt progress{width:100px;height:12px;accent-color:#e9b54e}.car-push-prompt span{font-size:12px;white-space:nowrap}
+.car-push-prompt{max-width:min(440px,calc(100vw - 28px));white-space:normal;text-align:center}
+.pushing-car #prompts{bottom:clamp(160px,28dvh,240px)}

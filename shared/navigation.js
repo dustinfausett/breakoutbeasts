@@ -1,3 +1,4 @@
+import {movableCars,carSnapshot} from './car-pushing.js';
 import {bfs,angleDiff,dist} from './util.js';
 const columns=[12,50,88,126],rows=[12,44,76,108];
 const nearest=(list,value)=>list.reduce((a,b)=>Math.abs(b-value)<Math.abs(a-value)?b:a);
@@ -18,4 +19,4 @@ export function gpsFor(game,car=game.vehicle){
  const liveRoute=[[car.x,car.y],...route],arrived=dist(car.x,car.y,destination.x,destination.y)<3;
  return {destination:destination.name,target:{x:destination.x,y:destination.y},route:liveRoute,instruction:arrived?'Arrived — park and climb out':describe(car,liveRoute),car:{x:car.x,y:car.y,angle:car.angle},w:160,h:128};
 }
-export function parkingGPS(game){const car=game.vehicle,route=game.objectives().parking.route.filter(p=>p[1]>=car.y-2);return {destination:'Parking exit',target:{x:71,y:61},route:[[car.x,car.y],...route],instruction:describe(car,[[car.x,car.y],...route]),car:{x:car.x,y:car.y,angle:car.angle},w:game.w,h:game.h};}
+export function parkingGPS(game){const car=game.vehicle,route=game.objectives().parking.route.filter(p=>p[1]>=car.y-2);return {cars:movableCars(game).map(carSnapshot),destination:'Parking exit',target:{x:71,y:61},route:[[car.x,car.y],...route],instruction:describe(car,[[car.x,car.y],...route]),car:{x:car.x,y:car.y,angle:car.angle},w:game.w,h:game.h};}

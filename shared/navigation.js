@@ -7,13 +7,13 @@ function describe(car,route){
  for(let i=1;i<route.length-1;i++){const [a,b,c]=[route[i-1],route[i],route[i+1]],ax=b[0]-a[0],ay=b[1]-a[1],bx=c[0]-b[0],by=c[1]-b[1],cross=ax*by-ay*bx;if(Math.abs(cross)>.1&&dist(car.x,car.y,...b)>2)return `Continue straight. In ${Math.round(dist(car.x,car.y,...b))} tiles, turn ${cross>0?'right':'left'}.`;}
  return 'Continue straight to the destination';
 }
-export function gpsFor(game){
- const car=game.vehicle,destination=game.zoo.destinations.find(d=>d.name===car.values.navigation)||game.zoo.destinations[0],key=Math.floor(car.x)+','+Math.floor(car.y)+':'+destination.id;
- let route=game._gpsCache?.key===key?game._gpsCache.route:null;
+export function gpsFor(game,car=game.vehicle){
+ const destination=game.zoo.destinations.find(d=>d.name===car.values.navigation)||game.zoo.destinations[0],key=(car.id||'main')+':'+Math.floor(car.x)+','+Math.floor(car.y)+':'+destination.id;
+ let route=car._gpsCache?.key===key?car._gpsCache.route:null;
  if(!route){
   const col=nearest(columns,car.x),row=nearest(rows,car.y),start=Math.abs(car.x-col)<Math.abs(car.y-row)?[col,Math.round(car.y)]:[Math.round(car.x),row];
   const path=bfs(game.w,game.h,...start,[destination.x,destination.y],(x,y)=>(columns.includes(x)||rows.includes(y))&&game.zoo.driveMask[y*game.w+x]===1&&game.tileAt(x,y)!==28,30000)||[];
-  route=[[start[0]+.5,start[1]+.5],...path.map(([x,y])=>[x+.5,y+.5])];game._gpsCache={key,route};
+  route=[[start[0]+.5,start[1]+.5],...path.map(([x,y])=>[x+.5,y+.5])];car._gpsCache={key,route};
  }
  const liveRoute=[[car.x,car.y],...route],arrived=dist(car.x,car.y,destination.x,destination.y)<3;
  return {destination:destination.name,target:{x:destination.x,y:destination.y},route:liveRoute,instruction:arrived?'Arrived — park and climb out':describe(car,liveRoute),car:{x:car.x,y:car.y,angle:car.angle},w:160,h:128};

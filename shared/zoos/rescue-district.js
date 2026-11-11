@@ -37,7 +37,7 @@ export function addRescueDistrict({rect,decor,objects,interiors,destinations}){
  for(const [species,scene,x0,y0,x1,y1,mechanism] of specs){
   const mid=Math.floor((x0+x1)/2);rect(x0,y0,x1,y1,T.FENCE);rect(x0+1,y0+1,x1-1,y1-1,T.GRASS);rect(mid,y1,mid+1,y1,T.PATH);rect(mid-1,y1+1,mid+2,y1+3,T.PATH);
   const gate='rescue-'+species;gates.push({id:gate,kind:'habitat',vis:'bars',tiles:[[mid,y1],[mid+1,y1]],label:RESCUE_NAMES[RESCUE_SPECIES.indexOf(species)]+' habitat'});
-  const cage={id:species,species,scene,gate,mechanism,home:[mid,y0+3],release:[mid,y1+2],rally:interiors[scene].spawn};cages.push(cage);
+  const cage={id:species,species,scene,gate,mechanism,rect:[x0,y0,x1,y1],home:[mid,y0+3],release:[mid,y1+2],rally:interiors[scene].spawn};cages.push(cage);
   objects.push({id:'release-'+species,kind:'rescueLock',cage:species,x:mid,y:y1+1,walkable:true,label:'Release '+RESCUE_NAMES[RESCUE_SPECIES.indexOf(species)]});
   if(mechanism==='team')for(let i=0;i<8;i++)objects.push({id:`team-${species}-${i}`,kind:'rescueTeam',cage:species,index:i,x:x0+1+i*2,y:y1+3,walkable:true,label:'Habitat handle '+(i+1)});
  }

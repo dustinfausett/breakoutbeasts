@@ -449,7 +449,7 @@ function updateHUD() {
   h += `<div class="now">➤ ${esc(now)}</div>`;
   }
   if(o.parking?.holding?.captured)h+=`<p class="o">${o.parking.holding.captured} animals in the holding cage. ${o.parking.holding.allCaptured?'Everyone hold E at separate walls!':'An uncaptured animal can open its door.'}</p>`;
-  if(o.stage==='city'&&s.rescue){const r=s.rescue,mine=r.power.team.find(p=>p.id===app.myId),zoo=r.animals.filter(a=>a.scene!=='petstore'&&a.state==='escaped').length,pets=r.animals.filter(a=>a.scene==='petstore'&&a.state==='escaped').length;h=`<h4 id="obj-h">City rescue — objectives</h4><div class="detail"><p>Find cash at Cedar Bank. Buy disguises at Second Paw Thrift.</p><div class="o">${ck(r.power.done)}Habitat relays: ${r.power.inserted}/${r.power.need}</div>${mine?`<div class="sub">Your fuse: ${mine.index+1} · ${mine.index<4?'zoo gardens':mine.index<6?'upper terrace':'wetlands & bird house'} · ${mine.inserted?'connected':mine.collected?'bring it to the garden generator':'find and collect it'}</div>`:''}<div class="o">${ck(r.signal)}Habitat signal house: five tasks per player</div><div class="o">${ck(zoo===12)}Zoo animals safely free: ${zoo}/12</div><div class="o">${ck(pets===4)}Pet-store animals safely free: ${pets}/4</div><div class="now">${r.freed===r.total?'All animals free! Enter Wildwing Airport, board the plane and operate your flight controls.':'Use stairs and animal houses to reach every habitat. Each numbered team handle needs its own operator.'}</div><p>Keepers can identify a reported outfit. Change clothes or break sight and hide in bushes.</p></div>`;}
+  if(o.stage==='city'&&s.rescue){const r=s.rescue,mine=r.power.team.find(p=>p.id===app.myId),zoo=r.animals.filter(a=>a.scene!=='petstore'&&a.state==='escaped').length,pets=r.animals.filter(a=>a.scene==='petstore'&&a.state==='escaped').length;h=`<h4 id="obj-h">City rescue — objectives</h4><div class="detail"><p>Find cash at Cedar Bank. Each teammate needs a tool from Beaver Hardware for the gorilla habitat. Buy disguises at Second Paw Thrift.</p><div class="o">${ck(r.power.done)}Habitat relays: ${r.power.inserted}/${r.power.need}</div>${mine?`<div class="sub">Your fuse: ${mine.index+1} · ${mine.index<4?'zoo gardens':mine.index<6?'upper terrace':'wetlands & bird house'} · ${mine.inserted?'connected':mine.collected?'bring it to the garden generator':'find and collect it'}</div>`:''}<div class="o">${ck(r.signal)}Habitat signal house: five tasks per player</div><div class="o">${ck(zoo===12)}Zoo animals safely free: ${zoo}/12</div><div class="o">${ck(pets===4)}Pet-store animals safely free: ${pets}/4</div><div class="now">${r.freed===r.total?'All animals free! Enter Wildwing Airport, board the plane and operate your flight controls.':'Use stairs and animal houses to reach every habitat. Each numbered team handle needs its own operator.'}</div><p>Keepers can identify a reported outfit. Change clothes or break sight and hide in bushes.</p></div>`;}
   const box = $('#objectives');
   if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h;  }
 
@@ -489,7 +489,7 @@ function updateHUD() {
   const inCar=s.phase==='play'&&!!pm?.vehicle;
   if(app.wasInCar!==inCar){input.releaseAll();app.wasInCar=inCar;}
   updateVehiclePanel(inCar?pm.vehicle:null);
-  updateKeyFob(o.stage==='parking'&&!!pm?.fob&&s.phase==='play');
+  updateKeyFob(['parking','city'].includes(o.stage)&&!!pm?.fob&&s.phase==='play');
   let ph = '';
   if (pm) {
     if (pm.pe) ph += `<div class="prompt ${pm.pe.ok ? 'action' : 'no'}"><kbd>E</kbd> ${esc(pm.pe.t)}</div>`;
@@ -543,6 +543,7 @@ function gameTick() {
   if (app.bot && w.snap.me) inp = app.bot.update(clientView(), TICK);
   else inp = (app.overlay && app.overlay !== 'complete') ? { mx: 0, my: 0, sp: false, e: false } : input.state();
   if (app.overlay === 'complete') inp = { mx: 0, my: 0, sp: false, e: false };
+  if(inp.city)app.link?.send({t:'city',...inp.city});
   if(inp.rescue)app.link?.send({t:'rescue',...inp.rescue});
   if(inp.vehicle)app.link?.send({t:'vehicle',...inp.vehicle});
   if(inp.panel)app.link?.send({t:'panel',...inp.panel});
@@ -564,7 +565,7 @@ function clientView() {
     world: w, zoo: w.zoo, staff:s.st,
     rescue:s.rescue,flight:s.me?.flight,
     vehicle:s.me?.vehicle,
-    me: { location:me.location,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
+    me: { holding:!!me.hk,money:s.me?.city?.money||0,tools:s.me?.city?.tools||[],shopping:!!s.me?.city?.shopping,location:me.location,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
     obj: s.obj,
     objects: d.objects.map((o, i) => ({ ...o, state: s.os[i] })),
     gates: d.gates.map((g, i) => ({ ...g, state: Number(s.g[i]) })),

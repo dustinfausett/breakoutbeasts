@@ -326,14 +326,14 @@ export class Game {
 
     // movement
     const wants = Math.hypot(inp.mx, inp.my) > 0.15;
-    if (p.hold && wants && p.hold.kind !== 'steal') {
+    if (p.hold && wants && !['steal','cityCarKey','citySteal'].includes(p.hold.kind)) {
       if (p.hold.kind === 'chew') this.chew.set(p.hold.key, p.hold.t);
       p.hold = null;
     }
-    if (!p.shell && (!p.hold || p.hold.kind==='steal') && !p.slide && !p.hop && !p.under && wants) {
+    if (!p.shell && (!p.hold || ['steal','cityCarKey','citySteal'].includes(p.hold.kind)) && !p.slide && !p.hop && !p.under && wants) {
       const steady = p.animal === 'flamingo' && inp.sp;
       const bx = p.x, by = p.y;
-      const sneak=p.hold?.kind==='steal'?.45:1;
+      const sneak=['steal','cityCarKey','citySteal'].includes(p.hold?.kind)?.45:1;
       walkStep(this, p, inp.mx*sneak, inp.my*sneak, dt, steady);
       const moved = Math.hypot(p.x - bx, p.y - by);
       p.moving = moved > 0.001;

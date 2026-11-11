@@ -21,7 +21,7 @@ export function viewFromGame(game, pid) {
     panel:game.rescue?rescuePersonal(game,p).control:controlPersonal(game,pid),
     teamClues:p.chapterStation!=null?game.activePlayers().map(q=>rescuePersonal(game,q).control?.instruction).filter(Boolean):p.inControlRoom?game.activePlayers().map(q=>controlPersonal(game,q.id)?.instruction).filter(Boolean):[],
     world: game, zoo: game.zoo, staff:game.staff.map(s=>({x:s.x,y:s.y,d:s.dir,ar:game.time<game.alertUntil})),
-    me: { location:p.location,cageDistrict:p.cageDistrict,caged:!!p.caged,keys:p.cageKeys,id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, materials: p.materials, enc: p.enc },
+    me: { holding:!!p.hold,money:p.money||0,tools:p.tools||[],shopping:!!p.shopping,location:p.location,cageDistrict:p.cageDistrict,caged:!!p.caged,keys:p.cageKeys,id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, materials: p.materials, enc: p.enc },
     obj: game.objectives(),
     objects: game.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, index: o.index, bay: o.bay, keeper: o.keeper, enc: o.enc, state: o.state, public:!!o.public, stand:o.stand })),
     gates: game.gates.map((g) => ({ id: g.id, state: g.state, enc: g.enc, kind: g.kind })),
@@ -77,7 +77,7 @@ export class Autopilot {
       const car=v.vehicle.car;
       let target,distance;
       if(v.obj.stage==='city'){
-        const destination=campaignDestination(v),site=v.vehicle.city.destinations.find(d=>d.name===destination)||v.vehicle.city.destinations.find(d=>!d.visited)||v.vehicle.city.destinations[0];this.cityDestination=site.name;
+        const destination=campaignDestination(v),site=v.obj.parking.city.destinations.find(d=>d.name===destination)||v.obj.parking.city.destinations.find(d=>!d.visited)||v.obj.parking.city.destinations[0];this.cityDestination=site.name;
         if(this.citySite!==site.id){this.citySite=site.id;const cols=[12,50,88,126],rows=[12,44,76,108],cx=cols.reduce((a,b)=>Math.abs(b-car.x)<Math.abs(a-car.x)?b:a),cy=rows.reduce((a,b)=>Math.abs(b-car.y)<Math.abs(a-car.y)?b:a);this.cityRoute=[[cx,cy],[cx,site.y],[site.x,site.y]];}
         while(this.cityRoute.length>1&&dist(car.x,car.y,...this.cityRoute[0])<2)this.cityRoute.shift();target=this.cityRoute[0];distance=dist(car.x,car.y,site.x,site.y);if(v.rescue&&distance<2&&Math.abs(car.speed)<.2)return {...idle,vehicle:{op:'leave'}};
       }else{this.carWaypoint=this.carWaypoint||0;const route=v.obj.parking.route;while(this.carWaypoint<route.length-1&&dist(car.x,car.y,...route[this.carWaypoint])<1.5)this.carWaypoint++;target=route[this.carWaypoint];distance=99;}

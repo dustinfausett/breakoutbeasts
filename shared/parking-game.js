@@ -80,7 +80,7 @@ export class ParkingGame extends Game{
    const point=candidates.find(([x,y])=>canOccupy(this,p.animal,x,y,null));if(!point)return this.msg(p,'The door is blocked. Park with room to climb out.');
    p.inVehicle=false;[p.x,p.y]=point;p.grace=1;p.input={};p.prevE=true;this._releaseCarHolds();return;
   }
-  if(!this.activePlayers().every(p=>p.connected&&p.inVehicle))return;
+  if(!this._vehicleCrew().every(p=>p.connected&&p.inVehicle))return;
   const control=this._carControls().find(c=>c.id===msg.control);if(!control||v.owners[control.id]!==pid)return;
   if(control.kind==='wheel'||control.kind==='pedal'){
    if(typeof msg.value!=='number'||!Number.isFinite(msg.value))return;
@@ -100,10 +100,12 @@ export class ParkingGame extends Game{
   for(let u=-1.8;u<=1.81;u+=.4)for(let v=-1.15;v<=1.16;v+=.38){const tx=Math.floor(x+u*c-v*s),ty=Math.floor(y+u*s+v*c);if(tx<0||ty<0||tx>=this.w||ty>=this.h||blocked.has(this.tileAt(tx,ty))||this.gates.some(g=>g.state===0&&g.tiles.some(t=>t[0]===tx&&t[1]===ty)))return false;}
   return true;
  }
- _stepKeysAndExit(dt){
+ _vehicleCrew(){return this.activePlayers();}
+ _stepKeysAndExit(dt){this._stepVehicle(dt,this._vehicleCrew());}
+ _stepVehicle(dt,team){
   const v=this.vehicle;if(!v)return;this._stepHoldingCage(dt);
   if(v.alarmUntil>this.time){v.alarmPulse-=dt;if(v.alarmPulse<=0){v.alarmPulse=1;this.noise(v.x,v.y,80);this.emit({k:'caralarm',x:v.x,y:v.y});}}
-  const team=this.activePlayers(),ready=team.length>0&&team.every(p=>p.connected&&p.inVehicle);
+  const ready=team.length>0&&team.every(p=>p.connected&&p.inVehicle);
   if(!ready){this._releaseCarHolds();return;}
   for(const id of ['steering','gas','brake'])if(this.time-(v.heldAt[id]??-10)>.35)v.values[id]=0;
   const engine=!v.owners.ignition||v.values.ignition==='Start',handbrake=v.owners.handbrake&&v.values.handbrake!=='Release';

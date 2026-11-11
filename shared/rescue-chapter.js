@@ -1,3 +1,4 @@
+import {hasTool} from './hardware.js';
 import {RESCUE_SPECIES,RESCUE_NAMES,RESCUE_SCENES,PLANE_JOBS} from './rescue-data.js';
 import {dist,bfs,lineOfSight,angleDiff} from './util.js';
 import {DIRS,staffCanEnter} from './tiles.js';
@@ -45,7 +46,7 @@ export function rescueObject(g,p,o){
  }
  if(o.kind==='rescueGenerator'){if(g.rescue.inserted.has(p.id))return {text:'Your relay is connected — help your team',idle:true};return g.rescue.fuses.has(p.id)?{text:'Hold E: connect your habitat relay',run:()=>{p.hold={kind:'rescueInsert',btn:'e',obj:o.id,t:0,need:1};}}:{text:'Find your numbered habitat fuse first',idle:true};}
  if(o.kind==='rescueTeam'){
-  const a=g.rescue.animals.find(a=>a.id===o.cage),owner=active(g).find(q=>g.order.indexOf(q.id)===o.index);if(a.state!=='caged')return {text:'This habitat is already open',idle:true};if(owner?.id!==p.id)return {text:owner?`${owner.name} must operate this handle`:'Spare handle',idle:true};if(!powerDone(g))return {text:'Connect every habitat relay first',idle:true};return {text:'Hold E: all teammates must operate their own habitat handle',run:()=>{p.hold={kind:'rescueTeam',btn:'e',obj:o.id,cage:o.cage,t:0,need:Infinity};}};
+  const a=g.rescue.animals.find(a=>a.id===o.cage),owner=active(g).find(q=>g.order.indexOf(q.id)===o.index);if(a.state!=='caged')return {text:'This habitat is already open',idle:true};if(owner?.id!==p.id)return {text:owner?`${owner.name} must operate this handle`:'Spare handle',idle:true};if(a.species==='gorilla'&&!hasTool(p))return {text:'Buy a tool from Beaver Hardware before working on this habitat',idle:true};if(!powerDone(g))return {text:'Connect every habitat relay first',idle:true};return {text:'Hold E: all teammates must operate their own habitat handle',run:()=>{p.hold={kind:'rescueTeam',btn:'e',obj:o.id,cage:o.cage,t:0,need:Infinity};}};
  }
  if(o.kind==='rescueLock'){
   const a=g.rescue.animals.find(a=>a.id===o.cage);if(a.state!=='caged')return {text:'This animal is already free',idle:true};if(a.mechanism==='team')return {text:'Each teammate must hold their numbered habitat handle together',idle:true};if(a.mechanism==='power'&&!powerDone(g))return {text:'Restore power with one relay per teammate',idle:true};if(a.mechanism==='signal'&&!g.rescue.signal)return {text:'Complete the team signal-house consoles first',idle:true};if(a.mechanism==='key'&&!p.cageKeys)return {text:'Steal a reusable key from a zoo keeper first',idle:true};return {text:`Hold E: release the ${a.species}`,run:()=>{p.hold={kind:'rescueUnlock',btn:'e',obj:o.id,cage:a.id,t:0,need:1.4};}};
@@ -92,7 +93,7 @@ export function stepRescue(g,dt){
  const r=g.rescue,crew=active(g);if(!r||!crew.length)return;const roster=crew.map(p=>p.id).join('|');if(r.roster!==roster){r.roster=roster;for(const id of Object.keys(r.panels))if(!crew.some(p=>p.id===id))delete r.panels[id];routeClues(g);}
  for(const a of r.animals){a.moving=false;if(a.state!=='running')continue;if(!a.path)a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;if(!a.path)continue;if(!a.path.length){a.state='escaped';g.emit({k:'districtescaped',species:a.species});continue;}const t=a.path[0],dx=t[0]+.5-a.x,dy=t[1]+.5-a.y,d=Math.hypot(dx,dy),step=Math.min(d,dt*3.8);if(d>.001){a.x+=dx/d*step;a.y+=dy/d*step;a.face=dx<0?'left':'right';a.moving=true;}if(d<.12)a.path.shift();}
  for(const a of r.animals.filter(a=>a.mechanism==='team'&&a.state==='caged')){
-  const ready=crew.length&&crew.every(p=>p.connected&&!p.caged&&p.capturedT<=0&&p.hold?.kind==='rescueTeam'&&p.hold.cage===a.id&&p.input.e&&near(g,p,g.obj(p.hold.obj),1.9));r.teamTimers[a.id]=ready?(r.teamTimers[a.id]||0)+dt:0;if(r.teamTimers[a.id]>=2.5){for(const p of crew){report(g,p);p.hold=null;}freeAnimal(g,a);}
+  const ready=crew.length&&crew.every(p=>p.connected&&!p.caged&&p.capturedT<=0&&p.hold?.kind==='rescueTeam'&&p.hold.cage===a.id&&(a.species!=='gorilla'||hasTool(p))&&p.input.e&&near(g,p,g.obj(p.hold.obj),1.9));r.teamTimers[a.id]=ready?(r.teamTimers[a.id]||0)+dt:0;if(r.teamTimers[a.id]>=2.5){for(const p of crew){report(g,p);p.hold=null;}freeAnimal(g,a);}
  }
  const captives=crew.filter(p=>p.cageDistrict==='rescue'&&p.caged),brace=allCaptured(g)&&captives.length&&captives.every(p=>p.connected&&p.hold?.kind==='rescueBrace'&&p.input.e&&dist(p.x,p.y,p.hold.wall[0]+.5,p.hold.wall[1]+.5)<1.4);
  r.cageProgress=brace?r.cageProgress+dt:0;if(r.cageProgress>=1.5)releaseCage(g);

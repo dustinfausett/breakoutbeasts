@@ -51,7 +51,7 @@ export class ClientWorld {
       for (const [x, y] of g.tiles) { const k = y * this.w + x; this.entSolid[k] = 1; if (g.vis === 'solid') this.entVis[k] = 1; }
     });
     for (const o of d.objects) if (!o.walkable&&!['escapeBuild','escapeDig','supplies','vehicle','holdingCageDoor'].includes(o.kind)) this.entSolid[o.y * this.w + o.x] = 1;
-    if(s.obj?.parking?.car)for(const i of vehicleCells(s.obj.parking.car,this.w,this.h)){this.entSolid[i]=1;this.entVis[i]=1;}
+    for(const car of s.cars||[s.obj?.parking?.car])if(car)for(const i of vehicleCells(car,this.w,this.h)){this.entSolid[i]=1;this.entVis[i]=1;}
     for (const [x, y] of s.cr) { const k = y * this.w + x; this.entSolid[k] = 1; this.entVis[k] = 1; }
   }
 

@@ -63,7 +63,8 @@ export class Renderer {
     const b=this.mapBounds;if(x<b.x||y<b.y||x>=b.x+b.w||y>=b.y+b.h)return;
     const w = this.world, z = w.zoo;
     const i = y * z.w + x;
-    drawTile(this.mctx, w.tiles[i], x, y, x * TS, y * TS, z.themes[z.theme[i]], null);
+    const dressedRack=w.tiles[i]===T.MACHINE&&z.decor.some(d=>d.kind==='clothesRack'&&x>=d.x&&x<d.x+d.w&&y>=d.y&&y<d.y+d.h);
+    drawTile(this.mctx, dressedRack?T.FLOOR:w.tiles[i], x, y, x * TS, y * TS, dressedRack?'pavement':z.themes[z.theme[i]], null);
   }
 
   _drawStaticDecor() {
@@ -74,9 +75,14 @@ export class Renderer {
       if(d.kind==='plane')continue;
       if(d.kind==='parkingBay'){g.strokeStyle='#d8d8b7';g.lineWidth=1;g.strokeRect(ox,oy,d.w*16,d.h*16);continue;}
       if(d.kind==='interiorSign'){g.fillStyle='#e6c879';g.font='bold 12px monospace';g.textAlign='left';g.fillText(d.text,ox,oy);continue;}
+      if(d.kind==='thriftArt'){if(IMAGES['thrift-props'])atlasDraw(g,IMAGES['thrift-props'],d.index,4,2,ox,oy,d.w*16,d.h*16);continue;}
+      if(d.kind==='wayfinding'){if(IMAGES['thrift-props'])atlasDraw(g,IMAGES['thrift-props'],7,4,2,ox-10,oy-16,40,40);else{g.fillStyle='#68472d';g.fillRect(ox+6,oy,3,25);g.fillStyle='#c9a369';g.fillRect(ox-10,oy-8,40,14);}g.fillStyle='#173b35';g.font='bold 7px monospace';g.textAlign='center';g.fillText({up:'↑',down:'↓',left:'←',right:'→'}[d.arrow],ox+9,oy-3);continue;}
+      if(d.kind==='habitatLabel'){g.fillStyle='#704e35';g.fillRect(ox-24,oy-4,48,12);g.fillStyle='#ffe4aa';g.font='bold 6px monospace';g.textAlign='center';g.fillText(d.text,ox,oy+4);continue;}
+      if(d.kind==='habitatProp'){this._drawHabitatProp(g,d,ox,oy);continue;}
       if(d.kind==='shopArt'){if(IMAGES['city-props'])atlasDraw(g,IMAGES['city-props'],d.index,4,2,ox,oy,d.w*16,d.h*16);continue;}
       if(d.kind==='toolShelf'){g.fillStyle='#64482f';g.fillRect(ox,oy,d.w*16,d.h*16);for(let y=6;y<d.h*16;y+=14){g.fillStyle='#c5a46c';g.fillRect(ox,oy+y,d.w*16,3);for(let x=5;x<d.w*16;x+=10){g.fillStyle='#a9bdc0';g.fillRect(ox+x,oy+y-5,3,8);}}continue;}
-      if(d.kind==='cityCounter'||d.kind==='clothesRack'){g.fillStyle=d.kind==='cityCounter'?'#6b756e':'#7b6452';g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle='#c4b594';g.fillRect(ox,oy,d.w*16,4);if(d.kind==='clothesRack')for(let i=5;i<d.w*16;i+=14){g.fillStyle=['#db7855','#6679bd','#72a06c'][Math.floor(i/14)%3];g.fillRect(ox+i,oy+5,10,16);}continue;}
+      if(d.kind==='clothesRack')continue;
+      if(d.kind==='cityCounter'){g.fillStyle='#6b756e';g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle='#c4b594';g.fillRect(ox,oy,d.w*16,4);continue;}
       if(d.kind==='cityBuilding'){g.fillStyle='#263b43';g.fillRect(ox-3,oy-3,d.w*16+6,d.h*16+6);g.fillStyle=d.color;g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle=d.zoo?'#739166':'#baae8b';g.fillRect(ox+5,oy+5,d.w*16-10,12);g.fillStyle='#345464';for(let x=12;x<d.w*16-12;x+=24)for(let y=25;y<d.h*16-24;y+=28)g.fillRect(ox+x,oy+y,14,17);g.fillStyle='#e1c884';g.font='bold 12px monospace';g.textAlign='center';g.fillText(d.text,ox+d.w*8,oy+d.h*16-12);continue;}
       if(d.kind==='street'){g.fillStyle='#dddaa8';g.font='bold 5px monospace';g.textAlign='center';g.fillText(d.text,ox,oy);continue;}
       if(d.kind==='lotExit'){g.fillStyle='#375d51';g.fillRect(ox,oy,d.w*16,d.h*16);g.strokeStyle='#d4d6a4';g.lineWidth=2;g.strokeRect(ox+1,oy+1,d.w*16-2,d.h*16-2);g.fillStyle='#efe7b0';g.font='bold 12px monospace';g.textAlign='center';g.fillText('EXIT',ox+d.w*8,oy+d.h*8+4);continue;}
@@ -92,6 +98,15 @@ export class Renderer {
       if (d.kind === 'bench') { g.fillStyle = '#7a4a24'; g.fillRect(ox + 1, oy + 7, 14, 3); g.fillStyle = '#5a3418'; g.fillRect(ox + 2, oy + 10, 2, 4); g.fillRect(ox + 12, oy + 10, 2, 4); }
       if (d.kind === 'statue') { g.fillStyle = '#c8c8d0'; g.fillRect(ox - 4, oy - 10, 24, 22); g.fillStyle = '#a0a0aa'; g.fillRect(ox - 2, oy - 14, 20, 6); g.fillStyle = '#e8e8f0'; g.fillRect(ox + 4, oy - 8, 8, 8); }
     }
+  }
+
+  _drawHabitatProp(g,d,x,y){
+    const r=(a,b,w,h,c)=>{g.fillStyle=c;g.fillRect(x+a,y+b,w,h);};
+    if(d.variant==='pond'||d.variant==='fountain'){r(-3,1,34,23,'#797f70');r(0,3,29,18,'#4e939d');r(4,7,21,2,'#8cc5ba');r(3,15,13,2,'#72b1b5');if(d.variant==='fountain'){r(10,0,9,11,'#c5c3a5');r(13,-6,3,12,'#9bd0d2');}else{r(27,0,4,12,'#698e56');r(30,-3,2,14,'#a6b96a');}return;}
+    if(d.variant==='shelter'){r(0,4,28,20,'#a37a4c');r(-2,1,32,8,'#614c36');r(3,-2,22,6,'#7a6750');r(9,11,11,13,'#343a32');r(1,18,6,2,'#d2ac6c');return;}
+    if(d.variant==='climber'){r(2,0,4,28,'#7e613f');r(24,2,4,26,'#7e613f');r(2,5,26,3,'#b09564');r(5,20,20,3,'#b09564');r(12,8,2,12,'#d2bd8b');r(7,16,15,2,'#d2bd8b');return;}
+    if(d.variant==='bed'){r(0,8,28,16,'#8d6950');r(3,10,22,11,'#9caaa0');r(5,11,7,8,'#e5d2a0');return;}
+    r(0,12,21,9,'#725a41');r(2,11,17,3,'#d1b780');r(4,8,3,6,'#c78549');r(9,6,4,8,'#7ca467');r(13,9,4,6,'#d4b161');
   }
 
   updateTiles() {
@@ -259,7 +274,7 @@ export class Renderer {
       if (p.car || p.plane || (p.s & PF.UNDER)) continue;
       ents.push({ y: p.y, draw: () => this._drawPlayer(ctx, p, now) });
     }
-    for(const a of snap.rescue?.animals||[])if(a.state!=='escaped')ents.push({y:a.y,draw:()=>this._drawAnimal(ctx,'rescue_'+a.species,a.x,a.y,a.face,a.moving,0,now,{action:a.moving?'run':'walk'})});
+    for(const a of snap.rescue?.animals||[])if(a.state!=='escaped'||a.location==='street')ents.push({y:a.y,draw:()=>this._drawAnimal(ctx,'rescue_'+a.species,a.x,a.y,a.face,a.moving,0,now,{action:a.moving?'run':'walk'})});
     for(const human of humans)ents.push({y:human.y,draw:()=>this._drawHuman(ctx,human,now)});
     for (const s of staff) ents.push({ y: s.y, draw: () => this._drawStaff(ctx, s, now) });
     ents.sort((a, b) => a.y - b.y);
@@ -301,11 +316,11 @@ export class Renderer {
     };
     // signs near the player
     for (const d of w.zoo.decor) {
-      if (d.kind !== 'sign' || !visible(d.x+.5,d.y+.5)) continue;
+      if (!['sign','wayfinding'].includes(d.kind) || !visible(d.x+.5,d.y+.5)) continue;
       const dd = Math.hypot(d.x + 0.5 - me.x, d.y + 0.5 - me.y);
       if (dd > 5) continue;
       const [sx, sy] = toS(d.x + 0.5, d.y);
-      label(d.text, sx, sy - 2 * S, '#ffe9b0');
+      label(d.kind==='wayfinding'?`${{up:'↑',down:'↓',left:'←',right:'→'}[d.arrow]} ${d.text} · ${d.detail}`:d.text, sx, sy - 2 * S, '#ffe9b0');
     }
     for(const o of w.defs.objects){
       if(!['supplies','escapeBuild','escapeDig'].includes(o.kind)||Math.hypot(o.x+.5-me.x,o.y+.5-me.y)>3)continue;

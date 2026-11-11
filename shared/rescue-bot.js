@@ -1,6 +1,6 @@
 import {dist} from './util.js';
 const idle=()=>({mx:0,my:0,e:false,sp:false});
-export function campaignDestination(v){const r=v.rescue;if(!r)return null;return r.freed===r.total?'Wildwing Airport':r.animals.filter(a=>a.scene!=='petstore').every(a=>a.state==='escaped')?'Paws & Whiskers Pet Store':'Northgate Zoo';}
+export function campaignDestination(v){const r=v.rescue;if(!r)return null;const next=r.animals.find(a=>a.state!=='escaped');return !next?'Wildwing Airport':next.scene==='control'?'Animal Control':next.scene==='petstore'?'Paws & Whiskers Pet Store':'Northgate Zoo';}
 export function rescueBot(bot,v,dt){
  const r=v.rescue;if(!r)return null;
  if(v.flight){const c=v.flight.controls.find(c=>c.value!==c.choices[1]);return c?{...idle(),rescue:{op:'flight',control:c.id,value:c.choices[1]}}:idle();}

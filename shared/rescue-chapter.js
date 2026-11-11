@@ -1,3 +1,4 @@
+import {enterCityAnimal,stepCityAnimal} from './city-movement.js';
 import {hasTool} from './hardware.js';
 import {RESCUE_SPECIES,RESCUE_NAMES,RESCUE_SCENES,PLANE_JOBS} from './rescue-data.js';
 import {dist,bfs,lineOfSight,angleDiff} from './util.js';
@@ -33,13 +34,14 @@ export function rescueBite(g,p){
 export function rescueTarget(g,p){
  if(p.caged&&p.cageDistrict==='rescue'){
   if(!allCaptured(g))return {text:'A free teammate can open the zoo cage latch',idle:true};
-  const walls=[];for(let y=263;y<=272;y++)for(let x=7;x<=20;x++)if((x===7||x===20||y===263||y===272)&&!(x===7&&y>=266&&y<=268)&&dist(p.x,p.y,x+.5,y+.5)<1.3&&!active(g).some(q=>q!==p&&q.hold?.kind==='rescueBrace'&&q.hold.wall[0]===x&&q.hold.wall[1]===y))walls.push([x,y]);
+  const walls=[];const [x0,y0,x1,y1]=g.zoo.rescueDistrict.holding.rect;for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)if((x===x0||x===x1||y===y0||y===y1)&&!g.zoo.rescueDistrict.holding.doorTiles.some(t=>t[0]===x&&t[1]===y)&&dist(p.x,p.y,x+.5,y+.5)<1.3&&!active(g).some(q=>q!==p&&q.hold?.kind==='rescueBrace'&&q.hold.wall[0]===x&&q.hold.wall[1]===y))walls.push([x,y]);
   return walls.length?{text:'Hold E: everyone grab a different cage wall together',run:()=>{p.hold={kind:'rescueBrace',btn:'e',wall:walls[0],t:0,need:Infinity};}}:{text:'Move beside a free section of the cage wall',idle:true};
  }
  return null;
 }
 export function rescueObject(g,p,o){
- if(o.kind==='districtLink')return {text:o.label,run:()=>{g._enter(p,o.scene);p.x=o.to[0]+.5;p.y=o.to[1]+.5;p.safe=[p.x,p.y];}};
+ if(o.kind==='wayfinding')return {text:o.label,idle:true};
+ if(o.kind==='districtLink')return {text:o.label,run:()=>g._enter(p,o.scene,null,o.to)};
  if(o.kind==='rescueLatch')return {text:'Open the zoo rescue cage',run:()=>{if(!p.caged)releaseCage(g);}};
  if(o.kind==='rescueFuse'){
   const owner=active(g).find(q=>g.order.indexOf(q.id)===o.index);if(!owner)return {text:'Spare habitat fuse',idle:true};if(owner.id!==p.id)return {text:`This fuse belongs to ${owner.name}`,idle:true};if(g.rescue.fuses.has(p.id)||g.rescue.inserted.has(p.id))return {text:'Your habitat fuse is already collected',idle:true};return {text:'Hold E: collect your habitat relay fuse',run:()=>{p.hold={kind:'rescueFuse',btn:'e',obj:o.id,t:0,need:1.2};}};
@@ -55,7 +57,7 @@ export function rescueObject(g,p,o){
   if(g.rescue.signal)return {text:'Habitat signal network is online',idle:true};if(!powerDone(g))return {text:'Connect every habitat relay first',idle:true};if(active(g).some(q=>q.id!==p.id&&q.chapterStation===o.index))return {text:'This station is occupied; choose another',idle:true};return {text:'Enter this signal-house station',run:()=>{p.chapterStation=o.index;p.hold=null;if(!g.rescue.panelPhase){g.rescue.panelPhase='waiting';g.rescue.panelRemaining=180;routeClues(g);}}};
  }
  if(o.kind==='boardPlane'){
-  if(!allRescued(g))return {text:'Free every zoo and pet-store animal before boarding',idle:true};return {text:'Board the escape plane',run:()=>{p.inPlane=true;p.hold=null;p.x=g.rescue.flight.x;p.y=g.rescue.flight.y;g.rescue.flight.aboard.add(p.id);}};
+  if(!allRescued(g))return {text:'Free every zoo, pet-store and Animal Control animal before boarding',idle:true};return {text:'Board the escape plane',run:()=>{p.inPlane=true;p.hold=null;p.x=g.rescue.flight.x;p.y=g.rescue.flight.y;g.rescue.flight.aboard.add(p.id);}};
  }
  return null;
 }
@@ -76,7 +78,7 @@ export function rescueHold(g,p,inp,dt){
 }
 export function rescueReturn(g,p){
  if(p.captureOrigin!=='rescue')return false;p.inVehicle=false;p.cageHits=0;p.carry=null;p.inPlane=false;p.chapterStation=null;p.caged=true;p.cageDistrict='rescue';p.capturedT=0;p.location='zoo';p.hold=null;p.shopping=false;p.shell=false;p.slide=null;p.hop=null;p.under=null;p.cageKeys=0;
- const i=g.order.indexOf(p.id),slots=[[8.5,264.5],[11.5,264.5],[15.5,264.5],[18.5,264.5],[8.5,271.5],[11.5,271.5],[15.5,271.5],[18.5,271.5]];[p.x,p.y]=slots[i];p.safe=[p.x,p.y];p.grace=5;g.closeGate(g.gate('rescue-holding'));return true;
+ const i=g.order.indexOf(p.id),slots=g.zoo.rescueDistrict.holding.slots;[p.x,p.y]=slots[i].map(v=>v+.5);p.safe=[p.x,p.y];p.grace=5;g.closeGate(g.gate('rescue-holding'));return true;
 }
 function releaseCage(g){g.openGate(g.gate('rescue-holding'));for(const p of active(g))if(p.caged&&p.cageDistrict==='rescue'){p.caged=false;p.hold=null;p.grace=5;}g.rescue.cageProgress=0;g.emit({k:'districtcagerescue'});}
 export function rescueAction(g,pid,msg){
@@ -91,7 +93,7 @@ export function rescueAction(g,pid,msg){
 }
 export function stepRescue(g,dt){
  const r=g.rescue,crew=active(g);if(!r||!crew.length)return;const roster=crew.map(p=>p.id).join('|');if(r.roster!==roster){r.roster=roster;for(const id of Object.keys(r.panels))if(!crew.some(p=>p.id===id))delete r.panels[id];routeClues(g);}
- for(const a of r.animals){a.moving=false;if(a.state!=='running')continue;if(!a.path)a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;if(!a.path)continue;if(!a.path.length){a.state='escaped';g.emit({k:'districtescaped',species:a.species});continue;}const t=a.path[0],dx=t[0]+.5-a.x,dy=t[1]+.5-a.y,d=Math.hypot(dx,dy),step=Math.min(d,dt*3.8);if(d>.001){a.x+=dx/d*step;a.y+=dy/d*step;a.face=dx<0?'left':'right';a.moving=true;}if(d<.12)a.path.shift();}
+ for(const a of r.animals){a.moving=false;if(a.state==='escaped'){stepCityAnimal(g,a,dt);continue;}if(a.state!=='running')continue;if(!a.path)a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;if(!a.path)continue;if(!a.path.length){enterCityAnimal(g,a);continue;}const t=a.path[0],dx=t[0]+.5-a.x,dy=t[1]+.5-a.y,d=Math.hypot(dx,dy),step=Math.min(d,dt*3.8);if(d>.001){a.x+=dx/d*step;a.y+=dy/d*step;a.face=dx<0?'left':'right';a.moving=true;}if(d<.12)a.path.shift();}
  for(const a of r.animals.filter(a=>a.mechanism==='team'&&a.state==='caged')){
   const ready=crew.length&&crew.every(p=>p.connected&&!p.caged&&p.capturedT<=0&&p.hold?.kind==='rescueTeam'&&p.hold.cage===a.id&&(a.species!=='gorilla'||hasTool(p))&&p.input.e&&near(g,p,g.obj(p.hold.obj),1.9));r.teamTimers[a.id]=ready?(r.teamTimers[a.id]||0)+dt:0;if(r.teamTimers[a.id]>=2.5){for(const p of crew){report(g,p);p.hold=null;}freeAnimal(g,a);}
  }
@@ -109,7 +111,7 @@ export function stepRescue(g,dt){
  const f=r.flight,aboard=crew.length&&crew.every(p=>p.inPlane&&p.connected&&!p.caged&&p.capturedT<=0),correct=PLANE_JOBS.every(j=>f.values[j.id]===j.choices[1]);
  if(aboard&&correct&&allRescued(g)){f.phase='takeoff';f.travel+=dt*4;f.y=397-f.travel;for(const p of crew){p.x=f.x;p.y=f.y;}if(f.travel>=44){f.phase='departed';for(const p of crew)p.muzzled=false;g.phase='complete';g.emit({k:'flightdeparted'});g.emit({k:'complete'});}}
 }
-export function rescuePublic(g){const r=g.rescue;if(!r)return null;return {animals:r.animals.map(a=>({id:a.id,species:a.species,mechanism:a.mechanism,scene:a.scene,x:a.x,y:a.y,state:a.state,face:a.face,moving:a.moving})),freed:r.animals.filter(a=>a.state==='escaped').length,total:r.animals.length,power:{done:powerDone(g),inserted:active(g).filter(p=>r.inserted.has(p.id)).length,need:active(g).length,team:active(g).map(p=>({id:p.id,name:p.name,index:g.order.indexOf(p.id),collected:r.fuses.has(p.id),inserted:r.inserted.has(p.id)}))},signal:r.signal,description:r.description,holding:{captured:active(g).filter(p=>p.caged&&p.cageDistrict==='rescue').length,progress:r.cageProgress},flight:{x:r.flight.x,y:r.flight.y,phase:r.flight.phase,progress:Math.min(1,r.flight.travel/44),aboard:active(g).filter(p=>p.inPlane).length,need:active(g).length},cages:r.animals.map(a=>({id:a.id,mechanism:a.mechanism,scene:a.scene,state:a.state}))};}
+export function rescuePublic(g){const r=g.rescue;if(!r)return null;return {animals:r.animals.map(a=>({id:a.id,species:a.species,mechanism:a.mechanism,scene:a.scene,location:a.location||a.scene,x:a.x,y:a.y,state:a.state,face:a.face,moving:a.moving})),freed:r.animals.filter(a=>a.state==='escaped').length,total:r.animals.length,power:{done:powerDone(g),inserted:active(g).filter(p=>r.inserted.has(p.id)).length,need:active(g).length,team:active(g).map(p=>({id:p.id,name:p.name,index:g.order.indexOf(p.id),collected:r.fuses.has(p.id),inserted:r.inserted.has(p.id)}))},signal:r.signal,description:r.description,holding:{captured:active(g).filter(p=>p.caged&&p.cageDistrict==='rescue').length,progress:r.cageProgress},flight:{x:r.flight.x,y:r.flight.y,phase:r.flight.phase,progress:Math.min(1,r.flight.travel/44),aboard:active(g).filter(p=>p.inPlane).length,need:active(g).length},cages:r.animals.map(a=>({id:a.id,mechanism:a.mechanism,scene:a.scene,state:a.state}))};}
 export function rescuePersonal(g,p){const r=g.rescue;if(!r)return {};
  const result={};if(p.inPlane){const crew=active(g);result.flight={...rescuePublic(g).flight,controls:PLANE_JOBS.filter((j,i)=>crew[i%crew.length].id===p.id).map(j=>({...j,value:r.flight.values[j.id]||j.choices[0]}))};}
  if(p.chapterStation!=null){const panel=r.panels[p.id],target=active(g).find(q=>r.panels[q.id]?.done<5&&r.panels[q.id]?.reader===p.id),other=target?r.panels[target.id]:null,t=other?.tasks[other.done],c=t?other.controls[t.control]:null;result.control={district:true,phase:r.panelPhase,remaining:r.panelRemaining,limit:180,powered:panel.powered,done:panel.done,controls:panel.controls,ready:active(g).every(q=>q.connected&&q.chapterStation!=null),paused:active(g).some(q=>!q.connected),team:active(g).map(q=>({id:q.id,name:q.name,inside:q.chapterStation!=null,powered:r.panels[q.id].powered,done:r.panels[q.id].done})),instruction:t?{target:target.id,index:other.done,control:t.control,value:t.value,text:`${c.label}: ${c.kind==='dial'?'turn to '+t.value:c.kind==='button'?(t.value?'press':'release'):(t.value?'UP':'DOWN')}. ${['Honk honk!','MooOO!','The emergency cabbage insists.','Baa! Baa!','The banana has filed a complaint.'][Math.floor(g.time)%5]}`}:{text:'Keep helping your team find the matching controls.'}};}

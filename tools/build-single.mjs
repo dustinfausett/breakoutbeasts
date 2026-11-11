@@ -62,7 +62,7 @@ const bundle = [
 // Fail the build if a module leaves behind syntax that cannot run as an embedded script.
 new Function(bundle);
 
-const packedAssets=Object.fromEntries(['city-props','cockpit-controls','rescue-animals','car','logo','actors','terrain','objects','panel','walk-animals-a','walk-animals-b'].map(name=>[name,'data:image/png;base64,'+fs.readFileSync(path.join(CLIENT,'assets',name+'.png')).toString('base64')]));
+const packedAssets=Object.fromEntries(['thrift-props','city-props','cockpit-controls','rescue-animals','car','logo','actors','terrain','objects','panel','walk-animals-a','walk-animals-b'].map(name=>[name,'data:image/png;base64,'+fs.readFileSync(path.join(CLIENT,'assets',name+'.png')).toString('base64')]));
 let html = fs.readFileSync(path.join(CLIENT, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(CLIENT, 'style.css'), 'utf8').replaceAll('url(assets/panel.png)',`url(${packedAssets.panel})`);
 const icon = fs.readFileSync(path.join(CLIENT, 'favicon.svg'), 'utf8').trim();

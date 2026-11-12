@@ -53,3 +53,5 @@ export function updateVehiclePanel(v){
  if(!held.has('steering'))root.querySelector('.wheel-art')?.style.setProperty('--turn',`${v.car.steering*110}deg`);
  root.querySelector('#car-route').textContent=v.roles.map(r=>`${r.name}: ${r.label}`).join(' · ');
 }
+
+export function releaseVehicleControls(){releaseAll();}

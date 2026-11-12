@@ -1,3 +1,4 @@
+import {captureCheckpoint,encodeCheckpoint,decodeCheckpoint,applyCheckpoint,checkpointSummary} from './checkpoints.js';
 // Transport-agnostic room: lobby, animal picks, readiness, mission lifecycle, reconnection.
 // The Node server wraps it with WebSockets; solo play wraps it with a direct in-browser link.
 
@@ -36,6 +37,7 @@ export class Room {
     this.phase = 'lobby';
     this.game = null;
     this.paused = false;
+    this.loadedCheckpoint=null;
     this.queues = new Map();
     this.sent = new Map();       // pid -> { tv, dv }
     this.pid = 1;
@@ -115,7 +117,7 @@ export class Room {
 
   lobbyState() {
     return {
-      t: 'lobby', code: this.code, hostId: this.hostId, phase: this.phase, solo: this.solo, max: this.maxPlayers, zoo: this.zooId,
+      t: 'lobby', code: this.code, hostId: this.hostId, phase: this.phase, solo: this.solo, max: this.maxPlayers, zoo: this.zooId, paused:this.paused,checkpoint:this.loadedCheckpoint?checkpointSummary(this.loadedCheckpoint):null,
       players: [...this.players.values()].sort((a, b) => a.joinedAt - b.joinedAt).map((p) => ({ id: p.id, name: p.name, animal: p.animal, ready: p.ready, connected: p.connected, host: p.id === this.hostId, spectator: p.spectator })),
     };
   }
@@ -126,6 +128,7 @@ export class Room {
   handle(pid, msg) {
     const p = this.players.get(pid);
     if (!p || !msg || typeof msg.t !== 'string') return;
+    if(this.paused&&['in','city','vehicle','rescue','panel','continueWithout','chat','emote'].includes(msg.t))return;
     switch (msg.t) {
       case 'name': p.name = cleanName(msg.name, p.name); this.broadcastLobby(); break;
       case 'pick': {
@@ -141,6 +144,14 @@ export class Room {
         if (this.phase !== 'lobby') return;
         if (!p.animal) return this.error(pid, 'no_animal', 'Choose an animal first.');
         p.ready = !!msg.ready; this.broadcastLobby(); break;
+      case 'checkpoint': {
+        if(pid!==this.hostId)return this.error(pid,'not_host','Only the host can load group progress.');if(this.phase!=='lobby')return;
+        try{this.loadedCheckpoint=msg.code?decodeCheckpoint(msg.code):null;this.broadcastLobby();}catch(e){this.error(pid,'bad_checkpoint',e.message);}break;
+      }
+      case 'save': {
+        if(pid!==this.hostId)return this.error(pid,'not_host','Only the host can pause and save the group.');if(this.phase!=='playing')return;
+        this.setPaused(true);try{const data=captureCheckpoint(this.game,pid);this.send(pid,{t:'saved',code:encodeCheckpoint(data),summary:checkpointSummary(data)});}catch(e){this.error(pid,'save_failed',e.message);}break;
+      }
       case 'start': {
         if (pid !== this.hostId) return this.error(pid, 'not_host', 'Only the host can start the mission.');
         if (this.phase !== 'lobby') return;
@@ -151,7 +162,7 @@ export class Room {
         if (notReady.length) return this.error(pid, 'not_ready', `Waiting for ${notReady.map((q) => q.name).join(', ')} to be ready.`);
         const offline = list.filter((q) => !q.connected);
         if (offline.length) return this.error(pid, 'not_ready', `Waiting for ${offline.map((q) => q.name).join(', ')} to reconnect.`);
-        this.startMission(['zoo','control','parking','driving','city'].includes(msg.startAt)?msg.startAt:'zoo');
+        this.startMission(this.loadedCheckpoint?.stage||(['zoo','control','parking','driving','city'].includes(msg.startAt)?msg.startAt:'zoo'),this.loadedCheckpoint);
         break;
       }
       case 'continue': {
@@ -199,7 +210,8 @@ export class Room {
         break;
       }
       case 'pause':
-        if (this.solo && this.phase === 'playing') { this.paused = !!msg.on; }
+        if(pid!==this.hostId)return this.error(pid,'not_host','Only the host can pause or resume the group.');
+        if(this.phase==='playing')this.setPaused(!!msg.on);
         break;
       case 'replay':
         if (pid !== this.hostId) return this.error(pid, 'not_host', 'Only the host can restart the mission.');
@@ -222,7 +234,13 @@ export class Room {
     this.broadcastLobby();
   }
 
-  startMission(stage='zoo') {
+  setPaused(on){
+    this.paused=on;this.queues.clear();
+    if(this.game){for(const p of this.game.activePlayers()){this.game.setInput(p.id,{mx:0,my:0,e:false,sp:false,b:false});p.hold=null;p.carPush=null;p.prevE=false;p.prevSp=false;p.prevB=false;}for(const car of this.game.cars||[this.game.vehicle].filter(Boolean)){car.speed=0;car.heldAt={};for(const id of ['gas','brake','steering'])car.values[id]=0;}}
+    this.broadcast({t:'paused',on,hostId:this.hostId});
+  }
+
+  startMission(stage='zoo',saved=null) {
     const checkpoint=stage;stage=stage==='control'?'zoo':stage==='driving'?'parking':stage;
     const continuing=(stage==='parking'&&this.game?.zooId==='moonleaf')||(stage==='city'&&this.game?.zooId==='parking');
     const carColor=this.game?.vehicle?.colorIndex;
@@ -239,6 +257,8 @@ export class Room {
     if(checkpoint==='driving'){
       const g=this.game,crew=g.activePlayers();if(crew[0]){crew[0].cageKeys=1;g.vehicleAction(crew[0].id,{op:'unlock'});}for(const p of crew){p.inVehicle=true;p.x=g.vehicle.x;p.y=g.vehicle.y;}
     }
+    if(saved)applyCheckpoint(this.game,saved);
+    this.loadedCheckpoint=null;
     for (const p of this.players.values()) if (!list.includes(p)) p.spectator = true;
     if(stage==='parking')this.lastCarSlot=this.game.vehicle.slot;
     this.phase = 'playing';
@@ -253,12 +273,14 @@ export class Room {
 
   _sendStart(pid) {
     this.send(pid, { t: 'start', zoo: this.game.zooId, solo: this.solo, team: this.game.order.length });
+    this.send(pid,{t:'paused',on:this.paused,hostId:this.hostId});
     this.sent.delete(pid);
   }
 
   toLobby() {
     this.phase = 'lobby';
     this.game = null;
+    this.paused=false;this.loadedCheckpoint=null;
     this.results = null;
     for (const p of this.players.values()) { p.ready = false; p.spectator = false; if (!p.connected) p.dcAt = 0; }
     this.broadcastLobby();
@@ -268,7 +290,7 @@ export class Room {
   tick(dt = TICK) {
     // grace timers
     for (const p of [...this.players.values()]) {
-      if (p.connected) continue;
+      if (p.connected||this.paused) continue;
       p.dcAt += dt;
       const limit = this.phase === 'playing' ? GRACE_PLAY : GRACE_LOBBY;
       if (p.dcAt >= limit) {

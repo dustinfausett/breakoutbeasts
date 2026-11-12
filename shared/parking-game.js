@@ -3,7 +3,7 @@ import {parkingGPS} from './navigation.js';
 import {Game} from './game.js';
 import {getZoo} from './zoos/index.js';
 import {makeKeepers,parkingKeeperCount} from './staff.js';
-import {vehicleCells} from './driving.js';
+import {vehicleCells,CAR_HALF_LENGTH,CAR_HALF_WIDTH} from './driving.js';
 import {T,tileBlocksVision} from './tiles.js';
 import {canOccupy} from './physics.js';
 import {dist,lineOfSight} from './util.js';
@@ -99,8 +99,10 @@ export class ParkingGame extends Game{
  _carFits(x,y,angle){return this._terrainFits(x,y,angle)&&!(this.parkedCars||[]).some(other=>carsOverlap({...this.vehicle,x,y,angle},other));}
  _tryVehicleMove(x,y,angle,dt){return moveDrivenCar(this,x,y,angle,dt);}
  _terrainFits(x,y,angle){
-  const c=Math.cos(angle),s=Math.sin(angle),blocked=new Set([T.WALL,T.MACHINE,T.ROCK,T.HEDGE,T.TREE,T.BUSH,T.FENCE]);
-  for(let u=-1.8;u<=1.81;u+=.4)for(let v=-1.15;v<=1.16;v+=.38){const tx=Math.floor(x+u*c-v*s),ty=Math.floor(y+u*s+v*c);if(tx<0||ty<0||tx>=this.w||ty>=this.h||blocked.has(this.tileAt(tx,ty))||this.gates.some(g=>g.state===0&&g.tiles.some(t=>t[0]===tx&&t[1]===ty)))return false;}
+  const c=Math.cos(angle),s=Math.sin(angle),blocked=new Set([T.WALL,T.REINF,T.MACHINE]);
+  const nu=Math.ceil(CAR_HALF_LENGTH*2/.25),nv=Math.ceil(CAR_HALF_WIDTH*2/.25);
+  for(let i=0;i<=nu;i++)for(let j=0;j<=nv;j++){const u=-CAR_HALF_LENGTH+2*CAR_HALF_LENGTH*i/nu,v=-CAR_HALF_WIDTH+2*CAR_HALF_WIDTH*j/nv,tx=Math.floor(x+u*c-v*s),ty=Math.floor(y+u*s+v*c);if(tx<0||ty<0||tx>=this.w||ty>=this.h||blocked.has(this.tileAt(tx,ty))||this.gates.some(g=>g.state===0&&g.tiles.some(t=>t[0]===tx&&t[1]===ty)))return false;}
+
   return true;
  }
  _vehicleCrew(){return this.activePlayers();}

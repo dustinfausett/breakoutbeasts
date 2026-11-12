@@ -1,7 +1,8 @@
+import {decodeCheckpoint} from './shared/checkpoints.js';
 import {mountLiveMap,updateLiveMap} from './live-map.js';
 import {mountRescueUI,updateRescueUI} from './rescue-ui.js';
 import {mountCityUI,updateCityUI} from './city-ui.js';
-import { mountVehiclePanel, updateVehiclePanel, updateKeyFob } from './vehicle-panel.js';
+import { mountVehiclePanel, updateVehiclePanel, updateKeyFob, releaseVehicleControls } from './vehicle-panel.js';
 // Breakout Beasts! client controller: menus, lobby, HUD, game loop, audio and captions.
 
 import { mountControlPanel, updateControlPanel, addPanelChat } from './control-panel.js';
@@ -97,6 +98,7 @@ function caption(text, cls = '', sound = false) {
 let paradeProgress=0;
 // ---------------- title ----------------
 function buildTitle() {
+  try{$('#use-last-save').hidden=!localStorage.getItem('bb-last-checkpoint');}catch{}
   document.querySelectorAll('.pixel-logo').forEach(img=>img.src=IMAGES.logo.src);
   const parade = $('#title-parade');
   parade.innerHTML = '';
@@ -203,7 +205,7 @@ function renderLobby() {
   const blockers = L.players.filter((p) => !p.animal || (!p.host && !p.ready) || !p.connected);
   $('#lobby-start').disabled = blockers.length > 0;
   $('#lobby-info').textContent = (isHost ? (blockers.length ? `Waiting for ${blockers.map((p) => p.name).join(', ')}.` : 'Everyone is ready — start when you like!') : 'The host starts the mission when everyone is ready.') +
-    ` With ${n} player${n > 1 ? 's' : ''}, the generator needs ${n} fuse${n > 1 ? 's' : ''} and the exit needs ${n} key${n > 1 ? 's' : ''} turned together.`;
+    (L.checkpoint?' Resuming: '+L.checkpoint+'.':'')+` With ${n} player${n > 1 ? 's' : ''}, the generator needs ${n} fuse${n > 1 ? 's' : ''} and the exit needs ${n} key${n > 1 ? 's' : ''} turned together.`;
 }
 
 // ---------------- messages ----------------
@@ -211,11 +213,13 @@ function onMessage(msg) {
   switch (msg.t) {
     case 'joined':
       app.myId = msg.you;
+      if(app.resumeCode&&app.mode!=='solo'&&!msg.resumed){app.link?.send({t:'checkpoint',code:app.resumeCode});app.resumeCode='';}
       if (msg.resumed) { overlay(app.inGame ? null : app.overlay === 'conn' ? null : app.overlay); caption('Reconnected!', 'good'); }
       break;
     case 'lobby': {
       const prev = app.lobby;
       app.lobby = msg;
+      if(app.overlay==='pause')renderPauseMenu();
       if(app.overlay==='complete'&&app.results)onEnd(app.results);
       if (app.screen === 'animals') buildAnimals();
       if (app.screen === 'lobby') renderLobby();
@@ -227,6 +231,8 @@ function onMessage(msg) {
       if (app.mode === 'solo' && msg.phase === 'lobby' && app.screen !== 'animals' && !app.inGame) { show('animals'); buildAnimals(); }
       break;
     }
+    case 'paused': app.groupPaused=!!msg.on;app.paused=!!msg.on;input.releaseAll();releaseVehicleControls();if(msg.on&&app.inGame){overlay('pause');renderPauseMenu();}else if(app.inGame&&app.overlay==='pause'){overlay(null);}break;
+    case 'saved': app.savedProgress=msg;$('#saved-progress-code').value=msg.code;$('#save-summary').textContent=msg.summary;$('#save-result').hidden=false;try{localStorage.setItem('bb-last-checkpoint',msg.code);$('#use-last-save').hidden=false;}catch{}renderPauseMenu();break;
     case 'start': enterGame(msg); break;
     case 'snap': onSnap(msg); break;
     case 'end': onEnd(msg.results); break;
@@ -266,7 +272,7 @@ function enterGame(msg) {
   app.world = new ClientWorld(msg.zoo);
   app.world.myId = app.myId;
   app.renderer.setWorld(app.world);
-  app.results = null; app.paused = false; app.hintShown = false;
+  app.results = null; app.paused = false; app.groupPaused=false;app.savedProgress=null;$('#save-result').hidden=true; app.hintShown = false;
   app.inGame = true;
   app.bot = AUTOPILOT ? new Autopilot(app.myId) : null;
   buildEmotes();
@@ -584,6 +590,7 @@ const OFFLINE_MSG = 'Online rooms need the game server. This downloaded copy pla
 
 async function startOnline(kind, code) {
   if (OFFLINE_FILE) { const where = kind === 'create' ? '#title-msg' : '#join-msg'; show(kind === 'create' ? 'title' : 'join'); $(where).textContent = OFFLINE_MSG; return; }
+  const resumeCode=kind==='create'?readProgressCode():'';if(resumeCode===null)return;app.resumeCode=resumeCode;
   const name = myName(kind==='join'?'#join-name':'#name');
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.mode = 'online'; app.lobby = null; app.pickAnimal = null;app.startAt=kind==='create'?$('#start-at').value:'zoo';
@@ -602,6 +609,7 @@ async function startOnline(kind, code) {
 }
 
 function startSolo() {
+  const code=readProgressCode();if(code===null)return;app.resumeCode=code;
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.mode = 'solo'; app.lobby = null;app.startAt=$('#start-at').value;
   app.link = null;
@@ -622,6 +630,7 @@ function act(name, el) {
   audio.unlock();
   audio.play('click');
   switch (name) {
+    case 'last-save': try{$('#progress-code').value=localStorage.getItem('bb-last-checkpoint')||'';}catch{}break;
     case 'solo': $('#title-msg').textContent = ''; startSolo(); break;
     case 'create': $('#title-msg').textContent = ''; startOnline('create'); break;
     case 'join': $('#join-msg').textContent = ''; $('#join-name').value=$('#name').value; show('join'); break;
@@ -644,6 +653,7 @@ function act(name, el) {
       if (!app.pickAnimal) return;
       if (app.mode === 'solo') {
         if (!app.link) { app.link = new SoloLink(onMessage); app.link.create(myName()); }
+        if(app.resumeCode){app.link.send({t:'checkpoint',code:app.resumeCode});app.resumeCode='';}
         app.link.send({ t: 'pick', animal: app.pickAnimal });
         app.link.send({ t: 'start',startAt:app.startAt||'zoo' });
       } else {
@@ -663,6 +673,9 @@ function act(name, el) {
     case 'lobby-leave': toTitle(); break;
     case 'pause': openPause(); break;
     case 'resume': closePause(); break;
+    case 'save': app.link?.send({t:'save'});break;
+    case 'copy-save': {const code=app.savedProgress?.code;if(code)(navigator.clipboard?.writeText(code)||Promise.reject()).then(()=>caption('Progress code copied!','good'),()=>{$('#saved-progress-code').focus();$('#saved-progress-code').select();caption('Select and copy the complete code above.');});break;}
+    case 'download-save': {if(!app.savedProgress)return;const url=URL.createObjectURL(new Blob([app.savedProgress.code+'\n'],{type:'text/plain'})),a=document.createElement('a');a.href=url;a.download='breakout-beasts-progress.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break;}
     case 'quit': toTitle(); break;
     case 'continue': app.link?.send({t:'continue'});break;
     case 'replay': app.link?.send({ t: 'replay' }); break;
@@ -672,19 +685,15 @@ function act(name, el) {
   void el;
 }
 
-function openPause() {
-  if (!app.inGame) return;
-  overlay('pause');
-  const solo = app.mode === 'solo';
-  $('#pause-h').textContent = solo ? 'Paused' : 'Menu';
-  $('#pause-note').textContent = solo ? 'The zoo is frozen until you resume.' : 'This is an online game: the zoo keeps moving while this menu is open, and your animal stands still.';
-  $('#quit-btn').textContent = solo ? 'Quit to title' : 'Leave room';
-  if (solo) { app.paused = true; app.link?.send({ t: 'pause', on: true }); }
+function readProgressCode(){const code=$('#progress-code').value.trim();if(!code)return '';try{decodeCheckpoint(code);return code.replace(/\s/g,'');}catch(e){$('#title-msg').textContent=e.message;return null;}}
+function renderPauseMenu(){
+  const host=app.mode==='solo'||app.lobby?.hostId===app.myId;
+  $('#pause-h').textContent=app.paused?'Group paused':'Menu';
+  $('#pause-note').textContent=app.paused?(host?'The whole group is paused. Save a checkpoint or resume when ready.':'The host paused the whole group. Wait for the host to resume.'):(host?'Choose Pause & Save Group to freeze play for everyone and generate a progress code.':'The game keeps moving while your menu is open. Only the host can pause and save.');
+  $('#pause-save').hidden=!host;$('#pause-resume').disabled=app.groupPaused&&!host;$('#pause-resume').textContent=app.groupPaused&&!host?'Waiting for host':'Resume';$('#quit-btn').textContent=app.mode==='solo'?'Quit to title':'Leave room';
 }
-function closePause() {
-  overlay(null);
-  if (app.mode === 'solo') { app.paused = false; app.link?.send({ t: 'pause', on: false }); }
-}
+function openPause(){if(!app.inGame)return;overlay('pause');releaseVehicleControls();renderPauseMenu();if(app.mode==='solo'){app.paused=true;app.link?.send({t:'pause',on:true});}}
+function closePause(){const host=app.mode==='solo'||app.lobby?.hostId===app.myId;if(app.groupPaused&&!host)return;if(app.paused){app.link?.send({t:'pause',on:false});}else overlay(null);}
 
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');

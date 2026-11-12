@@ -32,6 +32,7 @@
         <label class="field">Your name
           <input id="name" maxlength="14" autocomplete="nickname" placeholder="e.g. Sam">
         </label>
+        <details class="progress-load"><summary>Resume group progress</summary><label class="field">Progress code (optional)<textarea id="progress-code" rows="3" maxlength="3200" spellcheck="false" autocorrect="off" autocapitalize="off" placeholder="Paste your BB1 progress code"></textarea></label><p class="info">Create a new room with this code, then choose your animals and invite your group.</p><button class="btn small" data-act="last-save" id="use-last-save" hidden>Use last save from this device</button></details>
         <div class="menu" role="menu">
           <button class="btn primary" data-act="solo" role="menuitem">Play Solo</button>
           <button class="btn" data-act="create" role="menuitem">Create Online Room</button>
@@ -124,8 +125,10 @@
       <div class="panel center">
         <h2 id="pause-h">Paused</h2>
         <p id="pause-note" class="info"></p>
+        <section id="save-result" hidden><label class="field">Last saved group progress code<textarea id="saved-progress-code" rows="4" readonly spellcheck="false" aria-label="Saved group progress code"></textarea></label><p id="save-summary" class="info"></p><p class="info">Keep this complete code. Next time, open Resume group progress on the title screen and paste it when creating a room. Completed objectives and purchases are kept; unfinished puzzles restart at a safe entrance.</p><button class="btn" data-act="copy-save">Copy progress code</button><button class="btn" data-act="download-save">Download save</button></section>
         <div class="menu">
-          <button class="btn primary" data-act="resume">Resume</button>
+          <button class="btn primary" data-act="resume" id="pause-resume">Resume</button>
+          <button class="btn" data-act="save" id="pause-save">Pause &amp; Save Group</button>
           <button class="btn" data-act="settings">Settings</button>
           <button class="btn" data-act="help">How to Play</button>
           <button class="btn" data-act="quit" id="quit-btn">Leave mission</button>

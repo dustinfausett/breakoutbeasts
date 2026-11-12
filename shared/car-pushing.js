@@ -1,12 +1,12 @@
 import {T} from './tiles.js';
-import {vehicleCells} from './driving.js';
+import {vehicleCells,CAR_HALF_LENGTH,CAR_HALF_WIDTH,CAR_CONTACT_GAP} from './driving.js';
 import {canOccupy,moveBody,HALF} from './physics.js';
 export const CAR_PUSH_SPEED=.55;
 export const pushSeconds=animal=>['elephant','giraffe','zebra'].includes(animal)?1:5;
 export const movableCars=g=>g.cars||[g.vehicle,...(g.parkedCars||[])].filter(Boolean);
 export function carsOverlap(a,b){
  const c=Math.cos(a.angle),s=Math.sin(a.angle),oc=Math.cos(b.angle),os=Math.sin(b.angle),dx=b.x-a.x,dy=b.y-a.y;
- for(const [ax,ay] of [[c,s],[-s,c],[oc,os],[-os,oc]]){const ar=1.8*Math.abs(ax*c+ay*s)+1.15*Math.abs(-ax*s+ay*c),br=1.8*Math.abs(ax*oc+ay*os)+1.15*Math.abs(-ax*os+ay*oc);if(Math.abs(dx*ax+dy*ay)>ar+br+.15)return false;}return true;
+ for(const [ax,ay] of [[c,s],[-s,c],[oc,os],[-os,oc]]){const ar=CAR_HALF_LENGTH*Math.abs(ax*c+ay*s)+CAR_HALF_WIDTH*Math.abs(-ax*s+ay*c),br=CAR_HALF_LENGTH*Math.abs(ax*oc+ay*os)+CAR_HALF_WIDTH*Math.abs(-ax*os+ay*oc);if(Math.abs(dx*ax+dy*ay)>ar+br+CAR_CONTACT_GAP)return false;}return true;
 }
 function coversBody(g,car,p){const cells=new Set(vehicleCells(car,g.w,g.h));for(let y=Math.floor(p.y-HALF);y<=Math.floor(p.y+HALF-1e-6);y++)for(let x=Math.floor(p.x-HALF);x<=Math.floor(p.x+HALF-1e-6);x++)if(cells.has(y*g.w+x))return true;return false;}
 function trapsPlayer(g,old,pose){return g.activePlayers().some(p=>!p.inVehicle&&p.capturedT<=0&&!p.inPlane&&!p.under&&!p.hop&&!coversBody(g,old,p)&&coversBody(g,pose,p));}
@@ -45,14 +45,14 @@ export function stepAnimalCarPushes(g,dt){
   const inp=p.input||{},length=Math.hypot(inp.mx||0,inp.my||0);
   if(!p.connected||p.inVehicle||p.capturedT>0||p.caged||p.shopping||p.chapterStation!=null||p.inPlane||p.shell||p.under||p.hop||p.slide||p.hold||length<=.15){p.carPush=null;continue;}
   const dx=inp.mx/length,dy=inp.my/length,previous=p.carPush;
-  let car=cars.find(c=>touches(g,p,c,dx,dy,.18));
+  let car=cars.find(c=>touches(g,p,c,dx,dy,.28));
   if(!car&&previous?.t>=previous?.need)car=cars.find(c=>c.id===previous.id&&touches(g,p,c,dx,dy,.85));
   if(!car){p.carPush=null;continue;}
   // A car on the far side of a wall cannot be pushed through it.
   const solids=g.entSolid.slice();for(const car of cars)for(const i of vehicleCells(car,g.w,g.h))solids[i]=0;
   for(const gate of g.gates)if(!gate.state)for(const [x,y] of gate.tiles)solids[y*g.w+x]=1;
   for(const o of g.objects)if(!o.walkable&&o.kind!=='vehicle'&&g.entSolid[o.y*g.w+o.x])solids[o.y*g.w+o.x]=1;
-  const world={w:g.w,h:g.h,tiles:g.tiles,entSolid:solids};if(!canOccupy(world,p.animal,p.x+dx*.18,p.y+dy*.18,null)){p.carPush=null;continue;}
+  const world={w:g.w,h:g.h,tiles:g.tiles,entSolid:solids};if(!canOccupy(world,p.animal,p.x+dx*.28,p.y+dy*.28,null)){p.carPush=null;continue;}
   const same=previous?.id===car.id&&previous.dx*dx+previous.dy*dy>.9;
   const push=p.carPush={id:car.id,dx,dy,need:pushSeconds(p.animal),t:Math.min(pushSeconds(p.animal),(same?previous.t:0)+dt),moving:false,blocked:false};
   if(push.t+1e-8<push.need)continue;

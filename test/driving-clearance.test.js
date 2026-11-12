@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {CityGame} from '../shared/city-game.js';
+import {carsOverlap} from '../shared/car-pushing.js';
+import {CAR_HALF_LENGTH,CAR_HALF_WIDTH} from '../shared/driving.js';
+import {T} from '../shared/tiles.js';
+const make=()=>new CityGame({players:[{id:'p',animal:'beaver'}],options:{staff:false}});
+test('car contact follows the painted body with almost no padding, including rotated cars',()=>{const a={x:30,y:44,angle:0};assert.equal(carsOverlap(a,{...a,x:33.34}),false);assert.equal(carsOverlap(a,{...a,x:33.30}),true);assert.equal(carsOverlap(a,{...a,y:45.70}),false);assert.equal(carsOverlap(a,{...a,y:45.60}),true);for(const angle of [.4,Math.PI/2,2]){const first={...a,angle},second={...first,x:a.x-Math.sin(angle)*(2*CAR_HALF_WIDTH+.05),y:a.y+Math.cos(angle)*(2*CAR_HALF_WIDTH+.05)};assert.equal(carsOverlap(first,second),false);}assert.ok(CAR_HALF_LENGTH<1.8);});
+test('a car can drive closely past a parked car without making it move',()=>{const g=make(),v=g.vehicle,other=g.cars[1];g.cars=[v,other];v.x=20.5;v.y=44.5;v.angle=0;v.values.gear='Drive';other.x=30.5;other.y=46.25;other.angle=0;g.rebuildBlock();for(let i=0;i<100;i++){g.vehicleAction('p',{control:'gas',value:1,held:true});g.step(.05);}assert.ok(v.x>34);assert.equal(other.x,30.5);assert.equal(other.y,46.25);});
+test('cars cross landscaping and small obstacles while buildings, map edges and closed gates remain solid',()=>{const g=make();for(const tile of [T.GRASS,T.BUSH,T.HEDGE,T.TREE,T.ROCK,T.WOOD,T.LOOSE,T.FENCE,T.POND,T.WATER,T.BARREL]){for(let y=41;y<=48;y++)for(let x=37;x<=44;x++)g.setTile(x,y,tile);assert.equal(g._terrainFits(40.5,44.5,.7),true,String(tile));}for(const tile of [T.WALL,T.REINF,T.MACHINE]){g.setTile(40,44,tile);assert.equal(g._terrainFits(40.5,44.5,0),false);}assert.equal(g._terrainFits(-1,44.5,0),false);for(let y=41;y<=48;y++)for(let x=37;x<=44;x++)g.setTile(x,y,T.PATH);g._addGate({id:'clearance-gate',kind:'holding',tiles:[[40,44]],vis:'solid'});assert.equal(g._terrainFits(40.5,44.5,0),false);g.openGate(g.gate('clearance-gate'));assert.equal(g._terrainFits(40.5,44.5,0),true);});

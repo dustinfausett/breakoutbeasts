@@ -46,11 +46,11 @@ test('panels wait for every animal, then all power buttons must be pressed',()=>
  g.controlAction(b.id,{op:'power'});g.step();assert.equal(g.controlRoom.phase,'running');
 });
 
-test('multiplayer instructions describe another panel and never expose the owner’s solution',()=>{
+test('multiplayer instructions contain only actions for anonymously assigned unique panels',()=>{
  const g=ready(8);power(g);
  for(const p of g.activePlayers()){
-  const personal=controlPersonal(g,p.id);assert.notEqual(personal.instruction.target,p.id);
-  assert.equal(personal.tasks,undefined);assert.equal(personal.controls.length,6);
+  const personal=controlPersonal(g,p.id);assert.match(personal.instruction.text,/^(Set|Raise|Lower|Press|Release) /);
+  assert.equal(personal.tasks,undefined);assert.ok(personal.controls.length>=4);
  }
  const publicData=g.snapshot();assert.equal(JSON.stringify(publicData).includes('flavor'),false);
  assert.equal(publicData.obj.control.team.length,8);
@@ -94,7 +94,7 @@ test('a disconnected operator pauses the timer; continuing without them preserve
 
 test('solo radio-partner mode provides five valid tasks without needing another human',()=>{
  const g=ready(1);power(g);const p=g.activePlayers()[0];
- for(let i=0;i<5;i++){const clue=controlPersonal(g,p.id).instruction;assert.match(clue.text,/radio/);g.controlAction(p.id,{op:'set',control:clue.control,value:clue.value});g.step();}
+ for(let i=0;i<5;i++){const clue=controlPersonal(g,p.id).instruction;assert.match(clue.text,/^(Set|Raise|Lower|Press|Release) /);g.controlAction(p.id,{op:'set',control:clue.control,value:clue.value});g.step();}
  assert.equal(g.controlRoom.phase,'complete');
 });
 

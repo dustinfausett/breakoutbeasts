@@ -1,0 +1,6 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {stationPanel,routeStationClues,stationInstruction} from '../shared/stations.js';
+import {mulberry32} from '../shared/util.js';
+test('eight stations have disjoint labels and distinct sets; commands contain only actions',()=>{const g={rng:mulberry32(9)},panels=Array.from({length:8},(_,i)=>stationPanel(g,i)),labels=panels.flatMap(p=>p.controls.map(c=>c.label));assert.equal(new Set(labels).size,labels.length);assert.equal(new Set(panels.map(p=>p.controls.map(c=>c.label).join(','))).size,8);for(const p of panels)for(const t of p.tasks)assert.match(stationInstruction(p.controls[t.control],t.value),/^(Set .+ to [0-5]|Raise .+|Lower .+|Press .+|Release .+)$/);});
+test('clues reach every reader including the owner across rounds without duplicate assignments',()=>{const people=Array.from({length:8},(_,i)=>({id:'p'+i})),g={rng:mulberry32(27),activePlayers:()=>people},panels=Object.fromEntries(people.map((p,i)=>[p.id,stationPanel(g,i)])),seen=new Map(people.map(p=>[p.id,new Set()]));for(let i=0;i<200;i++){routeStationClues(g,panels);assert.equal(new Set(Object.values(panels).map(p=>p.reader)).size,8);for(const p of people)seen.get(p.id).add(panels[p.id].reader);}for(const p of people)assert.equal(seen.get(p.id).size,8);});

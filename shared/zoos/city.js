@@ -13,7 +13,7 @@ export function buildCity(){
  const names=['Acorn Groceries','Cedar Bank','Beaver Hardware','Moonlight Cafe','Second Paw Thrift','Animal Control','Northgate Zoo','Sunspire Safari Zoo','Frostfern Aquarium Zoo'];
  const destinations=[];
  for(let row=0;row<3;row++)for(let col=0;col<3;col++){
-  const i=row*3+col,x=22+col*38,y=22+row*32,width=22,height=12,name=names[i],scene=i===1?'bank':i===2?'hardware':i===4?'thrift':i===5?'control':null;
+  const i=row*3+col,x=22+col*38,y=22+row*32,width=22,height=12,name=names[i],scene=i===0?'grocery':i===1?'bank':i===2?'hardware':i===4?'thrift':i===5?'control':null;
   rect(x,y,x+21,y+11,T.WALL);rect(x,y+12,x+21,y+12,T.FLOOR,4);rect(x,y+13,x+21,y+17,T.PATH,3,1);
   // Parking bays leave clear driveways from each lot to the street.
   for(let n=0;n<5;n++){decor.push({kind:'parkingBay',x:x+n*4,y:y+13,w:3,h:4});if(n===0||n===4){rect(x+n*4,y+13,x+n*4+2,y+16,T.MACHINE,3);decor.push({kind:'parkedCar',x:x+n*4,y:y+13,w:3,h:4,angle:Math.PI/2,colorIndex:(i+n)%6});}}
@@ -27,9 +27,14 @@ export function buildCity(){
  // Keep off-map rooms isolated; stairs and building doors are the only transfers.
  rect(1,128,w-2,h-2,T.WALL);
  // Interior rooms share one authoritative world, so teammates may split up.
- const interiors={bank:{rect:[4,134,31,158],spawn:[15,152],exit:[15,156]},hardware:{rect:[35,134,50,158],spawn:[43,153],exit:[43,156]},thrift:{rect:[54,134,72,150],spawn:[63,146],exit:[63,148],name:'Second Paw Thrift'},control:{rect:[104,134,140,163],spawn:[119,159],exit:[119,161],name:'Animal Control'}};
- for(const [scene,r] of Object.entries(interiors)){const [a,b,c,d]=r.rect;rect(a,b,c,d,T.WALL);rect(a+1,b+1,c-1,d-1,T.FLOOR,4);objects.push({id:'leave-'+scene,kind:'cityDoor',scene:'street',from:scene,x:r.exit[0],y:r.exit[1],walkable:true,label:'Return to city'});decor.push({kind:'interiorSign',x:a+3,y:b+3,text:scene==='bank'?'CEDAR BANK':scene==='thrift'?'SECOND PAW THRIFT':scene==='hardware'?'BEAVER HARDWARE':'ANIMAL CONTROL'});}
+ const interiors={grocery:{rect:[4,164,30,185],spawn:[17,180],exit:[17,183]},bank:{rect:[4,134,31,158],spawn:[15,152],exit:[15,156]},hardware:{rect:[35,134,50,158],spawn:[43,153],exit:[43,156]},thrift:{rect:[54,134,72,150],spawn:[63,146],exit:[63,148],name:'Second Paw Thrift'},control:{rect:[104,134,140,163],spawn:[119,159],exit:[119,161],name:'Animal Control'}};
+ for(const [scene,r] of Object.entries(interiors)){const [a,b,c,d]=r.rect;rect(a,b,c,d,T.WALL);rect(a+1,b+1,c-1,d-1,T.FLOOR,4);objects.push({id:'leave-'+scene,kind:'cityDoor',scene:'street',from:scene,x:r.exit[0],y:r.exit[1],walkable:true,label:'Return to city'});decor.push({kind:'interiorSign',x:a+3,y:b+3,text:scene==='bank'?'CEDAR BANK':scene==='thrift'?'SECOND PAW THRIFT':scene==='hardware'?'BEAVER HARDWARE':scene==='grocery'?'ACORN GROCERIES':'ANIMAL CONTROL'});}
  rect(24,135,24,144,T.REINF);rect(24,144,30,144,T.REINF);rect(24,140,24,142,T.PATH);objects.push({id:'vault-wheel',kind:'vaultWheel',x:21,y:141,walkable:true,label:'Vault wheel'},{id:'vault-cash',kind:'vaultCash',x:27,y:138,walkable:true,label:'Vault cash'},{id:'hardware-counter',kind:'hardwareCounter',x:43,y:141,walkable:true,label:'Buy habitat tools'},{id:'thrift-counter',kind:'shopCounter',x:63,y:140,walkable:true,label:'Browse disguises'},{id:'control-latch',kind:'controlLatch',x:124,y:155,walkable:true,label:'Open animal-control cage'});
+
+ rect(17,173,20,174,T.MACHINE);decor.push({kind:'cityCounter',x:17,y:173,w:4,h:2});
+ objects.push({id:'grocery-counter',kind:'groceryCounter',x:18,y:175,walkable:true,label:'Cashier'});
+ for(const [id,scene,category,label,x,y] of [['hats','thrift','hat','Hats',69,140],['shirts','thrift','shirt','Shirts',60,140],['pants','thrift','pants','Pants',60,145],['tools','hardware','tools','Tools',40,140],['meat','grocery','meat','Meat',9,170],['fish','grocery','fish','Fish',23,170],['bananas','grocery','bananas','Bananas',9,176]]){objects.push({id:'shelf-'+id,kind:'shopShelf',scene,category,label,x,y,walkable:true});decor.push({kind:'shelfLabel',x:x-1,y:y-1,text:label});if(scene==='grocery'){rect(x-2,y-2,x,y-1,T.MACHINE);decor.push({kind:'foodShelf',x:x-2,y:y-2,w:3,h:2,food:category});}}
+ for(const [x,y] of [[63,140],[43,141],[18,175]])decor.push({kind:'shelfLabel',x:x-1,y:y-1,text:'Cashier'});
  // Bank counters, benches, garment racks and animal-control cage are real obstacles.
  for(const [scene,items] of Object.entries({bank:[[7,139,17,140],[7,148,9,149]],hardware:[[37,138,39,142],[46,138,48,142],[37,147,39,150]],thrift:[[57,138,59,139],[66,138,68,139],[57,143,59,144],[66,143,68,144]],control:[[108,153,112,154]]}))for(const r of items){rect(...r,T.MACHINE);decor.push({kind:scene==='thrift'?'clothesRack':scene==='hardware'?'toolShelf':'cityCounter',x:r[0],y:r[1],w:r[2]-r[0]+1,h:r[3]-r[1]+1});}
  const controlLayout={holding:[126,149,137,160],door:[127,155],doorTiles:[[126,154],[126,155],[126,156]],slots:[[128,150],[130,150],[133,150],[135,150],[128,159],[130,159],[133,159],[135,159]]};

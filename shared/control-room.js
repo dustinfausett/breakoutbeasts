@@ -1,23 +1,13 @@
 // Authoritative cooperative control-house puzzle. Only a player's own controls and
-// a clue for another operator are sent in their personal snapshot.
-import { ANIMALS } from './animals.js';
-const LABELS=['WOBBLY BANANA','MOON SNIFFER','FISH SOCKS','TURNIP ENGINE','SNEEZE VALVE','BISCUIT ORBIT'];
-const FLAVOR=['The invisible giraffe demands it.','Human paperwork smells like rain.','Do not wake the emergency cabbage.','The moon has misplaced its trousers.','A very official duck says so.'];
+// an anonymously assigned clue (including their own) are sent in their personal snapshot.
+import {stationPanel,routeStationClues,stationInstruction} from './stations.js';
 
 export function initControlRoom(g,attempt=0){
  const panels={};
  for(const [doorIndex,p] of g.activePlayers().entries()){
-  const offset=Math.floor(g.rng()*LABELS.length);
-  const controls=LABELS.map((_,i)=>({label:LABELS[(i+offset)%LABELS.length],kind:i%2?'lever':'dial',value:0,max:i%2?1:5}));
-  const planned=controls.map(()=>0),tasks=[];
-  for(let i=0;i<5;i++){
-   const control=Math.floor(g.rng()*controls.length),max=controls[control].max;
-   const value=(planned[control]+1+Math.floor(g.rng()*max))%(max+1);planned[control]=value;
-   tasks.push({control,value,flavor:FLAVOR[Math.floor(g.rng()*FLAVOR.length)]});
-  }
-  panels[p.id]={doorIndex,controls,tasks,done:0,powered:false};
+  panels[p.id]={...stationPanel(g,doorIndex),doorIndex};
  }
- g.controlRoom={phase:'waiting',remaining:180,limit:180,attempt,entered:{},panels};
+ g.controlRoom={phase:'waiting',remaining:180,limit:180,attempt,entered:{},panels,roster:g.activePlayers().map(p=>p.id).join('|')};routeStationClues(g,panels);
 }
 
 export function controlPublic(g){
@@ -30,15 +20,10 @@ export function controlPublic(g){
 export function controlPersonal(g,pid){
  const p=g.players.get(pid),c=g.controlRoom;
  if(!p?.inControlRoom)return null;
- const ids=g.activePlayers().map(p=>p.id),i=ids.indexOf(pid),target=ids[(i+1)%ids.length];
- const panel=c.panels[pid],other=c.panels[target],task=other?.tasks[other.done];
- let instruction=null;
- if(task){
-  const control=other.controls[task.control],who=g.players.get(target);
-  const value=control.kind==='lever'?(task.value?'UP':'DOWN'):String(task.value);
-  instruction={target,index:other.done,control:task.control,value:task.value,
-   text:`${ids.length===1?'Rescued friend on the radio says':`Tell ${who.name} (${ANIMALS[who.animal].name})`}: set the ${control.label} ${control.kind} to ${value}. ${task.flavor}`};
- }
+ const ids=g.activePlayers().map(p=>p.id),target=ids.find(id=>c.panels[id]?.reader===pid&&c.panels[id]?.done<5);
+ const panel=c.panels[pid],other=c.panels[target],task=other?.tasks[other.done];let instruction=null;
+ if(task){const control=other.controls[task.control];instruction={target,index:other.done,control:task.control,value:task.value,text:stationInstruction(control,task.value)};}
+
  return {...controlPublic(g),controls:panel.controls,done:panel.done,powered:panel.powered,
   ready:ids.every(id=>g.players.get(id).inControlRoom&&g.players.get(id).connected),instruction};
 }
@@ -70,11 +55,12 @@ export function controlAction(g,pid,msg){
  if(!control||msg.value<0||msg.value>control.max)return;
  control.value=msg.value;
  const task=panel.tasks[panel.done];
- if(task.control===msg.control&&task.value===msg.value){panel.done++;g.emit({k:'paneltask',pid,name:p.name,done:panel.done});}
+ if(task.control===msg.control&&task.value===msg.value){panel.done++;routeStationClues(g,c.panels);g.emit({k:'paneltask',pid,name:p.name,done:panel.done});}
 }
 
 export function stepControlRoom(g,dt){
  const c=g.controlRoom,players=g.activePlayers();
+ const roster=players.map(p=>p.id).join('|');if(c.roster!==roster){c.roster=roster;routeStationClues(g,c.panels);}
  for(const id of Object.keys(c.panels))if(!players.some(p=>p.id===id)){const door=g.objects.find(o=>o.kind==='controlDoor'&&o.index===c.entered[id]);if(door)door.state=0;delete c.panels[id];delete c.entered[id];}
  if(!players.length||c.phase==='complete'||players.some(p=>!p.connected))return;
  if(c.phase==='waiting'&&players.every(p=>p.inControlRoom)){c.phase='arming';g.emit({k:'panelready'});}

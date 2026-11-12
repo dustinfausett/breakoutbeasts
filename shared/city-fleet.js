@@ -1,3 +1,4 @@
+import {stepTraffic} from './traffic.js';
 import {carsOverlap,stepAnimalCarPushes} from './car-pushing.js';
 import {Game} from './game.js';
 import {ParkingGame,CAR_CONTROLS} from './parking-game.js';
@@ -50,9 +51,7 @@ export function stepFleet(g,dt){
  stepAnimalCarPushes(g,dt);
  for(const car of g.cars){
   if(car.traffic){
-   if(car.pushedUntil>g.time){car.speed=0;continue;}
-   const target=car.trafficRoute[car.trafficIndex],dx=target[0]-car.x,dy=target[1]-car.y,distance=Math.hypot(dx,dy),step=Math.min(distance,car.trafficSpeed*dt),angle=Math.atan2(dy,dx),x=car.x+(distance?dx/distance*step:0),y=car.y+(distance?dy/distance*step:0);
-   if(withCar(g,car,()=>g._carFits(x,y,angle))&&!g.activePlayers().some(p=>!p.inVehicle&&Math.hypot(p.x-x,p.y-y)<3)){car.x=x;car.y=y;car.angle=angle;car.speed=car.trafficSpeed;if(distance<=step+.01){car.trafficIndex=(car.trafficIndex+1)%4;car.trafficSpeed=1.8+g.rng()*1.2;}}else car.speed=0;
+   stepTraffic(g,car,dt);
    continue;
   }
 

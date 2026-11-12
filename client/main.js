@@ -232,7 +232,7 @@ function onMessage(msg) {
       break;
     }
     case 'paused': app.groupPaused=!!msg.on;app.paused=!!msg.on;input.releaseAll();releaseVehicleControls();if(msg.on&&app.inGame){overlay('pause');renderPauseMenu();}else if(app.inGame&&app.overlay==='pause'){overlay(null);}break;
-    case 'saved': app.savedProgress=msg;$('#saved-progress-code').value=msg.code;$('#save-summary').textContent=msg.summary;$('#save-result').hidden=false;try{localStorage.setItem('bb-last-checkpoint',msg.code);$('#use-last-save').hidden=false;}catch{}renderPauseMenu();break;
+    case 'saved': finishSave(msg);break;
     case 'start': enterGame(msg); break;
     case 'snap': onSnap(msg); break;
     case 'end': onEnd(msg.results); break;
@@ -373,6 +373,8 @@ function handleEvent(ev) {
     case 'districtpanelraid': caption('The signal-house guards broke in. Rescue the team and try the consoles again.','alert');break;
     case 'districtcagerescue': caption('The zoo rescue cage is open!','good');break;
     case 'flightdeparted': caption('All animals rescued. Wildwing crew is airborne!','good');break;
+    case 'shopPaid': if(ev.pid===app.myId)caption(`Paid $${ev.amount}. Thank you!`,'good');break;
+    case 'shopTheft': caption(`${ev.name} left without paying. Police are coming!`,'alert');break;
     case 'cash': if(ev.pid===app.myId)caption(`Collected $${ev.amount}.`,'good');break;
     case 'controlcalled': caption('Animal control called! Get out of the bank within 2 minutes.','alert');break;
     case 'controlarrived': caption('Animal control arrived! Anyone still in the bank is captured.','alert');break;
@@ -573,7 +575,7 @@ function clientView() {
     world: w, zoo: w.zoo, staff:s.st,
     rescue:s.rescue,flight:s.me?.flight,
     vehicle:s.me?.vehicle,
-    me: { holding:!!me.hk,money:s.me?.city?.money||0,tools:s.me?.city?.tools||[],shopping:!!s.me?.city?.shopping,location:me.location,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
+    me: { holding:!!me.hk,money:s.me?.city?.money||0,tools:s.me?.city?.tools||[],shopping:!!s.me?.city?.shopping,shopCategory:s.me?.city?.category,cart:s.me?.city?.cart||[],food:s.me?.city?.food||{},location:me.location,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
     obj: s.obj,
     objects: d.objects.map((o, i) => ({ ...o, state: s.os[i] })),
     gates: d.gates.map((g, i) => ({ ...g, state: Number(s.g[i]) })),
@@ -590,7 +592,7 @@ const OFFLINE_MSG = 'Online rooms need the game server. This downloaded copy pla
 
 async function startOnline(kind, code) {
   if (OFFLINE_FILE) { const where = kind === 'create' ? '#title-msg' : '#join-msg'; show(kind === 'create' ? 'title' : 'join'); $(where).textContent = OFFLINE_MSG; return; }
-  const resumeCode=kind==='create'?readProgressCode():'';if(resumeCode===null)return;app.resumeCode=resumeCode;
+  const resumeCode=kind==='create'?await readProgressCode():'';if(resumeCode===null)return;app.resumeCode=resumeCode;
   const name = myName(kind==='join'?'#join-name':'#name');
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.mode = 'online'; app.lobby = null; app.pickAnimal = null;app.startAt=kind==='create'?$('#start-at').value:'zoo';
@@ -608,8 +610,8 @@ async function startOnline(kind, code) {
   }
 }
 
-function startSolo() {
-  const code=readProgressCode();if(code===null)return;app.resumeCode=code;
+async function startSolo() {
+  const code=await readProgressCode();if(code===null)return;app.resumeCode=code;
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.mode = 'solo'; app.lobby = null;app.startAt=$('#start-at').value;
   app.link = null;
@@ -675,7 +677,7 @@ function act(name, el) {
     case 'resume': closePause(); break;
     case 'save': app.link?.send({t:'save'});break;
     case 'copy-save': {const code=app.savedProgress?.code;if(code)(navigator.clipboard?.writeText(code)||Promise.reject()).then(()=>caption('Progress code copied!','good'),()=>{$('#saved-progress-code').focus();$('#saved-progress-code').select();caption('Select and copy the complete code above.');});break;}
-    case 'download-save': {if(!app.savedProgress)return;const url=URL.createObjectURL(new Blob([app.savedProgress.code+'\n'],{type:'text/plain'})),a=document.createElement('a');a.href=url;a.download='breakout-beasts-progress.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break;}
+    case 'download-save': {if(!app.savedProgress)return;const url=URL.createObjectURL(new Blob([(app.savedProgress.backupCode||app.savedProgress.code)+'\n'],{type:'text/plain'})),a=document.createElement('a');a.href=url;a.download='breakout-beasts-progress.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break;}
     case 'quit': toTitle(); break;
     case 'continue': app.link?.send({t:'continue'});break;
     case 'replay': app.link?.send({ t: 'replay' }); break;
@@ -685,7 +687,16 @@ function act(name, el) {
   void el;
 }
 
-function readProgressCode(){const code=$('#progress-code').value.trim();if(!code)return '';try{decodeCheckpoint(code);return code.replace(/\s/g,'');}catch(e){$('#title-msg').textContent=e.message;return null;}}
+async function finishSave(msg){
+ const backup=msg.code;let code='',durable=false,serverSaved=false,localSaved=false;
+ try{const response=await fetch('api/checkpoints',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({backup})}),result=await response.json();if(!response.ok)throw new Error(result.error);code=result.code;durable=result.durable;serverSaved=true;}catch{code=Array.from(crypto.getRandomValues(new Uint8Array(10)),n=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[n%32]).join('');}
+ try{localStorage.setItem('bb-checkpoint-'+code,backup);localStorage.setItem('bb-last-checkpoint',code);localSaved=true;$('#use-last-save').hidden=false;}catch{}
+ if(!serverSaved&&!localSaved)code='';
+ app.savedProgress={...msg,code,backupCode:backup};$('#saved-progress-code').value=code;$('#save-summary').textContent=msg.summary+(code?(!durable?' · Download a backup to keep this save safe across updates.':''):' · Download your backup: code storage is unavailable.');$('#save-result').hidden=false;
+ renderPauseMenu();
+}
+async function readProgressCode(){const raw=$('#progress-code').value.trim();if(!raw)return '';try{let code=raw;if(/^[A-HJ-NP-Z2-9]{10}$/i.test(raw)){const short=raw.toUpperCase();code='';try{code=localStorage.getItem('bb-checkpoint-'+short)||'';}catch{}if(!code){const response=await fetch('api/checkpoints/'+short),result=await response.json();if(!response.ok)throw new Error(result.error);code=result.backup;}}decodeCheckpoint(code);return code.replace(/\s/g,'');}catch(e){$('#title-msg').textContent=e.message||'Could not load progress.';return null;}}
+
 function renderPauseMenu(){
   const host=app.mode==='solo'||app.lobby?.hostId===app.myId;
   $('#pause-h').textContent=app.paused?'Group paused':'Menu';

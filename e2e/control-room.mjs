@@ -48,24 +48,17 @@ export async function run(){
   await enterAll();for(const p of pages){await p.bringToFront();await p.click('#panel-power');}
   await waitFor(()=>g.controlRoom.phase==='running');await host.screenshot({path:`${SHOTS}/control-house-running.png`});
   const privateClues=await Promise.all(pages.map(p=>p.evaluate(()=>window.__bb.app.world.snap.me.control.instruction)));
-  R.ok('every screen describes another player’s controls',privateClues.every((c,i)=>c.target!=='p'+(i+1)));
+  R.ok('every screen displays only an action for an anonymous station',privateClues.every(c=>/^(Set|Raise|Lower|Press|Release) /.test(c.text)));
   // The test acts as the players' spoken conversation: read a clue from one
   // browser and operate only the referenced controls in the other browser.
-  for(let round=0;round<5;round++)for(let reader=0;reader<8;reader++){
-   await waitFor(()=>pages[reader].evaluate(r=>window.__bb.app.world.snap.me?.control?.instruction?.index===r,round));
-   const clue=await pages[reader].evaluate(()=>window.__bb.app.world.snap.me.control.instruction);
+  let attempts=0;while(g.controlRoom.phase!=='complete'&&attempts++<100){for(let reader=0;reader<8&&g.controlRoom.phase!=='complete';reader++){
+   const clue=await pages[reader].evaluate(()=>window.__bb.app.world.snap.me.control?.instruction);if(clue?.control==null||g.controlRoom.panels[clue.target].done!==clue.index)continue;
    const index=Number(clue.target.slice(1))-1,page=pages[index];await page.bringToFront();
-   let control=await page.evaluate(i=>window.__bb.app.world.snap.me.control.controls[i],clue.control);
-   if(control.kind==='lever'){
-    await page.locator(`.lever-switch[data-control="${clue.control}"]`).click();
-   }else{
-    while(control.value!==clue.value){
-     const expected=(control.value+1)%(control.max+1);await page.locator(`[data-control="${clue.control}"][data-delta="1"]`).click();
-     await waitFor(async()=>g.controlRoom.phase==='complete'||(await page.locator(`[data-slot="${clue.control}"] output`).innerText())===String(expected),{what:'dial display update'});control.value=expected;
-    }
-   }
-   await waitFor(()=>g.controlRoom.panels[clue.target].done>round,{what:'communicated task '+round});
-  }
+   const control=g.controlRoom.panels[clue.target].controls[clue.control];
+   if(control.kind!=='dial'){await page.locator(`[data-slot="${clue.control}"] button`).click();}
+   else while(control.value!==clue.value){const current=control.value;await waitFor(async()=>(await page.locator(`[data-slot="${clue.control}"] output`).innerText())===String(current));const expected=(current+1)%(control.max+1);await page.locator(`[data-control="${clue.control}"][data-delta="1"]`).click();await waitFor(async()=>g.controlRoom.phase==='complete'||(await page.locator(`[data-slot="${clue.control}"] output`).innerText())===String(expected),{what:'dial display update'});}
+   await waitFor(()=>g.controlRoom.panels[clue.target].done>clue.index,{what:'communicated task '+clue.index});
+  }}
   await waitFor(()=>g.controlRoom.phase==='complete');
   R.ok('all eight operators complete five tasks and unlock the front gate',Object.values(g.controlRoom.panels).every(p=>p.done===5)&&g.gate(g.zoo.exitGate).state===1);
   await waitFor(()=>host.locator('#control-room').isHidden());

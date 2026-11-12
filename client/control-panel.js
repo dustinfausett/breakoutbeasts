@@ -4,9 +4,9 @@ export function mountControlPanel(sender){
  send=sender;const root=document.querySelector('#control-room');
  root.innerHTML=`<div class="console-shell"><div class="console-top"><span>MOONLEAF EXIT CONTROL</span><span id="console-count"></span></div>
  <label class="breach-label">KEEPERS BREAK IN <span id="breach-time"></span><progress id="breach-bar" max="180" value="180"></progress></label>
- <header class="console-header"><div class="instruction-screen" role="status"><small>READ THIS TO YOUR TEAM</small><p id="panel-instruction"></p></div><button id="panel-power" class="power-switch" aria-label="Power on panel">POWER</button></header>
+ <header class="console-header"><div class="instruction-screen" role="status"><small>CHECK EVERY STATION</small><p id="panel-instruction"></p></div><button id="panel-power" class="power-switch" aria-label="Power on panel">POWER</button></header>
  <div id="panel-team" class="panel-team"></div><div id="panel-controls" class="panel-controls"></div>
- <p class="panel-note">Your screen describes someone else’s controls. Read aloud or type your clue below. Each operator must finish five tasks.</p>
+ <p class="panel-note">The command may belong to any station, including yours. Read aloud or type your clue below. Each operator must finish five tasks.</p>
  <div class="panel-chat"><ol id="panel-chat-log" aria-live="polite"></ol><form id="panel-chat-form"><input id="panel-chat-input" maxlength="180" placeholder="Tell your team what your screen says…" aria-label="Message to team"><button class="btn">Send</button></form></div>
  <button id="panel-leave" class="btn small">Leave this station</button></div>`;
  root.addEventListener('click',e=>{
@@ -33,7 +33,7 @@ export function updateControlPanel(panel){
  root.querySelector('#panel-power').disabled=!panel.ready||panel.powered||panel.phase!=='arming';
  root.querySelector('#panel-power').classList.toggle('flashing',panel.ready&&!panel.powered&&panel.phase==='arming');
  root.querySelector('#panel-power').textContent=panel.powered?'ON':'POWER';
- root.querySelector('#panel-instruction').textContent=panel.phase==='waiting'?'Choose any free door. Waiting for every animal to take a station.':!panel.powered?'Everyone is in place! Press your flashing red power button.':panel.phase==='arming'?'Panel powered. Waiting for the other operators to switch on.':panel.instruction?.text||'Your teammate has finished all five tasks. Keep helping the rest of the team!';
+ root.querySelector('#panel-instruction').textContent=panel.phase==='waiting'?'Choose any free door. Waiting for every animal to take a station.':!panel.powered?'Everyone is in place! Press your flashing red power button.':panel.phase==='arming'?'Panel powered. Waiting for the other operators to switch on.':panel.instruction?.text||'';
  root.querySelector('#panel-team').innerHTML=panel.team.map(p=>`<span class="${p.done===5?'finished':''}">${escape(p.name)} · ${p.inside?(p.powered?`${p.done}/5`:'at station'):'finding door'}</span>`).join('');
  panel.controls.forEach((c,i)=>{
   const slot=root.querySelector(`[data-slot="${i}"]`);slot.querySelector('output').textContent=c.kind==='lever'?(c.value?'UP':'DOWN'):c.kind==='button'?(c.value?'PRESSED':'RELEASED'):String(c.value);

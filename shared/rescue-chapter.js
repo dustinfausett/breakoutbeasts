@@ -1,3 +1,6 @@
+import {stationPanel,routeStationClues,stationInstruction} from './stations.js';
+import {FOOD} from './shops.js';
+import {TOOLS} from './hardware.js';
 import {enterCityAnimal,stepCityAnimal} from './city-movement.js';
 import {hasTool} from './hardware.js';
 import {RESCUE_SPECIES,RESCUE_NAMES,RESCUE_SCENES,PLANE_JOBS} from './rescue-data.js';
@@ -17,12 +20,9 @@ export function initRescue(g,staff=true){
  for(const [i,[scene,x,y]] of d.visitors.entries())g.humans.push({id:'visitor'+i,scene,x:x+.5,y:y+.5,home:[x+.5,y+.5],angle:0,wallet:0,asleep:false,picked:false,phase:i,color:i%4,visitor:true});
  if(staff){const guards=makeKeepers(d.routes,6+Math.floor((active(g).length-1)/2));guards.forEach((s,i)=>{s.id=100+i;s.scene=d.routes[i%d.routes.length].scene;});g.staff.push(...guards);}
 }
-function newPanel(g,p){const index=g.order.indexOf(p.id),labels=[`BANANA ${index+1}`,`HONK ${index+1}`,`FISH SOCK ${index+1}`,`MOO ${index+1}`],controls=labels.map((label,i)=>({label,kind:(i+index)%3===0?'dial':(i+index)%3===1?'lever':'button',value:0,max:(i+index)%3===0?5:1})),planned=controls.map(()=>0),tasks=[];for(let i=0;i<5;i++){const control=Math.floor(g.rng()*controls.length),max=controls[control].max,value=(planned[control]+1+Math.floor(g.rng()*max))%(max+1);planned[control]=value;tasks.push({control,value});}g.rescue.panels[p.id]={controls,tasks,done:0,powered:false,reader:null};}
-function routeClues(g){
- const people=active(g),owners=people.filter(p=>g.rescue.panels[p.id]?.done<5),assignments={};
- function assign(i,used){if(i===owners.length)return true;const owner=owners[i],last=g.rescue.panels[owner.id].reader,choices=people.filter(p=>!used.has(p.id)&&(people.length===1||p.id!==owner.id)).map(p=>({p,rank:g.rng()+(p.id===last?2:0)})).sort((a,b)=>a.rank-b.rank);for(const {p} of choices){assignments[owner.id]=p.id;used.add(p.id);if(assign(i+1,used))return true;used.delete(p.id);}return false;}
- assign(0,new Set());for(const p of owners)g.rescue.panels[p.id].reader=assignments[p.id];
-}
+function newPanel(g,p){g.rescue.panels[p.id]=stationPanel(g,g.order.indexOf(p.id));}
+function routeClues(g){routeStationClues(g,g.rescue.panels);}
+
 export function exposeRescue(g,p){p.disguiseBlown=true;g.rescue.wanted.add(fingerprint(p));}
 export function wantedInRescue(g,p){return g.rescue?.wanted.has(fingerprint(p));}
 function report(g,p){if(p.hidden||p.under||p.capturedT>0)return;const r=g.rescue,key=fingerprint(p);if(r.wanted.has(key)||r.reports.some(q=>q.key===key))return;const witness=g.humans.find(n=>n.visitor&&n.scene===p.location&&!n.asleep&&dist(n.x,n.y,p.x,p.y)<8&&Math.abs(angleDiff(Math.atan2(p.y-n.y,p.x-n.x),n.angle))<1.25&&lineOfSight(n.x,n.y,p.x,p.y,(x,y)=>g.visionBlocked(x,y)));if(!witness)return;witness.phoneUntil=g.time+3;const clothes=['hat','shirt','pants'].map(slot=>CLOTHES.find(c=>c.id===p.outfit?.[slot])?.name||'no '+slot);r.reports.push({key,due:g.time+3,description:`${p.animal}: ${clothes.join(', ')}`,scene:p.location});g.emit({k:'visitorcalling',pid:p.id});}
@@ -48,10 +48,10 @@ export function rescueObject(g,p,o){
  }
  if(o.kind==='rescueGenerator'){if(g.rescue.inserted.has(p.id))return {text:'Your relay is connected — help your team',idle:true};return g.rescue.fuses.has(p.id)?{text:'Hold E: connect your habitat relay',run:()=>{p.hold={kind:'rescueInsert',btn:'e',obj:o.id,t:0,need:1};}}:{text:'Find your numbered habitat fuse first',idle:true};}
  if(o.kind==='rescueTeam'){
-  const a=g.rescue.animals.find(a=>a.id===o.cage),owner=active(g).find(q=>g.order.indexOf(q.id)===o.index);if(a.state!=='caged')return {text:'This habitat is already open',idle:true};if(owner?.id!==p.id)return {text:owner?`${owner.name} must operate this handle`:'Spare handle',idle:true};if(a.species==='gorilla'&&!hasTool(p))return {text:'Buy a tool from Beaver Hardware before working on this habitat',idle:true};if(!powerDone(g))return {text:'Connect every habitat relay first',idle:true};return {text:'Hold E: all teammates must operate their own habitat handle',run:()=>{p.hold={kind:'rescueTeam',btn:'e',obj:o.id,cage:o.cage,t:0,need:Infinity};}};
+  const a=g.rescue.animals.find(a=>a.id===o.cage),owner=active(g).find(q=>g.order.indexOf(q.id)===o.index);if(a.state!=='caged')return {text:'This habitat is already open',idle:true};if(owner?.id!==p.id)return {text:owner?`${owner.name} must operate this handle`:'Spare handle',idle:true};if(a.species==='gorilla'&&!hasTool(p))return {text:'Buy a tool from Beaver Hardware before working on this habitat',idle:true};if(!powerDone(g))return {text:'Connect every habitat relay first',idle:true};const tool=a.species==='gorilla'?TOOLS.find(t=>p.tools?.includes(t.id)):null;return {text:tool?`Hold E: use ${tool.name} to ${tool.action}`:'Hold E: all teammates operate their habitat lever',run:()=>{p.hold={kind:'rescueTeam',btn:'e',obj:o.id,cage:o.cage,tool:tool?.id,t:0,need:Infinity};}};
  }
  if(o.kind==='rescueLock'){
-  const a=g.rescue.animals.find(a=>a.id===o.cage);if(a.state!=='caged')return {text:'This animal is already free',idle:true};if(a.mechanism==='team')return {text:'Each teammate must hold their numbered habitat handle together',idle:true};if(a.mechanism==='power'&&!powerDone(g))return {text:'Restore power with one relay per teammate',idle:true};if(a.mechanism==='signal'&&!g.rescue.signal)return {text:'Complete the team signal-house consoles first',idle:true};if(a.mechanism==='key'&&!p.cageKeys)return {text:'Steal a reusable key from a zoo keeper first',idle:true};return {text:`Hold E: release the ${a.species}`,run:()=>{p.hold={kind:'rescueUnlock',btn:'e',obj:o.id,cage:a.id,t:0,need:1.4};}};
+  const a=g.rescue.animals.find(a=>a.id===o.cage);if(a.state!=='caged')return {text:'This animal is already free',idle:true};if(a.mechanism==='team')return {text:'Each teammate must hold their numbered habitat handle together',idle:true};if(a.mechanism==='power'&&!powerDone(g))return {text:'Restore power with one relay per teammate',idle:true};if(a.mechanism==='signal'&&!g.rescue.signal)return {text:'Complete the team signal-house consoles first',idle:true};if(a.mechanism==='key'&&!p.cageKeys)return {text:'Steal a reusable key from a zoo keeper first',idle:true};const food=a.species==='lion'?FOOD.find(f=>p.food?.[f.id]>0):null;if(a.species==='lion'&&!food)return {text:'Get food from Acorn Groceries to lure the lion outside',idle:true};return {text:food?`Hold E: lure the lion with ${food.name}`:`Hold E: release the ${a.species}`,run:()=>{p.hold={kind:'rescueUnlock',btn:'e',obj:o.id,cage:a.id,food:food?.id,t:0,need:1.4};}};
  }
  if(o.kind==='rescuePanel'){
   if(g.rescue.signal)return {text:'Habitat signal network is online',idle:true};if(!powerDone(g))return {text:'Connect every habitat relay first',idle:true};if(active(g).some(q=>q.id!==p.id&&q.chapterStation===o.index))return {text:'This station is occupied; choose another',idle:true};return {text:'Enter this signal-house station',run:()=>{p.chapterStation=o.index;p.hold=null;if(!g.rescue.panelPhase){g.rescue.panelPhase='waiting';g.rescue.panelRemaining=180;routeClues(g);}}};
@@ -63,7 +63,7 @@ export function rescueObject(g,p,o){
 }
 export const powerDone=g=>active(g).every(p=>g.rescue.inserted.has(p.id));
 export const allRescued=g=>g.rescue.animals.every(a=>a.state==='escaped');
-function freeAnimal(g,a){g.obj('release-'+a.id).state=1;for(const o of g.objects)if(o.kind==='rescueTeam'&&o.cage===a.id)o.state=1;g.openGate(g.gate(a.gate));a.state='running';a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;g.emit({k:'districtrescue',species:a.species});}
+function freeAnimal(g,a,bait=null){a.bait=bait;g.obj('release-'+a.id).state=1;for(const o of g.objects)if(o.kind==='rescueTeam'&&o.cage===a.id)o.state=1;g.openGate(g.gate(a.gate));a.state='running';a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.bait||a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;g.emit({k:'districtrescue',species:a.species});}
 export function rescueHold(g,p,inp,dt){
  const h=p.hold;if(!h.kind.startsWith('rescue'))return false;
  if(!inp.e||!p.connected||p.capturedT>0){p.hold=null;return true;}
@@ -73,7 +73,7 @@ export function rescueHold(g,p,inp,dt){
  h.t+=dt;if(h.t<h.need)return true;p.hold=null;
  if(h.kind==='rescueFuse'){g.rescue.fuses.add(p.id);o.state=1;}
  if(h.kind==='rescueInsert'&&g.rescue.fuses.has(p.id)){g.rescue.inserted.add(p.id);o.state=g.rescue.inserted.size;g.emit({k:'relayconnected',pid:p.id});}
- if(h.kind==='rescueUnlock'){const a=g.rescue.animals.find(a=>a.id===h.cage);if(a.state==='caged'){report(g,p);freeAnimal(g,a);}}
+ if(h.kind==='rescueUnlock'){const a=g.rescue.animals.find(a=>a.id===h.cage);if(a.state==='caged'){if(a.species==='lion'){if(!h.food||!(p.food?.[h.food]>0))return true;p.food[h.food]--;a.luredWith=h.food;}report(g,p);freeAnimal(g,a,a.species==='lion'?[Math.floor(p.x),Math.floor(p.y)]:null);}}
  return true;
 }
 export function rescueReturn(g,p){
@@ -93,9 +93,9 @@ export function rescueAction(g,pid,msg){
 }
 export function stepRescue(g,dt){
  const r=g.rescue,crew=active(g);if(!r||!crew.length)return;const roster=crew.map(p=>p.id).join('|');if(r.roster!==roster){r.roster=roster;for(const id of Object.keys(r.panels))if(!crew.some(p=>p.id===id))delete r.panels[id];routeClues(g);}
- for(const a of r.animals){a.moving=false;if(a.state==='escaped'){stepCityAnimal(g,a,dt);continue;}if(a.state!=='running')continue;if(!a.path)a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;if(!a.path)continue;if(!a.path.length){enterCityAnimal(g,a);continue;}const t=a.path[0],dx=t[0]+.5-a.x,dy=t[1]+.5-a.y,d=Math.hypot(dx,dy),step=Math.min(d,dt*3.8);if(d>.001){a.x+=dx/d*step;a.y+=dy/d*step;a.face=dx<0?'left':'right';a.moving=true;}if(d<.12)a.path.shift();}
+ for(const a of r.animals){a.moving=false;if(a.state==='escaped'){stepCityAnimal(g,a,dt);continue;}if(a.state!=='running')continue;if(!a.path)a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.bait||a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;if(!a.path)continue;if(!a.path.length){if(a.bait){a.bait=null;a.path=null;}else enterCityAnimal(g,a);continue;}const t=a.path[0],dx=t[0]+.5-a.x,dy=t[1]+.5-a.y,d=Math.hypot(dx,dy),step=Math.min(d,dt*3.8);if(d>.001){a.x+=dx/d*step;a.y+=dy/d*step;a.face=dx<0?'left':'right';a.moving=true;}if(d<.12)a.path.shift();}
  for(const a of r.animals.filter(a=>a.mechanism==='team'&&a.state==='caged')){
-  const ready=crew.length&&crew.every(p=>p.connected&&!p.caged&&p.capturedT<=0&&p.hold?.kind==='rescueTeam'&&p.hold.cage===a.id&&(a.species!=='gorilla'||hasTool(p))&&p.input.e&&near(g,p,g.obj(p.hold.obj),1.9));r.teamTimers[a.id]=ready?(r.teamTimers[a.id]||0)+dt:0;if(r.teamTimers[a.id]>=2.5){for(const p of crew){report(g,p);p.hold=null;}freeAnimal(g,a);}
+  const ready=crew.length&&crew.every(p=>p.connected&&!p.caged&&p.capturedT<=0&&p.hold?.kind==='rescueTeam'&&p.hold.cage===a.id&&(a.species!=='gorilla'||p.tools?.includes(p.hold.tool))&&p.input.e&&near(g,p,g.obj(p.hold.obj),1.9));r.teamTimers[a.id]=ready?(r.teamTimers[a.id]||0)+dt:0;if(r.teamTimers[a.id]>=2.5){for(const p of crew){report(g,p);p.hold=null;}freeAnimal(g,a);}
  }
  const captives=crew.filter(p=>p.cageDistrict==='rescue'&&p.caged),brace=allCaptured(g)&&captives.length&&captives.every(p=>p.connected&&p.hold?.kind==='rescueBrace'&&p.input.e&&dist(p.x,p.y,p.hold.wall[0]+.5,p.hold.wall[1]+.5)<1.4);
  r.cageProgress=brace?r.cageProgress+dt:0;if(r.cageProgress>=1.5)releaseCage(g);
@@ -114,6 +114,6 @@ export function stepRescue(g,dt){
 export function rescuePublic(g){const r=g.rescue;if(!r)return null;return {animals:r.animals.map(a=>({id:a.id,species:a.species,mechanism:a.mechanism,scene:a.scene,location:a.location||a.scene,x:a.x,y:a.y,state:a.state,face:a.face,moving:a.moving})),freed:r.animals.filter(a=>a.state==='escaped').length,total:r.animals.length,power:{done:powerDone(g),inserted:active(g).filter(p=>r.inserted.has(p.id)).length,need:active(g).length,team:active(g).map(p=>({id:p.id,name:p.name,index:g.order.indexOf(p.id),collected:r.fuses.has(p.id),inserted:r.inserted.has(p.id)}))},signal:r.signal,description:r.description,holding:{captured:active(g).filter(p=>p.caged&&p.cageDistrict==='rescue').length,progress:r.cageProgress},flight:{x:r.flight.x,y:r.flight.y,phase:r.flight.phase,progress:Math.min(1,r.flight.travel/44),aboard:active(g).filter(p=>p.inPlane).length,need:active(g).length},cages:r.animals.map(a=>({id:a.id,mechanism:a.mechanism,scene:a.scene,state:a.state}))};}
 export function rescuePersonal(g,p){const r=g.rescue;if(!r)return {};
  const result={};if(p.inPlane){const crew=active(g);result.flight={...rescuePublic(g).flight,controls:PLANE_JOBS.filter((j,i)=>crew[i%crew.length].id===p.id).map(j=>({...j,value:r.flight.values[j.id]||j.choices[0]}))};}
- if(p.chapterStation!=null){const panel=r.panels[p.id],target=active(g).find(q=>r.panels[q.id]?.done<5&&r.panels[q.id]?.reader===p.id),other=target?r.panels[target.id]:null,t=other?.tasks[other.done],c=t?other.controls[t.control]:null;result.control={district:true,phase:r.panelPhase,remaining:r.panelRemaining,limit:180,powered:panel.powered,done:panel.done,controls:panel.controls,ready:active(g).every(q=>q.connected&&q.chapterStation!=null),paused:active(g).some(q=>!q.connected),team:active(g).map(q=>({id:q.id,name:q.name,inside:q.chapterStation!=null,powered:r.panels[q.id].powered,done:r.panels[q.id].done})),instruction:t?{target:target.id,index:other.done,control:t.control,value:t.value,text:`${c.label}: ${c.kind==='dial'?'turn to '+t.value:c.kind==='button'?(t.value?'press':'release'):(t.value?'UP':'DOWN')}. ${['Honk honk!','MooOO!','The emergency cabbage insists.','Baa! Baa!','The banana has filed a complaint.'][Math.floor(g.time)%5]}`}:{text:'Keep helping your team find the matching controls.'}};}
+ if(p.chapterStation!=null){const panel=r.panels[p.id],target=active(g).find(q=>r.panels[q.id]?.done<5&&r.panels[q.id]?.reader===p.id),other=target?r.panels[target.id]:null,t=other?.tasks[other.done],c=t?other.controls[t.control]:null;result.control={district:true,phase:r.panelPhase,remaining:r.panelRemaining,limit:180,powered:panel.powered,done:panel.done,controls:panel.controls,ready:active(g).every(q=>q.connected&&q.chapterStation!=null),paused:active(g).some(q=>!q.connected),team:active(g).map(q=>({id:q.id,name:q.name,inside:q.chapterStation!=null,powered:r.panels[q.id].powered,done:r.panels[q.id].done})),instruction:t?{target:target.id,index:other.done,control:t.control,value:t.value,text:stationInstruction(c,t.value)}:{text:''}};}
  return result;
 }

@@ -1,3 +1,5 @@
+import {checkpointStore,shortCheckpointCode} from './checkpoint-store.js';
+import {decodeCheckpoint} from '../shared/checkpoints.js';
 // Breakout Beasts! server: serves the game client and runs authoritative multiplayer rooms
 // over WebSockets (path /ws). Run with `npm start`. Configure with PORT, HOST, ALLOWED_ORIGINS.
 
@@ -15,12 +17,24 @@ const ROOT = path.resolve(__dirname, '..');
 const STATIC_DIRS = { '/shared/': path.join(ROOT, 'shared'), '/': path.join(ROOT, 'client') };
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
 
-export function createServer({ port = 8080, host = '0.0.0.0', roomOptions = {}, log = console.log, allowedOrigins = null } = {}) {
+export function createServer({ port = 8080, host = '0.0.0.0', roomOptions = {}, log = console.log, allowedOrigins = null,checkpointDir=null } = {}) {
+  const saveDir=checkpointDir||process.env.CHECKPOINT_DIR||path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH||path.join(ROOT,'data'),'checkpoints'),saves=checkpointStore(saveDir),saveBudgets=new Map();
   const rooms = new Map();
   const sockets = new Map(); // ws -> { room, pid }
 
-  const httpServer = http.createServer((req, res) => {
+  const httpServer = http.createServer(async(req, res) => {
     const url = new URL(req.url, 'http://x');
+    if(url.pathname.startsWith('/api/checkpoints')){
+      const reply=(status,data)=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(data));};
+      try{
+        if(req.method==='GET'&&url.pathname.startsWith('/api/checkpoints/')){const code=url.pathname.split('/').at(-1);if(!shortCheckpointCode(code))return reply(400,{error:'Enter a ten-character progress code.'});return reply(200,{backup:await saves.get(code)});}
+        if(req.method==='POST'&&url.pathname==='/api/checkpoints'){
+          const key=req.socket.remoteAddress,now=Date.now(),budget=saveBudgets.get(key)||{time:now,count:0};if(now-budget.time>3600000){budget.time=now;budget.count=0;}if(++budget.count>120)return reply(429,{error:'Too many saves. Try again later.'});saveBudgets.set(key,budget);
+          let body='';for await(const chunk of req){body+=chunk;if(body.length>4096)return reply(413,{error:'Save is too large.'});}const {backup}=JSON.parse(body);decodeCheckpoint(backup);return reply(200,{code:await saves.put(backup),durable:!!(checkpointDir||process.env.RAILWAY_VOLUME_MOUNT_PATH)});
+        }
+        return reply(404,{error:'Not found'});
+      }catch(e){return reply(400,{error:e.message||'Could not save progress.'});}
+    }
     if (url.pathname === '/healthz') {
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ ok: true, rooms: rooms.size, players: sockets.size }));

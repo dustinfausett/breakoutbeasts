@@ -1,14 +1,14 @@
+import {shopObject,shopHold,shopAction,shopPersonal,reportShoplifting} from './shops.js';
 import {pushPersonal} from './car-pushing.js';
 import {safeArrival,recoverCityPlayer} from './city-movement.js';
 import {Game} from './game.js';
-import {TOOLS} from './hardware.js';
 import {initFleet,rebuildFleet,crewFor,carTarget,fleetAction,fleetFits,stepFleet,fleetPersonal,publicCar,assignCrew} from './city-fleet.js';
 import {initCrowds,stepCrowds,panicCrowd} from './crowds.js';
 import {initRescue,isRescueScene,rescueTarget,rescueObject,rescueHold,rescueReturn,rescueBite,stepRescue,rescuePublic,rescuePersonal,rescueAction,wantedInRescue,exposeRescue,allRescued} from './rescue-chapter.js';
 import {ParkingGame,CAR_CONTROLS} from './parking-game.js';
 import {dist,lineOfSight} from './util.js';
 import {DIRS} from './tiles.js';
-import {clothesFor,isDisguised,CLOTHES} from './wardrobe.js';
+import {isDisguised} from './wardrobe.js';
 import {gpsFor} from './navigation.js';
 import {makeKeepers} from './staff.js';
 export class CityGame extends ParkingGame{
@@ -16,7 +16,7 @@ export class CityGame extends ParkingGame{
   super({...args,worldId:'city',options:{...args.options,staff:false}});this.visited=new Set();this.vaultCash=12000;this.vaultProgress=0;this.controlAlarm=null;this.controlArrived=false;
   for(const gate of this.zoo.gates)this._addGate({...gate,tiles:gate.tiles.map(t=>[...t])});
   this.humans=[];
-  for(const p of this.activePlayers()){p.money=0;p.tools=[];p.carKeys=[];p.owned=[];p.outfit={};p.location='street';p.disguiseBlown=false;p.cageHits=0;p.shopping=false;p.inVehicle=true;p.x=this.vehicle.x;p.y=this.vehicle.y;}
+  for(const p of this.activePlayers()){p.money=0;p.tools=[];p.food={};p.cart=[];p.carKeys=[];p.owned=[];p.outfit={};p.location='street';p.disguiseBlown=false;p.cageHits=0;p.shopping=false;p.inVehicle=true;p.x=this.vehicle.x;p.y=this.vehicle.y;}
   this._ensureNavigator();this.vehicle.unlocked=true;this.vehicle.values.navigation=this.zoo.destinations[0].name;initRescue(this,args.options?.staff!==false);initFleet(this);initCrowds(this);this.rebuildBlock();
  }
  _ensureNavigator(){const ids=this.activePlayers().map(p=>p.id);if(ids.length&&!this.vehicle.owners.navigation)this.vehicle.owners.navigation=ids.at(-1);}
@@ -27,11 +27,12 @@ export class CityGame extends ParkingGame{
  vehicleAction(pid,msg){return fleetAction(this,pid,msg);}
 
  _carControls(){return CAR_CONTROLS.map(c=>c.id==='navigation'?{...c,choices:this.zoo.destinations.map(d=>d.name),goal:this.zoo.destinations[0].name,hint:'Choose a destination. Read your GPS turns aloud to the driver.'}:c);}
- detectable(p){return !p.caged&&p.chapterStation==null&&!p.inPlane&&(p.location==='street'||isRescueScene(p.location))&&(!isDisguised(p)||wantedInRescue(this,p))&&super.detectable(p);}
+ detectable(p){return !p.caged&&p.chapterStation==null&&!p.inPlane&&(p.location==='street'||isRescueScene(p.location))&&(!isDisguised(p)||this.policeWanted?.has(p.id)||wantedInRescue(this,p))&&super.detectable(p);}
+ _stepStaff(s,dt){if(!s.police)return super._stepStaff(s,dt);const zoo=this.zoo;this.zoo={...zoo,staff:{...zoo.staff,patrolSpeed:2.8,alertSpeed:3.1,investigateSpeed:3.2,chaseSpeed:3.8}};try{return super._stepStaff(s,dt);}finally{this.zoo=zoo;}}
  _radio(s,p){const all=this.staff;this.staff=all.filter(q=>(q.scene||'street')===(s.scene||'street'));super._radio(s,p);this.staff=all;}
  controlAction(pid,msg){if(this.players.get(pid)?.chapterStation!=null)return rescueAction(this,pid,msg);return super.controlAction(pid,msg);}
  rescueAction(pid,msg){return rescueAction(this,pid,msg);}
- abilityTarget(p){return p.caged?{text:'Wait for a rescue; if everyone is caged, each animal must ram the door twice',idle:true}:p.shopping?{text:p.location==='hardware'?'Choose a tool for the team habitat':'Choose your disguise',idle:true}:super.abilityTarget(p);}
+ abilityTarget(p){return p.caged?{text:'Wait for a rescue; if everyone is caged, each animal must ram the door twice',idle:true}:p.shopping?{text:p.location==='hardware'?'Choose a tool for the team habitat':p.location==='grocery'?'Choose food to lure the lion':'Choose your disguise',idle:true}:super.abilityTarget(p);}
  inOwnEnclosure(p){return !!p.caged;}
  _stepPlayer(p,dt){if(p.inVehicle&&this.cars){const car=this.cars.find(c=>c.id===p.vehicleId);if(car){p.x=car.x;p.y=car.y;p.moving=false;return;}}if(p.shopping||p.chapterStation!=null||p.inPlane){p.moving=false;return;}super._stepPlayer(p,dt);}
  _near(a,b,r=1.65){return dist(a.x,a.y,b.x,b.y)<r&&lineOfSight(a.x,a.y,b.x,b.y,(x,y)=>this.visionBlocked(x,y));}
@@ -50,12 +51,13 @@ export class CityGame extends ParkingGame{
   const car=carTarget(this,p);if(car)return car;return super.interactTarget(p);
  }
  _objectInteraction(p,o){
+  const shop=shopObject(this,p,o);if(shop)return shop;
   if(o.kind==='vehicle')return this.cars?carTarget(this,p):super._objectInteraction(p,o);
-  if(o.kind==='hardwareCounter')return {text:'Buy tools for the team habitat',run:()=>{if(p.location==='hardware')p.shopping=true;}};
+
   const district=rescueObject(this,p,o);if(district)return district;
   if(o.kind==='cityDoor'&&o.scene==='airport'&&!allRescued(this))return {text:'Free every zoo, pet-store and Animal Control animal before leaving for the airport',idle:true};
   if(o.kind==='cityDoor')return {text:o.label+' (E)',run:()=>this._enter(p,o.scene,o.from)};
-  if(o.kind==='shopCounter')return {text:'Browse fitted shirts, hats and pants',run:()=>{if(p.location==='thrift')p.shopping=true;}};
+
   if(o.kind==='vaultWheel')return this.gate('city-vault')?.state?{text:'Vault open — collect the cash inside',idle:true}:{text:'Hold E: everyone grab the vault wheel together',run:()=>{if(p.location==='bank')p.hold={kind:'cityVault',btn:'e',t:0,need:Infinity};}};
   if(o.kind==='vaultCash')return {text:this.vaultCash?`Collect vault money ($${this.vaultCash} left)`:'The vault is empty',...(this.vaultCash?{run:()=>{if(p.location==='bank'&&this.gate('city-vault').state&&p.x>this.zoo.bankLayout.wallX){const amount=Math.min(500,this.vaultCash);this.vaultCash-=amount;p.money+=amount;this.emit({k:'cash',pid:p.id,amount});}}}:{idle:true})};
   if(o.kind==='controlLatch')return {text:'Open the cage and rescue every captured animal',run:()=>{if(p.location==='control'&&!p.caged)this._releaseCityCage();}};
@@ -65,18 +67,13 @@ export class CityGame extends ParkingGame{
   if(p.inVehicle||p.caged||p.capturedT>0||!p.connected)return;
   let point;if(scene==='street'){const door=this.obj('enter-'+(from||p.location));if(!door)return;point=[door.stand[0]+.5,door.stand[1]+.5];}else{const room=this.zoo.interiors[scene];if(!room)return;point=(arrival||room.spawn).map(v=>v+.5);}
   point=safeArrival(this,p.animal,scene,point);if(!point){this.msg(p,'The doorway is blocked. Make some space outside.');return;}
-  p.location=scene;p.shopping=scene==='thrift'||scene==='hardware';p.hold=null;p.shell=false;p.slide=null;p.hop=null;p.under=null;p.x=point[0];p.y=point[1];p.safe=point;p.grace=3;p.input={};this.emit({k:'cityenter',pid:p.id,scene});
+  p.location=scene;p.shopping=false;p.shopShelf=null;p.hold=null;p.shell=false;p.slide=null;p.hop=null;p.under=null;p.x=point[0];p.y=point[1];p.safe=point;p.grace=3;p.input={};if(scene==='street')reportShoplifting(this,p);this.emit({k:'cityenter',pid:p.id,scene});
  }
  cityAction(pid,msg){
   const p=this.players.get(pid);if(this.phase!=='play'||!p?.active||!p.connected||p.capturedT>0||p.caged||p.inVehicle)return;
-  if(msg.op==='buyTool'&&p.location==='hardware'&&p.shopping){const tool=TOOLS.find(t=>t.id===msg.item);if(!tool||p.tools.includes(tool.id))return;if(p.money<tool.price)return this.msg(p,'Not enough money. Visit the bank first.');p.money-=tool.price;p.tools.push(tool.id);return;}
-  if(msg.op==='leaveHardware'&&p.location==='hardware'){this._enter(p,'street','hardware');return;}
-  if(msg.op==='closeShop'){p.shopping=false;return;}
-  if(msg.op==='leaveShop'&&p.location==='thrift'){this._enter(p,'street','thrift');return;}
-  if(!['buy','equip'].includes(msg.op)||p.location!=='thrift'||!p.shopping)return;
-  const item=CLOTHES.find(c=>c.id===msg.item&&c.animal===p.animal);if(!item)return;
-  if(!p.owned.includes(item.id)){if(msg.op!=='buy'||p.money<item.price)return this.msg(p,'Not enough money. Visit the bank first.');p.money-=item.price;p.owned.push(item.id);}
-  p.outfit[item.slot]=item.id;if(['shirt','hat','pants'].every(slot=>p.outfit[slot]))p.disguiseBlown=false;
+  if(shopAction(this,p,msg))return;
+  if(['leaveShop','leaveHardware'].includes(msg.op)&&['thrift','hardware'].includes(p.location)){this._enter(p,'street',p.location);return;}
+
  }
  _bite(p){
   if(p.caged||p.shopping||p.chapterStation!=null||p.inPlane||p.under||p.hop||p.slide||p.shell)return;
@@ -89,7 +86,7 @@ export class CityGame extends ParkingGame{
  }
  _callControl(){if(this.controlAlarm===null&&!this.controlArrived){this.controlAlarm=120;this.emit({k:'controlcalled'});}}
  _continueHold(p,inp,dt){
-  if(rescueHold(this,p,inp,dt))return;
+  if(shopHold(this,p,inp,dt)||rescueHold(this,p,inp,dt))return;
   const h=p.hold;if(h.kind==='cityCarKey'){const n=this.humans.find(n=>n.id===h.human);if(!inp.e||p.location!=='street'||!n||!this._near(p,n,1.8)){p.hold=null;return;}h.t+=dt;if(h.t>=h.need){if(!p.carKeys.includes(n.carId))p.carKeys.push(n.carId);p.carFob=n.carId;p.hold=null;this.msg(p,'Car keys stolen! Use your key fob to find and unlock the car.');}return;}if(!['citySteal','cityVault','cityRam'].includes(h.kind))return super._continueHold(p,inp,dt);
   if(!inp.e||!p.connected||p.capturedT>0){p.hold=null;return;}
   if(h.kind==='cityVault'){if(p.location!=='bank'||p.caged||dist(p.x,p.y,...this.zoo.bankLayout.wheel.map(v=>v+.5))>2.8||this.gate('city-vault').state)p.hold=null;return;}
@@ -98,6 +95,7 @@ export class CityGame extends ParkingGame{
   h.t+=dt;if(h.t>=h.need){p.cageHits=Math.min(2,p.cageHits+1);p.hold=null;this.emit({k:'cageram',pid:p.id});if(this.activePlayers().every(q=>q.cageHits>=2))this._releaseCityCage();}
  }
  _returnToEnclosure(p){
+  this.policeWanted?.delete(p.id);
   if(rescueReturn(this,p))return;p.cageDistrict='city';
   p.capturedT=0;p.inVehicle=false;p.shopping=false;p.caged=true;p.location='control';p.hold=null;p.cageHits=0;p.cageKeys=0;p.shell=false;p.slide=null;p.hop=null;p.under=null;
   const index=this.order.indexOf(p.id),slot=this.zoo.controlLayout.slots[index];p.x=slot[0]+.5;p.y=slot[1]+.5;p.safe=[p.x,p.y];p.grace=5;this.closeGate(this.gate('city-cage'));
@@ -113,7 +111,8 @@ export class CityGame extends ParkingGame{
  }
  _stepCityVisits(){for(const d of this.zoo.destinations)if(!this.visited.has(d.id)&&dist(this.vehicle.x,this.vehicle.y,d.x,d.y)<3&&Math.abs(this.vehicle.speed)<.7){this.visited.add(d.id);this.emit({k:'cityvisit',name:d.name});}}
  objectives(){const o=super.objectives();o.stage='city';o.parking.city={destinations:this.zoo.destinations.map(d=>({...d,visited:!!this.visited?.has(d.id)})),visited:this.visited?.size||0,selected:this.vehicle.values.navigation,alarm:this.controlAlarm??null,arrived:!!this.controlArrived,vaultOpen:!!this.gate('city-vault')?.state,vaultProgress:this.vaultProgress||0,vaultCash:this.vaultCash??12000,need:this.activePlayers().length,captured:this.activePlayers().filter(p=>p.caged).length};return o;}
- personal(pid){const o=Game.prototype.personal.call(this,pid),p=this.players.get(pid);if(!o)return o;o.vehicle=fleetPersonal(this,p);o.carPush=pushPersonal(p);o.fob=!!(p.carFob||p.cageKeys);if(o.vehicle){o.pe=null;o.ps=null;}o.special=o.special||p.inVehicle||p.chapterStation!=null||p.inPlane;Object.assign(o,rescuePersonal(this,p));o.city={wanted:wantedInRescue(this,p),money:p.money||0,location:p.location||'street',disguised:isDisguised(p),owned:p.owned||[],outfit:p.outfit||{},cageHits:p.cageHits||0,shopping:!!p.shopping,tools:p.tools||[],toolShop:p.location==='hardware',catalog:p.shopping?(p.location==='hardware'?TOOLS:clothesFor(p.animal)):[]};const car=this.cars.find(c=>c.id===p.vehicleId);if(o.vehicle&&car?.owners.navigation===pid)o.gps={...gpsFor(this,car),destinations:this.zoo.destinations.map(d=>d.name)};return o;}
- snapshot(){const s=super.snapshot();s.rescue=rescuePublic(this);s.cars=this.cars.map(publicCar);s.humans=(this.humans||[]).map(n=>({id:n.id,x:n.x,y:n.y,d:n.angle,asleep:n.asleep,color:n.color,visitor:!!n.visitor,moving:!!n.moving,running:!!n.panic,calling:(n.phoneUntil||0)>this.time,empty:n.wallet===0}));s.pl=s.pl.map(q=>{const p=this.players.get(q.id);return {...q,outfit:p.outfit||{},location:p.location,plane:!!p.inPlane,carId:p.vehicleId,disguised:isDisguised(p)};});return s;}
+ personal(pid){const o=Game.prototype.personal.call(this,pid),p=this.players.get(pid);if(!o)return o;if(o.hold&&p.hold){const h=p.hold;if(h.kind==='rescueTeam')o.hold.p=Math.min(1,(this.rescue.teamTimers[h.cage]||0)/2.5);if(h.kind==='rescueBrace')o.hold.p=Math.min(1,this.rescue.cageProgress/1.5);if(h.kind==='cityVault')o.hold.p=Math.min(1,this.vaultProgress/3);}
+ o.vehicle=fleetPersonal(this,p);o.carPush=pushPersonal(p);o.fob=!!(p.carFob||p.cageKeys);if(o.vehicle){o.pe=null;o.ps=null;}o.special=o.special||p.inVehicle||p.chapterStation!=null||p.inPlane;Object.assign(o,rescuePersonal(this,p));o.city={wanted:wantedInRescue(this,p),money:p.money||0,location:p.location||'street',disguised:isDisguised(p),owned:p.owned||[],outfit:p.outfit||{},cageHits:p.cageHits||0,shopping:!!p.shopping,...shopPersonal(this,p),tools:p.tools||[],toolShop:p.location==='hardware',catalog:shopPersonal(this,p).catalog};const car=this.cars.find(c=>c.id===p.vehicleId);if(o.vehicle&&car?.owners.navigation===pid)o.gps={...gpsFor(this,car),destinations:this.zoo.destinations.map(d=>d.name)};return o;}
+ snapshot(){const s=super.snapshot();s.rescue=rescuePublic(this);s.cars=this.cars.map(publicCar);s.humans=(this.humans||[]).map(n=>({id:n.id,x:n.x,y:n.y,d:n.angle,asleep:n.asleep,color:n.color,visitor:!!n.visitor,moving:!!n.moving,running:!!n.panic,calling:(n.phoneUntil||0)>this.time,empty:n.wallet===0}));s.st=s.st.map((q,i)=>({...q,police:!!this.staff[i].police}));s.pl=s.pl.map(q=>{const p=this.players.get(q.id);return {...q,tool:p.hold?.tool||null,outfit:p.outfit||{},location:p.location,plane:!!p.inPlane,carId:p.vehicleId,disguised:isDisguised(p)};});return s;}
  results(){return {...super.results(),stage:'city',next:null,flightEscaped:this.rescue.flight.phase==='departed',districtRescued:this.rescue.animals.filter(a=>a.state==='escaped').length,districtTotal:this.rescue.animals.length};}
 }

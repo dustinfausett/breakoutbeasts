@@ -1,0 +1,12 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm,writeFile} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {checkpointStore} from '../server/checkpoint-store.js';
+import {createServer} from '../server/index.js';
+import {CityGame} from '../shared/city-game.js';
+import {captureCheckpoint,encodeCheckpoint} from '../shared/checkpoints.js';
+const backup=()=>encodeCheckpoint(captureCheckpoint(new CityGame({players:[{id:'a',animal:'beaver'}],options:{staff:false}}),'a'));
+test('ten-character saves persist across store instances and reject damaged data and paths',async()=>{const dir=await mkdtemp(path.join(os.tmpdir(),'beasts-saves-'));try{const full=backup(),store=checkpointStore(dir),code=await store.put(full);assert.match(code,/^[A-HJ-NP-Z2-9]{10}$/);assert.equal(await checkpointStore(dir).get(code.toLowerCase()),full);assert.notEqual(await store.put(full),code);await assert.rejects(()=>store.get('../secret'));await assert.rejects(()=>store.put('bad'));await writeFile(path.join(dir,code+'.save'),'broken');await assert.rejects(()=>store.get(code));}finally{await rm(dir,{recursive:true,force:true});}});
+test('short codes load through the API after a server restart',async()=>{const dir=await mkdtemp(path.join(os.tmpdir(),'beasts-api-'));let srv;try{srv=await createServer({port:0,host:'127.0.0.1',checkpointDir:dir,log:()=>{}});const full=backup(),res=await fetch(`http://127.0.0.1:${srv.port}/api/checkpoints`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({backup:full})}),saved=await res.json();assert.equal(res.status,200);assert.equal(saved.code.length,10);await srv.close();srv=await createServer({port:0,host:'127.0.0.1',checkpointDir:dir,log:()=>{}});const loaded=await fetch(`http://127.0.0.1:${srv.port}/api/checkpoints/${saved.code}`);assert.equal((await loaded.json()).backup,full);const bad=await fetch(`http://127.0.0.1:${srv.port}/api/checkpoints`,{method:'POST',body:'{}'});assert.equal(bad.status,400);}finally{if(srv)await srv.close();await rm(dir,{recursive:true,force:true});}});

@@ -74,6 +74,8 @@ export class Renderer {
       if(d.kind==='runway'){g.fillStyle='#596064';g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle='#eee5c4';for(let y=24;y<d.h*16;y+=56)g.fillRect(ox+d.w*8-5,oy+y,10,26);g.strokeStyle='#e7dfc0';g.lineWidth=3;g.strokeRect(ox+8,oy+8,d.w*16-16,d.h*16-16);continue;}
       if(d.kind==='plane')continue;
       if(d.kind==='parkingBay'){g.strokeStyle='#d8d8b7';g.lineWidth=1;g.strokeRect(ox,oy,d.w*16,d.h*16);continue;}
+      if(d.kind==='shelfLabel'){g.fillStyle='#fff1ac';g.fillRect(ox-2,oy-10,Math.max(40,d.text.length*6+4),13);g.fillStyle='#292b32';g.font='bold 10px monospace';g.textAlign='left';g.fillText(d.text,ox,oy);continue;}
+      if(d.kind==='foodShelf'){g.fillStyle='#795236';g.fillRect(ox,oy,d.w*16,d.h*16);for(let x=4;x<d.w*16;x+=12){g.fillStyle=d.food==='meat'?'#ce6d64':d.food==='fish'?'#85b9c3':'#efca55';g.fillRect(ox+x,oy+8,8,5);g.fillRect(ox+x+2,oy+5,4,10);}g.fillStyle='#d6b581';g.fillRect(ox,oy+22,d.w*16,3);continue;}
       if(d.kind==='interiorSign'){g.fillStyle='#e6c879';g.font='bold 12px monospace';g.textAlign='left';g.fillText(d.text,ox,oy);continue;}
       if(d.kind==='thriftArt'){if(IMAGES['thrift-props'])atlasDraw(g,IMAGES['thrift-props'],d.index,4,2,ox,oy,d.w*16,d.h*16);continue;}
       if(d.kind==='wayfinding'){if(IMAGES['thrift-props'])atlasDraw(g,IMAGES['thrift-props'],7,4,2,ox-10,oy-16,40,40);else{g.fillStyle='#68472d';g.fillRect(ox+6,oy,3,25);g.fillStyle='#c9a369';g.fillRect(ox-10,oy-8,40,14);}g.fillStyle='#173b35';g.font='bold 7px monospace';g.textAlign='center';g.fillText({up:'↑',down:'↓',left:'←',right:'→'}[d.arrow],ox+9,oy-3);continue;}
@@ -528,6 +530,7 @@ export class Renderer {
     ctx.beginPath(); ctx.ellipse(p.x * TS, p.y * TS + 5, 7, 3, 0, 0, Math.PI * 2); ctx.stroke();
     this._drawAnimal(ctx, id, p.x, y, face, p.mv || (p.s & PF.SPRINT), (p.s & PF.WOBBLE) ? Math.min(1, p.wb * 1.5) : 0, now,{action:p.ba?'bite':p.mv?'run':'walk'});
     drawOutfit(ctx,p.a,p.outfit,p.x*TS-8,y*TS-10,16,16,face);
+    if(p.tool){ctx.save();ctx.translate(p.x*TS+9,y*TS-7);ctx.rotate(Math.sin(now/100)*.6);ctx.fillStyle='#9fc3cc';ctx.fillRect(-1,-7,3,13);ctx.fillRect(-4,-8,9,3);ctx.fillStyle='#d49953';ctx.fillRect(-1,1,3,6);ctx.restore();}
     ctx.globalAlpha = 1;
     if(p.mu&&!objectArt(ctx,15,Math.round(p.x*TS+(face==='left'?-10:0)),Math.round(y*TS-7),10,9)){ctx.fillStyle='#aeb8b9';ctx.fillRect(p.x*TS+(face==='left'?-7:1),y*TS-5,6,4);}
     if (p.s & PF.HIDDEN) { ctx.fillStyle = 'rgba(46,122,58,0.7)'; ctx.fillRect(Math.round(p.x * TS - 8), Math.round(p.y * TS - 2), 16, 8); }
@@ -544,6 +547,7 @@ export class Renderer {
   _drawStaff(ctx, s, now) {
     if(s.s===6){const image=SPRITES.staffDown.r[0];ctx.drawImage(image,s.x*TS-16,s.y*TS-14,32,22);return;}
     this._drawAnimal(ctx,'staff',s.x,s.y,Math.cos(s.d)<0?'left':'right',s.mv,0,now,{action:s.s===2?'run':'walk'});
+    if(s.police){ctx.fillStyle='#253f79';ctx.fillRect(s.x*TS-6,s.y*TS-11,12,4);ctx.fillStyle='#ffe486';ctx.fillRect(s.x*TS-1,s.y*TS-3,3,3);}
   }
 
   _drawLighting(players, staff, toS, now) {

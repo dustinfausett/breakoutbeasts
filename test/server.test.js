@@ -153,17 +153,17 @@ test('an online team completes the mission through the server', async () => {
   const ws = { [room.game.order[0]]: a, [room.game.order[1]]: b };
   let seq = 0;
   const end = await new Promise((resolve, reject) => {
-    const to = setTimeout(() => { const g = room.game; reject(new Error('mission did not complete: ' + JSON.stringify({ phase: room.phase, t: g && g.time, logs: bots.map((b) => b.log.slice(-4).join('|')), pl: g && [...g.players.values()].map((p) => [p.animal, p.x.toFixed(1), p.y.toFixed(1)]) }))); }, 110000);
+    const to = setTimeout(() => { clearInterval(iv);a.close();b.close();const g = room.game; reject(new Error('mission did not complete: ' + JSON.stringify({ phase: room.phase, t: g && g.time, logs: bots.map((b) => b.log.slice(-4).join('|')), pl: g && [...g.players.values()].map((p) => [p.animal, p.x.toFixed(1), p.y.toFixed(1)]) }))); }, 300000);
     const iv = setInterval(() => {
       if (!room.game || room.phase !== 'playing') return;
       seq++;
       for (const bot of bots) {
         const inp = bot.update(viewFromGame(room.game, bot.pid), 0.05);
         if(inp.panel)ws[bot.pid].send({t:'panel',...inp.panel});
-        ws[bot.pid].send({ t: 'in', s: seq, mx: inp.mx, my: inp.my, sp: inp.sp ? 1 : 0, e: inp.e ? 1 : 0 });
+        ws[bot.pid].send({ t: 'in', s: seq, mx: inp.mx, my: inp.my, sp: inp.sp ? 1 : 0, e: inp.e ? 1 : 0,run:inp.run?1:0 });
       }
     }, 50);
-    a.wait((m) => m.t === 'end', 111000).then((m) => { clearTimeout(to); clearInterval(iv); resolve(m); }, reject);
+    a.wait((m) => m.t === 'end', 301000).then((m) => { clearTimeout(to); clearInterval(iv); resolve(m); }, e=>{clearTimeout(to);clearInterval(iv);a.close();b.close();reject(e);});
   });
   assert.equal(end.results.players.length, 2);
   const bEnd = await b.wait((m) => m.t === 'end');

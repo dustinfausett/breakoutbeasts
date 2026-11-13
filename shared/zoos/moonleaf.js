@@ -505,7 +505,7 @@ export function buildMoonleaf() {
       {route:[[33,28],[33,33],[47,33],[47,24]],start:0},
       {route:[[60,23],[73,23],[73,35],[60,35]],start:0},
     ],
-    requiredRescues: 3,
+    requiredRescues: 10,
     staff: { patrolSpeed: 1.5, chaseSpeed: 2.2, alertSpeed: 1.9, investigateSpeed: 1.55, range: 5.5, halfAngle: 0.72, detectRate: 1.0 },
     intro: 'Moonleaf Zoo is quiet tonight. Slip out of your enclosure, free your friends, restore power in the maintenance yard and slip through the Moonleaf Gate together.',
   };

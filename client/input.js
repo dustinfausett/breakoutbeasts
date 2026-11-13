@@ -5,14 +5,14 @@ export class Input {
   constructor() {
     this.keys = new Set();
     this.biteQueued=false;this.actionQueued={e:false,sp:false};
-    this.touch = { mx: 0, my: 0, sp: false, e: false, b:false };
+    this.touch = { mx: 0, my: 0, sp: false, e: false, b:false,run:false };
     this.enabled = false;
     this.onKey = null; // (code, event) -> handled?
     window.addEventListener('keydown', (e) => {
       if (this.onKey && this.onKey(e.code, e)) { e.preventDefault(); return; }
       if (!this.enabled) return;
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyB'].includes(e.code)) e.preventDefault();
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyB','ShiftLeft','ShiftRight'].includes(e.code)) e.preventDefault();
       if(e.code==='KeyB'&&!e.repeat)this.biteQueued=true;
       if(!e.repeat&&e.code==='KeyE')this.actionQueued.e=true;
       if(!e.repeat&&e.code==='Space')this.actionQueued.sp=true;
@@ -28,7 +28,7 @@ export class Input {
   releaseAll() {
     this.keys.clear();
     this.biteQueued=false;this.actionQueued={e:false,sp:false};
-    this.touch = { mx: 0, my: 0, sp: false, e: false, b:false };
+    this.touch = { mx: 0, my: 0, sp: false, e: false, b:false,run:false };
     if (this.stick) this.stick.reset();
     document.querySelectorAll('.tbtn.down').forEach((b) => b.classList.remove('down'));
   }
@@ -45,7 +45,7 @@ export class Input {
     if (Math.hypot(t.mx, t.my) > 0.15) { mx = t.mx; my = t.my; }
     const bite=k.has('KeyB')||t.b||this.biteQueued;this.biteQueued=false;
     const e=k.has('KeyE')||t.e||this.actionQueued.e,sp=k.has('Space')||t.sp||this.actionQueued.sp;this.actionQueued={e:false,sp:false};
-    return {mx,my,sp,e,b:bite};
+    return {mx,my,sp,e,b:bite,run:k.has('ShiftLeft')||k.has('ShiftRight')||t.run};
   }
 
   attachTouch(root) {
@@ -82,6 +82,6 @@ export class Input {
     };
     btn('#tbtn-e', 'e');
     btn('#tbtn-b','b');
-    btn('#tbtn-sp', 'sp');
+    btn('#tbtn-sp', 'sp');btn('#tbtn-run','run');
   }
 }

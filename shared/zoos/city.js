@@ -10,14 +10,14 @@ export function buildCity(){
  for(const y of [12,44,76,108]){rect(2,y-5,157,y+4,T.FLOOR,4);rect(2,y-4,157,y+3,T.PATH,1,1);}
  // Restore crossing lanes after paving sidewalks so the street grid stays connected.
  for(const x of [12,50,88,126])rect(x-4,2,x+3,124,T.PATH,2,1);
- const names=['Acorn Groceries','Cedar Bank','Beaver Hardware','Moonlight Cafe','Second Paw Thrift','Animal Control','Northgate Zoo','Sunspire Safari Zoo','Frostfern Aquarium Zoo'];
+ const names=['Acorn Groceries','Cedar Bank','Beaver Hardware','Moonlight Cafe','Second Paw Thrift','Animal Control','Northgate Zoo','Sunspire Library','Frostfern Cinema'];
  const destinations=[];
  for(let row=0;row<3;row++)for(let col=0;col<3;col++){
   const i=row*3+col,x=22+col*38,y=22+row*32,width=22,height=12,name=names[i],scene=i===0?'grocery':i===1?'bank':i===2?'hardware':i===4?'thrift':i===5?'control':null;
   rect(x,y,x+21,y+11,T.WALL);rect(x,y+12,x+21,y+12,T.FLOOR,4);rect(x,y+13,x+21,y+17,T.PATH,3,1);
   // Parking bays leave clear driveways from each lot to the street.
   for(let n=0;n<5;n++){decor.push({kind:'parkingBay',x:x+n*4,y:y+13,w:3,h:4});if(n===0||n===4){rect(x+n*4,y+13,x+n*4+2,y+16,T.MACHINE,3);decor.push({kind:'parkedCar',x:x+n*4,y:y+13,w:3,h:4,angle:Math.PI/2,colorIndex:(i+n)%6});}}
-  decor.push({kind:'cityBuilding',x,y,w:width,h:height,text:name,zoo:row===2,color:['#567b7f','#7e6378','#9b7b55'][col]});
+  decor.push({kind:'cityBuilding',x,y,w:width,h:height,text:name,zoo:i===6,color:['#567b7f','#7e6378','#9b7b55'][col]});
   decor.push({kind:'sign',x:x+11,y:y+12,text:name});
   destinations.push({id:'site'+i,name,x:x+11,y:44+row*32,scene});
   if(scene)objects.push({id:'enter-'+scene,kind:'cityDoor',scene,x:x+10,y:y+12,stand:[x+10,y+13],walkable:true,label:'Enter '+name});

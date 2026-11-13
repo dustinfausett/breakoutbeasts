@@ -1,3 +1,4 @@
+import {mountDigPicker,updateDigPicker} from './dig-picker.js';
 import {decodeCheckpoint} from './shared/checkpoints.js';
 import {mountLiveMap,updateLiveMap} from './live-map.js';
 import {mountRescueUI,updateRescueUI} from './rescue-ui.js';
@@ -264,7 +265,7 @@ function connStatus(state, info) {
 
 // ---------------- game ----------------
 function enterGame(msg) {
-  updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
+  updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
   setObjectivesOpen(false);
   app.wasInCar=false;
   updateKeyFob(false);
@@ -284,7 +285,7 @@ function enterGame(msg) {
 }
 
 function leaveGameView(toLobby) {
-  updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
+  updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
   updateKeyFob(false);
   updateVehiclePanel(null);
   app.inGame = false;
@@ -315,6 +316,7 @@ function nameOf(pid) { return app.world?.snap?.pl.find((p) => p.id === pid)?.n |
 function nearMe(x, y, r = 12) { const me = app.world?.me(); return me && Math.hypot(me.x - x, me.y - y) < r; }
 
 function handleEvent(ev) {
+  if(ev.k==='msg'&&ev.pid===app.myId&&app.world?.snap?.me?.digChoice)$('#dig-feedback').textContent=ev.text;
   if(ev.k==='chat'){addPanelChat(ev);if(AUTOPILOT){const m=/^@panel (p[0-9]+) ([0-9]+) ([0-9]+) ([0-9]+)$/.exec(ev.text);if(m)app.teamClues[m[1]]={target:m[1],index:Number(m[2]),control:Number(m[3]),value:Number(m[4])};}return;}
   const r = app.renderer;
   r.addEvent(ev);
@@ -330,7 +332,7 @@ function handleEvent(ev) {
     case 'tranquilized': audio.play('capture');caption(`${ev.name} was tranquilized and muzzled. A teammate can bite off the muzzle with B.`, 'alert');break;
     case 'dartfired': if(nearMe(ev.x,ev.y,10))caption('[Pfft!] Tranquilizer dart!', 'alert');break;
     case 'nip': audio.play('chew');break;
-    case 'gatehit': audio.play('clang'); caption(`[Bang!] Gate hit ${ev.hits}/${ev.needed}. Keepers are coming to check!`, 'alert'); break;
+    case 'gatehit': audio.play('clang'); caption(`[Bang!] ${ev.object||'Gate'} hit ${ev.hits}/${ev.needed}. Keepers are coming to check!`, 'alert'); break;
     case 'securityalert': caption(app.world?.snap?.permanent?'HIGH ALERT: keepers are armed for the rest of this escape!':'Zoo alert for 3 minutes: keepers see farther and walk faster!', 'alert'); break;
     case 'damagefound': caption('A keeper found a broken gate and raised the alarm!', 'alert'); break;
     case 'radio': caption('[Radio] Loose animal spotted! All keepers are converging. Break line of sight before hiding.', 'alert'); break;
@@ -432,7 +434,7 @@ function updateHUD() {
   const myEnc = me ? w.zoo.enclosures.find((e) => e.animal === me.a) : null;
   h += `<div class="o ${o.escape.done ? 'done' : ''}">${ck(o.escape.done)}Escape your enclosures${o.escape.done ? ' — done' : ''}</div>`;
   if (!o.escape.done) for (const p of o.escape.players) h += `<div class="sub ${p.escaped ? 'done' : ''} ${p.name === me?.n ? 'me' : ''}">${p.escaped ? '✓' : '·'} ${esc(p.name)} (${ANIMALS[p.animal].name})${p.escaped ? ' is out' : ''}</div>`;
-  h += `<div class="o ${o.rescue.done ? 'done' : ''}">${ck(o.rescue.done)}Free caged animals: ${o.rescue.n}/${o.rescue.need}${o.rescue.done ? ' — done' : ' (steal guard keys for locks, or build escape ramps)'}</div>`;
+  h += `<div class="o ${o.rescue.done ? 'done' : ''}">${ck(o.rescue.done)}Free every caged animal: ${o.rescue.n}/${o.rescue.need}${o.rescue.done ? ' — done' : ' (steal guard keys for locks, or build escape ramps)'}</div>`;
   const pd = o.power.parts.filter((p) => p.done).length;
   h += `<div class="o ${o.power.done ? 'done' : ''}">${ck(o.power.done)}Restore power in the Maintenance Yard: ${pd}/${o.power.parts.length} fuses · ${o.power.rooms||o.power.parts.length} assigned bays</div>`;
   if(!o.power.done&&o.power.passageHint)h+=`<div class="sub">${esc(o.power.passageHint)}</div>`;
@@ -452,7 +454,7 @@ function updateHUD() {
   else if (o.exit.open) now = 'Everyone to the Moonleaf Gate!';
   else if (o.keys.active) { const station=o.control?.team.find(p=>p.id===app.myId); now = 'Enter any free control-house room. One animal per room.'; }
   else if (myPart) now = `${myPart.location||'Main yard'} · ${myPart.steps[myPart.step]?.label||''}`;
-  else if (!o.rescue.done) now = `Free caged animals (${o.rescue.n}/${o.rescue.need})`;
+  else if (!o.rescue.done) now = `Free every caged animal (${o.rescue.n}/${o.rescue.need})`;
   else if (!o.power.done) now = 'Help teammates restore power';
   h += `<div class="now">➤ ${esc(now)}</div>`;
   }
@@ -492,7 +494,8 @@ function updateHUD() {
   // prompts
   const pm = s.me;
   updateLiveMap(w);updateRescueUI(s.rescue,pm);
-  updateCityUI(pm,o.parking?.city,w.zoo);
+  updateCityUI(pm,o.parking?.city,w.zoo);updateDigPicker(app.overlay||app.paused?null:pm,w);
+  $('#stamina').hidden=!!(pm?.vehicle||pm?.control||pm?.flight);$('#stamina-fill').value=pm?.stamina??1;$('#tbtn-run').hidden=!!(pm?.vehicle||pm?.control||pm?.flight);
   updateControlPanel(pm?.control||null);
   const inCar=s.phase==='play'&&!!pm?.vehicle;
   if(app.wasInCar!==inCar){input.releaseAll();app.wasInCar=inCar;}
@@ -563,7 +566,7 @@ function gameTick() {
     if(c.target===app.myId)app.teamClues[c.target]=c;
   }
   app.seq++;
-  const msg = { t: 'in', s: app.seq, mx: Math.round(inp.mx * 100) / 100, my: Math.round(inp.my * 100) / 100, sp: inp.sp ? 1 : 0, e: inp.e ? 1 : 0, b:inp.b?1:0 };
+  const msg = { t: 'in', s: app.seq, mx: Math.round(inp.mx * 100) / 100, my: Math.round(inp.my * 100) / 100, sp: inp.sp ? 1 : 0, e: inp.e ? 1 : 0, b:inp.b?1:0,run:inp.run?1:0 };
   app.link?.send(msg);
   w.predictStep({ seq: app.seq, mx: msg.mx, my: msg.my });
 }
@@ -575,7 +578,7 @@ function clientView() {
     world: w, zoo: w.zoo, staff:s.st,
     rescue:s.rescue,flight:s.me?.flight,
     vehicle:s.me?.vehicle,
-    me: { holding:!!me.hk,money:s.me?.city?.money||0,tools:s.me?.city?.tools||[],shopping:!!s.me?.city?.shopping,shopCategory:s.me?.city?.category,cart:s.me?.city?.cart||[],food:s.me?.city?.food||{},location:me.location,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
+    me: { holding:!!me.hk,stamina:s.me?.stamina,exhausted:s.me?.exhausted,money:s.me?.city?.money||0,tools:s.me?.city?.tools||[],shopping:!!s.me?.city?.shopping,shopCategory:s.me?.city?.category,cart:s.me?.city?.cart||[],food:s.me?.city?.food||{},location:me.location,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
     obj: s.obj,
     objects: d.objects.map((o, i) => ({ ...o, state: s.os[i] })),
     gates: d.gates.map((g, i) => ({ ...g, state: Number(s.g[i]) })),
@@ -620,7 +623,7 @@ async function startSolo() {
 }
 
 function toTitle() {
-  updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);updateVehiclePanel(null);updateKeyFob(false);updateControlPanel(null);
+  updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);updateVehiclePanel(null);updateKeyFob(false);updateControlPanel(null);
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.link = null; app.mode = null; app.lobby = null; app.inGame = false; app.world = null;
   audio.stopMusic();
@@ -717,6 +720,7 @@ document.addEventListener('pointerdown', () => audio.unlock(), { once: false });
 
 input.onKey = (code, e) => {
   if (code === 'Escape') {
+    if(!app.overlay&&!app.paused&&app.world?.snap?.me?.digChoice){app.link?.send({t:'dig',op:'cancel'});return true;}
     if (app.overlay === 'settings' || app.overlay === 'help') { act(app.overlay + '-close'); return true; }
     if (app.overlay === 'pause') { closePause(); return true; }
     if (app.inGame && !app.overlay && app.objectivesOpen) {setObjectivesOpen(false);return true;}
@@ -748,7 +752,7 @@ function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 async function boot() {
   try {
     mountLiveMap();mountRescueUI(msg=>app.link?.send(msg));
-    mountCityUI(msg=>app.link?.send(msg));
+    mountCityUI(msg=>app.link?.send(msg));mountDigPicker(msg=>app.link?.send(msg));
     mountControlPanel(msg=>app.link?.send(msg));
     mountVehiclePanel(msg=>app.link?.send(msg));
     await loadImages();

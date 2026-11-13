@@ -21,7 +21,7 @@ export function viewFromGame(game, pid) {
     panel:game.rescue?rescuePersonal(game,p).control:controlPersonal(game,pid),
     teamClues:p.chapterStation!=null?game.activePlayers().map(q=>rescuePersonal(game,q).control?.instruction).filter(Boolean):p.inControlRoom?game.activePlayers().map(q=>controlPersonal(game,q.id)?.instruction).filter(Boolean):[],
     world: game, zoo: game.zoo, staff:game.staff.map(s=>({x:s.x,y:s.y,d:s.dir,ar:game.time<game.alertUntil})),
-    me: { holding:!!p.hold,money:p.money||0,tools:p.tools||[],shopping:!!p.shopping,shopCategory:p.shopCategory,cart:p.cart||[],food:p.food||{},location:p.location,cageDistrict:p.cageDistrict,caged:!!p.caged,keys:p.cageKeys,id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, materials: p.materials, enc: p.enc },
+    me: { holding:!!p.hold,stamina:p.stamina,exhausted:p.exhausted,money:p.money||0,tools:p.tools||[],shopping:!!p.shopping,shopCategory:p.shopCategory,cart:p.cart||[],food:p.food||{},location:p.location,cageDistrict:p.cageDistrict,caged:!!p.caged,keys:p.cageKeys,id: pid, x: p.x, y: p.y, animal: p.animal, face: p.face, flags: game.playerFlags(p), carry: p.carry, materials: p.materials, enc: p.enc },
     obj: game.objectives(),
     objects: game.objects.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, index: o.index, bay: o.bay, keeper: o.keeper, enc: o.enc, state: o.state, public:!!o.public, stand:o.stand })),
     gates: game.gates.map((g) => ({ id: g.id, state: g.state, enc: g.enc, kind: g.kind })),
@@ -247,7 +247,8 @@ export class Autopilot {
       const k = d < 0.3 ? Math.max(0.35, d / 0.3) : 1;
       // flamingos steady themselves on balance beams
       const onBeam = me.animal === 'flamingo' && (v.world.tiles[Math.floor(me.y) * v.world.w + Math.floor(me.x)] === 20 || v.world.tiles[tgt[1] * v.world.w + tgt[0]] === 20);
-      return { mx: dx / d * k, my: dy / d * k, sp: onBeam, e: false };
+      const run=!!(v.staff?.length&&!(me.flags&PF.IN_ENC)&&!onBeam&&d>.6&&(me.stamina??1)>.02&&!me.exhausted);
+      return { mx: dx / d * k, my: dy / d * k, sp: onBeam, e: false,run };
     }
     if (s.face) {
       if (this.st > 0.05) { next(); this.release = true; }

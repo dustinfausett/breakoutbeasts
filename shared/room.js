@@ -128,7 +128,7 @@ export class Room {
   handle(pid, msg) {
     const p = this.players.get(pid);
     if (!p || !msg || typeof msg.t !== 'string') return;
-    if(this.paused&&['in','city','vehicle','rescue','panel','continueWithout','chat','emote'].includes(msg.t))return;
+    if(this.paused&&['in','dig','city','vehicle','rescue','panel','continueWithout','chat','emote'].includes(msg.t))return;
     switch (msg.t) {
       case 'name': p.name = cleanName(msg.name, p.name); this.broadcastLobby(); break;
       case 'pick': {
@@ -173,6 +173,7 @@ export class Room {
         if(remaining.some(p=>!p.connected))return this.error(pid,'waiting','Wait for your teammates to reconnect before continuing.');
         this.startMission(this.game.zooId==='parking'?'city':'parking');break;
       }
+      case 'dig': if(this.phase==='playing')this.game?.digAction(pid,msg);break;
       case 'rescue': if(this.phase==='playing')this.game?.rescueAction?.(pid,msg);break;
       case 'city': if(this.phase==='playing')this.game?.cityAction?.(pid,msg);break;
       case 'vehicle': if(this.phase==='playing')this.game?.vehicleAction?.(pid,msg);break;
@@ -187,7 +188,7 @@ export class Room {
         if (!this.game || this.phase !== 'playing') return;
         let q = this.queues.get(pid);
         if (!q) { q = []; this.queues.set(pid, q); }
-        q.push({ mx: +msg.mx || 0, my: +msg.my || 0, sp: !!msg.sp, e: !!msg.e, b:!!msg.b, seq: +msg.s || 0 });
+        q.push({ mx: +msg.mx || 0, my: +msg.my || 0, sp: !!msg.sp, e: !!msg.e, b:!!msg.b,run:!!msg.run, seq: +msg.s || 0 });
         while (q.length > 4) q.shift();
         break;
       }
@@ -236,7 +237,7 @@ export class Room {
 
   setPaused(on){
     this.paused=on;this.queues.clear();
-    if(this.game){for(const p of this.game.activePlayers()){this.game.setInput(p.id,{mx:0,my:0,e:false,sp:false,b:false});p.hold=null;p.carPush=null;p.prevE=false;p.prevSp=false;p.prevB=false;}for(const car of this.game.cars||[this.game.vehicle].filter(Boolean)){car.speed=0;car.heldAt={};for(const id of ['gas','brake','steering'])car.values[id]=0;}}
+    if(this.game){for(const p of this.game.activePlayers()){this.game.setInput(p.id,{mx:0,my:0,e:false,sp:false,b:false});p.hold=null;p.running=false;p.sprintT=0;p.carPush=null;p.prevE=false;p.prevSp=false;p.prevB=false;}for(const car of this.game.cars||[this.game.vehicle].filter(Boolean)){car.speed=0;car.heldAt={};for(const id of ['gas','brake','steering'])car.values[id]=0;}}
     this.broadcast({t:'paused',on,hostId:this.hostId});
   }
 
@@ -249,8 +250,8 @@ export class Room {
     const list = [...this.players.values()].filter((p) => p.animal && p.connected && (!eligible||eligible.has(p.id))).sort((a, b) => a.joinedAt - b.joinedAt);
     const seed = Math.floor(this.rng() * 1e9);
     this.game = new (stage==='city'?CityGame:stage==='parking'?ParkingGame:Game)({previousCarSlot:this.lastCarSlot,carColor:stage==='city'?carColor:null,zooId: this.zooId, players: list.map((p) => ({ id: p.id, name: p.name, animal: p.animal })), seed, options: this.options });
-    if(checkpoint==='control'){
-      const g=this.game;for(const part of g.parts)part.inserted=true;g.stats.rescued=g.requiredRescues;
+    if(checkpoint==='control'&&!saved){
+      const g=this.game;for(const part of g.parts)part.inserted=true;for(const n of g.npcs)g.openGate(g.gate(g.zoo.enclosures[n.enc].mainGate));
       for(const o of g.objects)if(o.kind==='socket')o.state=1;
       for(const p of g.activePlayers()){const door=g.objects.find(o=>o.kind==='controlDoor'&&o.index===g.controlRoom.panels[p.id].doorIndex);p.escaped=true;p.x=door.stand[0]+.5;p.y=door.stand[1]+.5;p.safe=[p.x,p.y];p.grace=5;}
     }

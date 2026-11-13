@@ -216,6 +216,7 @@ export class Renderer {
 
     const x0 = Math.max(0, Math.floor(cx / TS) - 1), y0 = Math.max(0, Math.floor(cy / TS) - 1);
     const x1 = Math.min(w.w - 1, Math.ceil((cx + viewW) / TS) + 1), y1 = Math.min(w.h - 1, Math.ceil((cy + viewH) / TS) + 1);
+    for(const i of snap.broken||[]){const x=i%w.w,y=Math.floor(i/w.w);if(x>=x0&&x<=x1&&y>=y0&&y<=y1)drawTile(ctx,w.tiles[i],x,y,x*TS,y*TS,w.zoo.themes[w.zoo.theme[i]],null);}
     // water shimmer
     if (!this.settings.reducedMotion) {
       const ph = now / 600;
@@ -245,6 +246,7 @@ export class Renderer {
       if (d.kind === 'lamp') { ctx.fillStyle = '#2a2a32'; ctx.fillRect(d.x * TS + 7, d.y * TS - 6, 2, 20); ctx.fillStyle = '#fff3b0'; ctx.fillRect(d.x * TS + 5, d.y * TS - 9, 6, 4); }
       if (d.kind === 'sign') { ctx.fillStyle = '#5a3a1a'; ctx.fillRect(d.x * TS + 7, d.y * TS + 6, 2, 9); ctx.fillStyle = '#c89a5a'; ctx.fillRect(d.x * TS + 1, d.y * TS + 1, 14, 7); ctx.fillStyle = '#7a5a2a'; ctx.fillRect(d.x * TS + 3, d.y * TS + 3, 10, 1); ctx.fillRect(d.x * TS + 3, d.y * TS + 5, 7, 1); }
     }
+    for(const [i,b] of (w.defs.burrows||[]).entries())if(snap.bu[i])for(const [x,y] of [b.a,b.b]){if(!inView(x,y))continue;ctx.fillStyle='#291f17';ctx.beginPath();ctx.ellipse((x+.5)*TS,(y+.5)*TS,b.wide?12:6,b.wide?7:4,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle=b.wide?'#e0b56f':'#a58151';ctx.lineWidth=2;ctx.stroke();}
     // crates
     for (const [x, y] of crates) {
       ctx.fillStyle = '#8a5a2a'; ctx.fillRect(x * TS + 1, y * TS + 1, 14, 14);

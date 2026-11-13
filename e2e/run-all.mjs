@@ -1,3 +1,4 @@
+import {run as mobility} from './mobility.mjs';
 // Runs every browser end-to-end suite and prints a summary. Usage: npm run test:e2e
 import {run as groupSaves} from './group-saves.mjs';
 import {run as carPushing} from './car-pushing.mjs';
@@ -15,7 +16,7 @@ import { run as solo } from './solo.mjs';
 import { run as multiplayer } from './multiplayer.mjs';
 import { run as mobile } from './mobile.mjs';
 
-const suites = [['group saves',()=>groupSaves()], ['car pushing',()=>carPushing()], ['compact city',()=>compactCity()], ['rescue chapter', () => rescueChapter()], ['city', () => city()], ['secret chapters', () => checkpoints()], ['fuses (6 players)', () => fuses({players:6})], ['fuses (8 players)', () => fuses({players:8})], ['parking (mobile)', () => parking({players:2,mobile:true})], ['parking (2 players)', () => parking({players:2})], ['parking (8 players)', () => parking({players:8})], ['animation', () => animation()], ['control house', () => controlHouse()], ['wild', () => wild()], ['security', () => security()], ['mobile', () => mobile()], ['multiplayer (2 players)', () => multiplayer({ players: 2 })], ['multiplayer (4 players)', () => multiplayer({ players: 4 })], ['solo', () => solo()]];
+const suites = [['running and wild abilities',()=>mobility()], ['group saves',()=>groupSaves()], ['car pushing',()=>carPushing()], ['compact city',()=>compactCity()], ['rescue chapter', () => rescueChapter()], ['city', () => city()], ['secret chapters', () => checkpoints()], ['fuses (6 players)', () => fuses({players:6})], ['fuses (8 players)', () => fuses({players:8})], ['parking (mobile)', () => parking({players:2,mobile:true})], ['parking (2 players)', () => parking({players:2})], ['parking (8 players)', () => parking({players:8})], ['animation', () => animation()], ['control house', () => controlHouse()], ['wild', () => wild()], ['security', () => security()], ['mobile', () => mobile()], ['multiplayer (2 players)', () => multiplayer({ players: 2 })], ['multiplayer (4 players)', () => multiplayer({ players: 4 })], ['solo', () => solo()]];
 const only = process.argv[2];
 let failed = 0; const summary = [];
 for (const [name, fn] of suites) {

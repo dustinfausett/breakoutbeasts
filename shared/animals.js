@@ -60,9 +60,9 @@ export const ANIMALS = {
   meerkat: {
     id: 'meerkat', name: 'Meerkat', difficulty: 'Hard', speed: 4.4,
     ability: 'Dig & Scout',
-    abilityText: 'Digs through marked soft soil to open a tunnel and scouts where it comes out.',
-    limitText: 'Digging takes time and each tunnel has only one far exit.',
-    controls: 'Hold Space on or next to marked soil to dig. Press E on a tunnel to travel through it.',
+    abilityText: 'Digs through any clear ground to an exit within ten tiles. Small animals can follow; adjacent holes widen for big animals.',
+    limitText: 'Digging takes time; single tunnels fit only small animals.',
+    controls: 'Press Space to choose an exit, then hold Space to dig. Press E on a tunnel to travel through it. Marked soil still has preset tunnels.',
     color: '#c9a46a',
   },
   tortoise: {

@@ -1,3 +1,4 @@
+import {newScoreLog,scoreEvent,scoreTick,roundScore} from './scoring.js';
 import {freeDigTarget,digAction,finishGroundDig,smashTarget,finishTerrainHit,refreshTunnelWidths,BIG} from './mobility.js';
 // Authoritative game simulation for one mission. Runs on the server for online rooms and in the
 // browser for solo play, so both modes share exactly the same rules.
@@ -51,7 +52,7 @@ export class Game {
     this.time = 0;
     this.tick = 0;
     this.phase = 'play';
-    this.stats = { captures: 0, rescued: 0 };
+    this.stats = { captures: 0, rescued: 0 };this.scoreLog=newScoreLog();this.scoreLog.staffEnabled=this.options.staff;
     this.permanentAlert = false;
     this.darts = [];
     this.enclosureChecks=[];
@@ -163,7 +164,7 @@ export class Game {
   objAt(x, y) { return this.objects.find((o) => o.x === x && o.y === y); }
   crateAt(x, y) { return this.crates.find((c) => c.x === x && c.y === y); }
   newId(prefix) { return prefix + (this.nid++); }
-  emit(ev) { this.events.push(ev); }
+  emit(ev) { scoreEvent(this,ev);this.events.push(ev); }
   msg(p, text) { if (p.msgCool <= 0 || p.lastMsg !== text) { this.events.push({ k: 'msg', pid: p.id, text }); p.msgCool = 1.2; p.lastMsg = text; } }
   drainEvents() { const e = this.events; this.events = []; return e; }
   activePlayers() { return this.order.map((id) => this.players.get(id)).filter((p) => p.active); }
@@ -277,7 +278,7 @@ export class Game {
     this._stepDarts(dt);
     for (const n of this.npcs) this._stepNpc(n, dt);
     for (const o of this.objects) if (o.cool > 0) o.cool -= dt;
-    this._stepKeysAndExit(dt);
+    this._stepKeysAndExit(dt);scoreTick(this,dt);
   }
 
   // ---------- players ----------
@@ -425,7 +426,7 @@ export class Game {
     }
     if (h.t >= h.need) {
       p.hold = null;
-      if(h.kind==='muzzleHelp'){const victim=h.target?this.players.get(h.target):p;if(victim?.muzzled){victim.muzzled=false;victim.muzzleRattles=0;this.emit({k:'muzzleoff',pid:victim.id,name:victim.name});}}
+      if(h.kind==='muzzleHelp'){const victim=h.target?this.players.get(h.target):p;if(victim?.muzzled){victim.muzzled=false;victim.muzzleRattles=0;this.emit({k:'muzzleoff',pid:victim.id,helperPid:p.id,name:victim.name});}}
       else if(h.kind==='groundDig')finishGroundDig(this,p,h);
       else if(h.kind==='terrainHit')finishTerrainHit(this,p,h);
       else if (h.kind === 'ram') {
@@ -434,7 +435,7 @@ export class Game {
       } else if (h.kind === 'steal') {
         const s = this.staff.find(s => s.id === h.staff);
         if (s && this._canSteal(p, s)) {
-          p.cageKeys=1; s.keyCool = this.time + 12;
+          p.cageKeys=1; s.keyCool = this.time + 12;this.emit({k:'keystolen',pid:p.id,staff:s.id});
           this.emit({ k: 'msg', pid: p.id, text: this.zooId==='parking'?'Key fob stolen! Unlock flashes your car’s lights. Panic sounds its alarm.':'Key stolen! Reuse it at enclosure locks until you are captured.' });
         }
       } else if (h.kind === 'craft') {
@@ -452,7 +453,7 @@ export class Game {
           b.dug = true;
           this.setTile(b.a[0], b.a[1], T.BURROW);
           this.setTile(b.b[0], b.b[1], T.BURROW);
-          this.emit({ k: 'dug', x: b.a[0], y: b.a[1], to: b.b });
+          this.emit({ k: 'dug',pid:p.id, x: b.a[0], y: b.a[1], to: b.b });
           this.msg(p, 'Tunnel dug! Press E to travel through it.');
         }
       } else if (h.kind === 'lever' || h.kind === 'crank') {
@@ -722,7 +723,7 @@ export class Game {
             const part = this._partForBay(bay);
             p.carry = null; o.state = 1;
             if (part) { part.inserted = true; part.socket = o.index; }
-            this.emit({ k: 'socket', x: o.x, y: o.y });
+            this.emit({ k: 'socket',pid:p.id,obj:o.id, x: o.x, y: o.y });
             if (this.powerDone()) this.emit({ k: 'power' });
           },
         };
@@ -776,7 +777,7 @@ export class Game {
       if (npc) {
         npc.state = 'leaving'; npc.path = null;
         this.stats.rescued++;
-        this.emit({ k: 'rescue', animal: npc.animal, by: by ? by.name : null });
+        this.emit({ k: 'rescue', animal: npc.animal, by: by ? by.name : null,pid:by?.id });
       }
     }
   }
@@ -970,7 +971,7 @@ export class Game {
 
   _rescueEnclosure(enc,p) {
     const npc=this.npcs.find(n=>n.enc===enc && n.state==='caged');
-    if(npc){npc.state='leaving';npc.path=null;this.stats.rescued++;this.emit({k:'rescue',animal:npc.animal,by:p.name});}
+    if(npc){npc.state='leaving';npc.path=null;this.stats.rescued++;this.emit({k:'rescue',animal:npc.animal,by:p.name,pid:p.id});}
   }
 
   _raiseAlert() {
@@ -1005,7 +1006,7 @@ export class Game {
   }
 
   noise(x, y, r, src, delay = 0) {
-    this.emit({ k: 'noise', x, y, r });
+    this.emit({ k: 'noise', x, y, r,pid:src?.id });
     for (const s of this.staff) {
       if (s.state === 'chase' || s.state === 'cheer' || s.downUntil>this.time) continue;
       if (dist(s.x, s.y, x, y) <= r) {
@@ -1375,7 +1376,7 @@ export class Game {
 
   results() {
     return {
-      time: Math.round(this.time),
+      score:roundScore(this),time: Math.round(this.time),
       rescued: this.stats.rescued, total: this.npcs.length,
       captures: this.stats.captures,
       players: this.order.map((id) => { const p = this.players.get(id); return { name: p.name, animal: p.animal, caught: p.everCaught, active: p.active }; }),

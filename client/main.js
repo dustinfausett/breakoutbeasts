@@ -1,3 +1,4 @@
+import {renderRoundScore} from './round-results.js';
 import {mountDigPicker,updateDigPicker} from './dig-picker.js';
 import {decodeCheckpoint} from './shared/checkpoints.js';
 import {mountLiveMap,updateLiveMap} from './live-map.js';
@@ -397,6 +398,7 @@ function handleEvent(ev) {
 }
 
 function onEnd(res) {
+  updateLiveMap(null);updateCityUI(null,null,null);updateRescueUI(null,null);
   updateVehiclePanel(null);
   updateControlPanel(null);
   app.results = res;
@@ -407,8 +409,8 @@ function onEnd(res) {
   const continueButton=document.querySelector('[data-act="continue"]');continueButton.hidden=!['parking','city'].includes(res.next);continueButton.disabled=app.lobby?.hostId!==app.myId;
   $('#complete-stats').innerHTML = `<p><b>${esc(res.zoo)}</b> escaped in <b>${mins}:${secs}</b></p>
     ${res.flightEscaped?`<p>All ${res.districtTotal} zoo, pet-store and Animal Control animals rescued. The whole crew flew away!</p>`:res.stage==='parking'?'<p>Getaway wagon stolen · every animal has a car responsibility.</p>':`<p>Animals freed: <b>${res.rescued}/${res.total}</b>${res.rescued === res.total ? ' — every animal is free! ★' : ''}</p>`}
-    <p>Times caught: <b>${res.captures}</b>${res.captures === 0 ? ' — perfectly sneaky! ★' : ''}</p>
-    <div class="players">${res.players.map((p) => `<span><img src="${portraitURL(p.animal)}" alt="">${esc(p.name)}${p.active ? '' : ' (left)'}</span>`).join('')}</div>`;
+    ${res.score?'':`<p>Times caught: <b>${res.captures}</b>${res.captures === 0 ? ' — perfectly sneaky! ★' : ''}</p>`}
+    ${res.score?renderRoundScore(res.score,portraitURL):`<div class="players">${res.players.map((p) => `<span><img src="${portraitURL(p.animal)}" alt="">${esc(p.name)}${p.active ? '' : ' (left)'}</span>`).join('')}</div>`}`;
   const isHost = app.lobby?.hostId === app.myId;
   const solo = app.mode === 'solo';
   document.querySelector('[data-act="replay"]').hidden = !isHost;
@@ -493,8 +495,9 @@ function updateHUD() {
 
   // prompts
   const pm = s.me;
-  updateLiveMap(w);updateRescueUI(s.rescue,pm);
-  updateCityUI(pm,o.parking?.city,w.zoo);updateDigPicker(app.overlay||app.paused?null:pm,w);
+  const showingResults=app.overlay==='complete';
+  updateLiveMap(showingResults?null:w);updateRescueUI(showingResults?null:s.rescue,showingResults?null:pm);
+  updateCityUI(showingResults?null:pm,o.parking?.city,w.zoo);updateDigPicker(app.overlay||app.paused?null:pm,w);
   $('#stamina').hidden=!!(pm?.vehicle||pm?.control||pm?.flight);$('#stamina-fill').value=pm?.stamina??1;$('#tbtn-run').hidden=!!(pm?.vehicle||pm?.control||pm?.flight);
   updateControlPanel(pm?.control||null);
   const inCar=s.phase==='play'&&!!pm?.vehicle;

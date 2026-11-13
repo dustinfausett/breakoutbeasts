@@ -13,7 +13,7 @@ import {gpsFor} from './navigation.js';
 import {makeKeepers} from './staff.js';
 export class CityGame extends ParkingGame{
  constructor(args){
-  super({...args,worldId:'city',options:{...args.options,staff:false}});this.visited=new Set();this.vaultCash=12000;this.vaultProgress=0;this.controlAlarm=null;this.controlArrived=false;
+  super({...args,worldId:'city',options:{...args.options,staff:false}});this.visited=new Set();this.scoreLog.staffEnabled=args.options?.staff!==false;this.vaultCash=12000;this.vaultProgress=0;this.controlAlarm=null;this.controlArrived=false;
   for(const gate of this.zoo.gates)this._addGate({...gate,tiles:gate.tiles.map(t=>[...t])});
   this.humans=[];
   for(const p of this.activePlayers()){p.money=0;p.tools=[];p.food={};p.cart=[];p.carKeys=[];p.owned=[];p.outfit={};p.location='street';p.disguiseBlown=false;p.cageHits=0;p.shopping=false;p.inVehicle=true;p.x=this.vehicle.x;p.y=this.vehicle.y;}
@@ -87,7 +87,7 @@ export class CityGame extends ParkingGame{
  _callControl(){if(this.controlAlarm===null&&!this.controlArrived){this.controlAlarm=120;this.emit({k:'controlcalled'});}}
  _continueHold(p,inp,dt){
   if(shopHold(this,p,inp,dt)||rescueHold(this,p,inp,dt))return;
-  const h=p.hold;if(h.kind==='cityCarKey'){const n=this.humans.find(n=>n.id===h.human);if(!inp.e||p.location!=='street'||!n||!this._near(p,n,1.8)){p.hold=null;return;}h.t+=dt;if(h.t>=h.need){if(!p.carKeys.includes(n.carId))p.carKeys.push(n.carId);p.carFob=n.carId;p.hold=null;this.msg(p,'Car keys stolen! Use your key fob to find and unlock the car.');}return;}if(!['citySteal','cityVault','cityRam'].includes(h.kind))return super._continueHold(p,inp,dt);
+  const h=p.hold;if(h.kind==='cityCarKey'){const n=this.humans.find(n=>n.id===h.human);if(!inp.e||p.location!=='street'||!n||!this._near(p,n,1.8)){p.hold=null;return;}h.t+=dt;if(h.t>=h.need){if(!p.carKeys.includes(n.carId))p.carKeys.push(n.carId);p.carFob=n.carId;p.hold=null;this.emit({k:'keystolen',pid:p.id,car:n.carId});this.msg(p,'Car keys stolen! Use your key fob to find and unlock the car.');}return;}if(!['citySteal','cityVault','cityRam'].includes(h.kind))return super._continueHold(p,inp,dt);
   if(!inp.e||!p.connected||p.capturedT>0){p.hold=null;return;}
   if(h.kind==='cityVault'){if(p.location!=='bank'||p.caged||dist(p.x,p.y,...this.zoo.bankLayout.wheel.map(v=>v+.5))>2.8||this.gate('city-vault').state)p.hold=null;return;}
   if(h.kind==='citySteal'){const human=this.humans.find(n=>n.id===h.human);if(p.location!=='bank'||!human||!this._near(p,human)||!human.wallet||(!human.asleep&&human.picked)){p.hold=null;return;}h.t+=dt;if(h.t>=h.need){const amount=human.asleep?human.wallet:Math.min(25,human.wallet);human.wallet-=amount;human.picked=true;p.money+=amount;p.hold=null;this.emit({k:'cash',pid:p.id,amount});}return;}

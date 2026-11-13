@@ -258,6 +258,7 @@ export class Room {
     if(checkpoint==='driving'){
       const g=this.game,crew=g.activePlayers();if(crew[0]){crew[0].cageKeys=1;g.vehicleAction(crew[0].id,{op:'unlock'});}for(const p of crew){p.inVehicle=true;p.x=g.vehicle.x;p.y=g.vehicle.y;}
     }
+    this.game.scoreLog.practice=checkpoint!=='zoo'&&!continuing&&!saved;
     if(saved)applyCheckpoint(this.game,saved);
     this.loadedCheckpoint=null;
     for (const p of this.players.values()) if (!list.includes(p)) p.spectator = true;

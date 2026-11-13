@@ -63,7 +63,7 @@ export function rescueObject(g,p,o){
 }
 export const powerDone=g=>active(g).every(p=>g.rescue.inserted.has(p.id));
 export const allRescued=g=>g.rescue.animals.every(a=>a.state==='escaped');
-function freeAnimal(g,a,bait=null){a.bait=bait;g.obj('release-'+a.id).state=1;for(const o of g.objects)if(o.kind==='rescueTeam'&&o.cage===a.id)o.state=1;g.openGate(g.gate(a.gate));a.state='running';a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.bait||a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;g.emit({k:'districtrescue',species:a.species});}
+function freeAnimal(g,a,bait=null,helpers=[]){a.bait=bait;g.obj('release-'+a.id).state=1;for(const o of g.objects)if(o.kind==='rescueTeam'&&o.cage===a.id)o.state=1;g.openGate(g.gate(a.gate));a.state='running';a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.bait||a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;g.emit({k:'districtrescue',species:a.species,cage:a.id,pids:helpers});}
 export function rescueHold(g,p,inp,dt){
  const h=p.hold;if(!h.kind.startsWith('rescue'))return false;
  if(!inp.e||!p.connected||p.capturedT>0){p.hold=null;return true;}
@@ -73,7 +73,7 @@ export function rescueHold(g,p,inp,dt){
  h.t+=dt;if(h.t<h.need)return true;p.hold=null;
  if(h.kind==='rescueFuse'){g.rescue.fuses.add(p.id);o.state=1;}
  if(h.kind==='rescueInsert'&&g.rescue.fuses.has(p.id)){g.rescue.inserted.add(p.id);o.state=g.rescue.inserted.size;g.emit({k:'relayconnected',pid:p.id});}
- if(h.kind==='rescueUnlock'){const a=g.rescue.animals.find(a=>a.id===h.cage);if(a.state==='caged'){if(a.species==='lion'){if(!h.food||!(p.food?.[h.food]>0))return true;p.food[h.food]--;a.luredWith=h.food;}report(g,p);freeAnimal(g,a,a.species==='lion'?[Math.floor(p.x),Math.floor(p.y)]:null);}}
+ if(h.kind==='rescueUnlock'){const a=g.rescue.animals.find(a=>a.id===h.cage);if(a.state==='caged'){if(a.species==='lion'){if(!h.food||!(p.food?.[h.food]>0))return true;p.food[h.food]--;a.luredWith=h.food;}report(g,p);freeAnimal(g,a,a.species==='lion'?[Math.floor(p.x),Math.floor(p.y)]:null,[p.id]);}}
  return true;
 }
 export function rescueReturn(g,p){
@@ -84,18 +84,18 @@ function releaseCage(g){g.openGate(g.gate('rescue-holding'));for(const p of acti
 export function rescueAction(g,pid,msg){
  const p=g.players.get(pid),r=g.rescue;if(!p?.active||!p.connected||p.caged||p.capturedT>0||g.phase!=='play')return;
  if(msg.op==='leavePlane'&&p.inPlane&&r.flight.phase==='boarding'){p.inPlane=false;r.flight.aboard.delete(p.id);p.x=101.5;p.y=407.5;p.safe=[p.x,p.y];p.grace=3;return;}
- if(msg.op==='flight'&&p.inPlane){const job=PLANE_JOBS.find(j=>j.id===msg.control),index=PLANE_JOBS.indexOf(job),crew=active(g);if(!job||crew[index%crew.length].id!==pid||!job.choices.includes(msg.value)||r.flight.phase==='departed')return;r.flight.values[job.id]=msg.value;return;}
+ if(msg.op==='flight'&&p.inPlane){const job=PLANE_JOBS.find(j=>j.id===msg.control),index=PLANE_JOBS.indexOf(job),crew=active(g);if(!job||crew[index%crew.length].id!==pid||!job.choices.includes(msg.value)||r.flight.phase==='departed')return;r.flight.values[job.id]=msg.value;if(msg.value===job.choices[1])g.emit({k:'flighttask',pid:p.id,obj:job.id});return;}
  if(p.chapterStation==null)return;
  const panel=r.panels[pid];if(msg.op==='leave'&&r.panelPhase==='waiting'){p.chapterStation=null;return;}
  if(!active(g).every(q=>q.connected&&q.chapterStation!=null))return;
  if(msg.op==='power'&&r.panelPhase==='arming')panel.powered=true;
- if(msg.op==='set'&&r.panelPhase==='running'&&panel.powered&&panel.done<5){const c=panel.controls[msg.control];if(!c||!Number.isInteger(msg.value)||msg.value<0||msg.value>c.max)return;c.value=msg.value;const t=panel.tasks[panel.done];if(t.control===msg.control&&t.value===msg.value){panel.done++;routeClues(g);}}
+ if(msg.op==='set'&&r.panelPhase==='running'&&panel.powered&&panel.done<5){const c=panel.controls[msg.control];if(!c||!Number.isInteger(msg.value)||msg.value<0||msg.value>c.max)return;c.value=msg.value;const t=panel.tasks[panel.done];if(t.control===msg.control&&t.value===msg.value){panel.done++;routeClues(g);g.emit({k:'paneltask',pid:p.id,done:panel.done});}}
 }
 export function stepRescue(g,dt){
  const r=g.rescue,crew=active(g);if(!r||!crew.length)return;const roster=crew.map(p=>p.id).join('|');if(r.roster!==roster){r.roster=roster;for(const id of Object.keys(r.panels))if(!crew.some(p=>p.id===id))delete r.panels[id];routeClues(g);}
  for(const a of r.animals){a.moving=false;if(a.state==='escaped'){stepCityAnimal(g,a,dt);continue;}if(a.state!=='running')continue;if(!a.path)a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.bait||a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;if(!a.path)continue;if(!a.path.length){if(a.bait){a.bait=null;a.path=null;}else enterCityAnimal(g,a);continue;}const t=a.path[0],dx=t[0]+.5-a.x,dy=t[1]+.5-a.y,d=Math.hypot(dx,dy),step=Math.min(d,dt*3.8);if(d>.001){a.x+=dx/d*step;a.y+=dy/d*step;a.face=dx<0?'left':'right';a.moving=true;}if(d<.12)a.path.shift();}
  for(const a of r.animals.filter(a=>a.mechanism==='team'&&a.state==='caged')){
-  const ready=crew.length&&crew.every(p=>p.connected&&!p.caged&&p.capturedT<=0&&p.hold?.kind==='rescueTeam'&&p.hold.cage===a.id&&(a.species!=='gorilla'||p.tools?.includes(p.hold.tool))&&p.input.e&&near(g,p,g.obj(p.hold.obj),1.9));r.teamTimers[a.id]=ready?(r.teamTimers[a.id]||0)+dt:0;if(r.teamTimers[a.id]>=2.5){for(const p of crew){report(g,p);p.hold=null;}freeAnimal(g,a);}
+  const ready=crew.length&&crew.every(p=>p.connected&&!p.caged&&p.capturedT<=0&&p.hold?.kind==='rescueTeam'&&p.hold.cage===a.id&&(a.species!=='gorilla'||p.tools?.includes(p.hold.tool))&&p.input.e&&near(g,p,g.obj(p.hold.obj),1.9));r.teamTimers[a.id]=ready?(r.teamTimers[a.id]||0)+dt:0;if(r.teamTimers[a.id]>=2.5){for(const p of crew){report(g,p);p.hold=null;}freeAnimal(g,a,null,crew.map(p=>p.id));}
  }
  const captives=crew.filter(p=>p.cageDistrict==='rescue'&&p.caged),brace=allCaptured(g)&&captives.length&&captives.every(p=>p.connected&&p.hold?.kind==='rescueBrace'&&p.input.e&&dist(p.x,p.y,p.hold.wall[0]+.5,p.hold.wall[1]+.5)<1.4);
  r.cageProgress=brace?r.cageProgress+dt:0;if(r.cageProgress>=1.5)releaseCage(g);

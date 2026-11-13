@@ -21,7 +21,7 @@ const defaults={steering:0,gas:0,brake:0,gear:'Park',handbrake:'Set',ignition:'O
 export class ParkingGame extends Game{
  constructor({players,seed=1,options={},worldId='parking',previousCarSlot=null,carColor=null}){
   super({players,seed,options:{...options,staff:false}});
-  this.options={staff:true,...options};this.zoo={...getZoo(worldId),decor:getZoo(worldId).decor.map(d=>({...d}))};this.zooId=worldId;
+  this.options={staff:true,...options};this.scoreLog.staffEnabled=this.options.staff;this.zoo={...getZoo(worldId),decor:getZoo(worldId).decor.map(d=>({...d}))};this.zooId=worldId;
   if(worldId==='parking'){
    const cars=this.zoo.decor.filter(d=>d.kind==='parkedCar'),choices=cars.map((_,i)=>i).filter(i=>i!==previousCarSlot),slot=choices[Math.floor(this.rng()*choices.length)];
    cars.forEach((d,i)=>{d.getaway=i===slot;d.colorIndex=(i+Math.floor(this.rng()*6))%6;});const d=cars[slot];

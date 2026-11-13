@@ -41,6 +41,7 @@ export function captureCheckpoint(g,hostId){
 }
 export function checkpointSummary(d){const names={zoo:'Moonleaf Zoo — enclosure checkpoint',control:'Moonleaf Zoo — control house',parking:'Parking lot — find the getaway car',driving:'Parking lot — getaway car unlocked',city:'Breakout City'};if(d.stage!=='city')return names[d.stage];const freed=cageIds.filter((_,i)=>d.city.released&(1<<i)).length;return `Breakout City · ${({street:'city streets',bank:'Cedar Bank',hardware:'Beaver Hardware',grocery:'Acorn Groceries',thrift:'Second Paw Thrift',control:'Animal Control',zoo:'Northgate Zoo',zooUpper:'upper terrace',zooPavilion:'bird house',zooControl:'signal house',petstore:'pet store',airport:'Wildwing Airport'})[d.city.scene]} · ${freed}/19 animals released${d.city.power?' · power restored':''}${d.city.signal?' · signal house complete':''}`;}
 export function applyCheckpoint(g,d){
+ g.scoreLog.resumed=true;
  const crew=g.activePlayers(),used=new Set(),counts=[...d.tools];g.checkpointWardrobe=d.members.map(p=>({a:p.a,o:p.o,e:[...p.e],f:p.f||[0,0,0],t:0}));
  const chosen=new Map();for(const p of crew){const record=d.members.find(m=>m.a===ANIMAL_IDS.indexOf(p.animal));if(record){chosen.set(p.id,record);used.add(record.a);}}
  for(const p of crew)if(!chosen.has(p.id)){const record=d.members.find(m=>!used.has(m.a));if(record){chosen.set(p.id,record);used.add(record.a);}}

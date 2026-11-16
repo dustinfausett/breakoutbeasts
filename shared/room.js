@@ -1,3 +1,4 @@
+import {completeMissionForTesting} from './mission-testing.js';
 import {captureCheckpoint,encodeCheckpoint,decodeCheckpoint,applyCheckpoint,checkpointSummary} from './checkpoints.js';
 // Transport-agnostic room: lobby, animal picks, readiness, mission lifecycle, reconnection.
 // The Node server wraps it with WebSockets; solo play wraps it with a direct in-browser link.
@@ -128,7 +129,7 @@ export class Room {
   handle(pid, msg) {
     const p = this.players.get(pid);
     if (!p || !msg || typeof msg.t !== 'string') return;
-    if(this.paused&&['in','dig','city','vehicle','rescue','panel','continueWithout','chat','emote'].includes(msg.t))return;
+    if(this.paused&&['in','testComplete','dig','city','vehicle','rescue','panel','continueWithout','chat','emote'].includes(msg.t))return;
     switch (msg.t) {
       case 'name': p.name = cleanName(msg.name, p.name); this.broadcastLobby(); break;
       case 'pick': {
@@ -182,6 +183,11 @@ export class Room {
         const now=Date.now();if(now-(p.lastChat||0)<100)return;p.lastChat=now;
         const text=String(msg.text||'').replace(/[\u0000-\u001f\u007f]/g,'').trim().slice(0,180);
         if(text&&this.game)this._pendingEvents.push({k:'chat',pid,name:p.name,text});
+        break;
+      }
+      case 'testComplete': {
+        if(pid!==this.hostId||!p.connected||this.phase!=='playing'||this.paused||msg.code!=='breakoutbeast'||!this.game?.players.get(pid)?.active)return;
+        if(completeMissionForTesting(this.game)){this.queues.clear();this.game.drainEvents();}
         break;
       }
       case 'in': {

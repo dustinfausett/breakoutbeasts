@@ -1,3 +1,4 @@
+import {createMissionCodeTracker,isDesktopComputer} from './secret-code.js';
 import {renderRoundScore} from './round-results.js';
 import {mountDigPicker,updateDigPicker} from './dig-picker.js';
 import {decodeCheckpoint} from './shared/checkpoints.js';
@@ -40,6 +41,10 @@ const app = {
   lastNotice: '', hintShown: false, teamClues:{}, lastRelay:0,
 };
 const input = new Input();
+const missionCode=createMissionCodeTracker();
+window.addEventListener('keydown',e=>{if(missionCode.push(e,app.inGame&&!app.overlay&&!app.paused&&app.world?.snap?.phase==='play'&&app.myId===app.lobby?.hostId&&isDesktopComputer())){e.preventDefault();e.stopImmediatePropagation();input.releaseAll();releaseVehicleControls();app.link?.send({t:'testComplete',code:'breakoutbeast'});}},true);
+window.addEventListener('blur',()=>missionCode.reset());
+document.addEventListener('visibilitychange',()=>{if(document.hidden)missionCode.reset();});
 const audio = new Audio();
 window.addEventListener('beasts-radio',e=>{audio.unlock();audio.station=e.detail;audio.play('click');});
 window.__bb = { app, settings };
@@ -47,6 +52,7 @@ window.__bb = { app, settings };
 // ---------------- screens ----------------
 const BASE = ['loading', 'title', 'join', 'animals', 'lobby', 'hud'];
 function show(id) {
+  missionCode.reset();
   for (const s of BASE) $('#' + s).classList.toggle('show', s === id);
   app.screen = id;
   input.enabled = id === 'hud' && !app.overlay;
@@ -54,6 +60,7 @@ function show(id) {
   if (id !== 'hud' && first) setTimeout(() => first.focus({ preventScroll: true }), 30);
 }
 function overlay(id) {
+  missionCode.reset();
   for (const s of ['pause', 'settings', 'help', 'complete', 'conn']) $('#' + s).classList.toggle('show', s === id);
   app.overlay = id;
   input.enabled = app.screen === 'hud' && !id;

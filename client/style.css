@@ -254,3 +254,4 @@ body.runway-active #flight-panel{position:fixed;inset:0;width:100vw;height:100dv
 body.in-plane #pause,body.in-plane #settings,body.in-plane #help{z-index:60}body.in-plane:not(.runway-active) #runway-view,body.in-plane:not(.runway-active) #flight-jobs,body.in-plane:not(.runway-active) #flight-checklist{display:none}
 
 #captions.captions{position:fixed;top:auto!important;bottom:max(120px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:25;max-width:min(560px,70vw);display:flex!important;pointer-events:none}body.touch-on #captions.captions{display:flex!important;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 260px);max-width:65vw}@media(orientation:landscape) and (max-height:550px){body.touch-on #captions.captions{bottom:155px;max-width:55vw}}
+#flight-checklist[hidden]{display:none!important}

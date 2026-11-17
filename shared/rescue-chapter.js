@@ -1,4 +1,4 @@
-import {flightView,runwayAction,stepRunway} from './runway.js';
+import {flightView,flightOwner,runwayAction,stepRunway} from './runway.js';
 import {stationPanel,routeStationClues,stationInstruction} from './stations.js';
 import {FOOD} from './shops.js';
 import {TOOLS} from './hardware.js';
@@ -114,7 +114,7 @@ export function stepRescue(g,dt){
 }
 export function rescuePublic(g){const r=g.rescue;if(!r)return null;return {animals:r.animals.map(a=>({id:a.id,species:a.species,mechanism:a.mechanism,scene:a.scene,location:a.location||a.scene,x:a.x,y:a.y,state:a.state,face:a.face,moving:a.moving})),freed:r.animals.filter(a=>a.state==='escaped').length,total:r.animals.length,power:{done:powerDone(g),inserted:active(g).filter(p=>r.inserted.has(p.id)).length,need:active(g).length,team:active(g).map(p=>({id:p.id,name:p.name,index:g.order.indexOf(p.id),collected:r.fuses.has(p.id),inserted:r.inserted.has(p.id)}))},signal:r.signal,description:r.description,holding:{captured:active(g).filter(p=>p.caged&&p.cageDistrict==='rescue').length,progress:r.cageProgress},flight:{x:r.flight.x,y:r.flight.y,phase:r.flight.phase,progress:Math.min(1,r.flight.travel/44),aboard:active(g).filter(p=>p.inPlane).length,need:active(g).length},cages:r.animals.map(a=>({id:a.id,mechanism:a.mechanism,scene:a.scene,state:a.state}))};}
 export function rescuePersonal(g,p){const r=g.rescue;if(!r)return {};
- const result={};if(p.inPlane){const crew=active(g);result.flight={...rescuePublic(g).flight,...flightView(g),controls:PLANE_JOBS.filter((j,i)=>crew[i%crew.length].id===p.id).map(j=>({...j,value:r.flight.values[j.id]||j.choices[0]}))};}
+ const result={};if(p.inPlane){const crew=active(g);const view=flightView(g);result.flight={...rescuePublic(g).flight,...view,isReader:view.reader===p.id,tasks:view.reader===p.id?view.tasks:[],controls:PLANE_JOBS.filter(j=>flightOwner(g,j.id)===p.id).map(j=>({...j,value:r.flight.values[j.id]||j.choices[0]}))};}
  if(p.chapterStation!=null){const panel=r.panels[p.id],target=active(g).find(q=>r.panels[q.id]?.done<5&&r.panels[q.id]?.reader===p.id),other=target?r.panels[target.id]:null,t=other?.tasks[other.done],c=t?other.controls[t.control]:null;result.control={district:true,phase:r.panelPhase,remaining:r.panelRemaining,limit:180,powered:panel.powered,done:panel.done,controls:panel.controls,ready:active(g).every(q=>q.connected&&q.chapterStation!=null),paused:active(g).some(q=>!q.connected),team:active(g).map(q=>({id:q.id,name:q.name,inside:q.chapterStation!=null,powered:r.panels[q.id].powered,done:r.panels[q.id].done})),instruction:t?{target:target.id,index:other.done,control:t.control,value:t.value,text:stationInstruction(c,t.value)}:{text:''}};}
  return result;
 }

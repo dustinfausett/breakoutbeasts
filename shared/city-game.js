@@ -1,4 +1,4 @@
-import {initPolice,policeRecognized,policeExpose,policeRecognition,stealPoliceCar,startPolicePatrols,stepPolice,policePersonal} from './police.js';
+import {initPolice,policeRunOver,policeRecognized,policeExpose,policeRecognition,stealPoliceCar,startPolicePatrols,stepPolice,policePersonal} from './police.js';
 import {initPrison,prisonObject,prisonHold,prisonAction,prisonPersonal,stepPrison,policeImprison,cancelPrisonGame} from './prison.js';
 import {vehicleCells} from './driving.js';
 import {shopObject,shopHold,shopAction,shopPersonal,reportShoplifting} from './shops.js';
@@ -29,6 +29,7 @@ export class CityGame extends ParkingGame{
  _carFits(x,y,angle){return this.cars?fleetFits(this,x,y,angle):super._carFits(x,y,angle);}
  vehicleAction(pid,msg){return fleetAction(this,pid,msg);}
 
+ _hitKeepers(){const before=new Set(this.staff.filter(s=>s.permanentDown).map(s=>s.id));super._hitKeepers();for(const s of this.staff)if(s.police&&s.permanentDown&&!before.has(s.id))policeRunOver(this,s);}
  _carControls(){return CAR_CONTROLS.map(c=>c.id==='navigation'?{...c,choices:this.zoo.destinations.map(d=>d.name),goal:this.zoo.destinations[0].name,hint:'Choose a destination. Read your GPS turns aloud to the driver.'}:c);}
  detectable(p){return !p.caged&&p.chapterStation==null&&!p.inPlane&&(p.location==='street'||isRescueScene(p.location)||!!this.zoo.interiors[p.location]||p.location==='bank'&&this.controlArrived&&this.controlKind==='police')&&(!isDisguised(p)||this.police?.active||this.policeWanted?.has(p.id)||policeRecognized(this,p)||wantedInRescue(this,p))&&super.detectable(p);}
  _policeVisible(s,p){const car=s.inCar?this.cars.find(c=>c.id===s.carId):null;if(!car)return Game.prototype.canSee.call(this,s,p);const cells=new Set(vehicleCells(car,this.w,this.h)),view=Object.create(this);view.visionBlocked=(x,y)=>cells.has(y*this.w+x)?tileBlocksVision(this.tileAt(x,y)):this.visionBlocked(x,y);return Game.prototype.canSee.call(view,s,p);}

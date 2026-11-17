@@ -398,6 +398,8 @@ function handleEvent(ev) {
     case 'vaultopen': caption('The vault is open — grab the money!','good');break;
     case 'cityrescue': caption('The animal-control cage is open!','good');break;
     case 'cityvisit': caption(`Discovered ${ev.name}!`, 'good');break;
+    case 'policerunover': caption('Police alerted! Two officers arrive in 15 seconds.','alert');break;
+    case 'policebackup': caption('Two more police officers have arrived.','alert');break;
     case 'runover': audio.play('capture');caption('Keeper knocked out for this chapter.', 'good');break;
     case 'cagerescue': caption(`${ev.name} opened the holding cage!`, 'good');break;
     case 'carunlock': audio.play('fob');caption(`${ev.name} pressed Unlock. Look for the flashing headlights!`, 'good');break;

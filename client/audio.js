@@ -67,6 +67,9 @@ export class Audio {
       case 'gateClose': this.tone(300, 0.15, { type: 'sawtooth', vol: 0.08, slide: -200 }); break;
       case 'alert': this.tone(880, 0.12, { vol: 0.14 }); this.tone(1100, 0.18, { vol: 0.14, delay: 0.12 }); break;
       case 'suspicious': this.tone(500, 0.1, { type: 'triangle', vol: 0.08, slide: 200 }); break;
+      case 'flightquack': this.tone(340,.12,{type:'sawtooth',slide:-140,vol:.1});this.tone(280,.16,{type:'sawtooth',delay:.15,slide:-120,vol:.1});break;
+      case 'flightbanana': for(let i=0;i<4;i++)this.tone(300+i*100,.13,{type:'square',delay:i*.13,vol:.06});break;
+      case 'flightburp': this.tone(85,.5,{type:'sawtooth',slide:-50,vol:.12});break;
       case 'capture': this.tone(500, 0.2, { vol: 0.12, slide: -300 }); this.tone(300, 0.3, { vol: 0.12, delay: 0.2, slide: -150 }); break;
       case 'rescue': [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.12, { vol: 0.1, delay: i * 0.08, type: 'triangle' })); break;
       case 'complete': [523, 659, 784, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.18, { vol: 0.12, delay: i * 0.13, type: 'triangle' })); break;

@@ -3,7 +3,7 @@ import {staffCanEnter} from './tiles.js';
 function open(g,x,y,scene){const r=scene==='street'?[2,2,157,124]:g.zoo.interiors[scene]?.rect;return r&&x>r[0]&&x<r[2]&&y>r[1]&&y<r[3]&&staffCanEnter(g.tileAt(x,y))&&!g.entSolid[y*g.w+x];}
 function point(g,scene){const r=scene==='street'?[2,2,157,124]:g.zoo.interiors[scene]?.rect;if(!r)return null;for(let i=0;i<120;i++){const x=Math.floor(r[0]+1+g.rng()*(r[2]-r[0]-2)),y=Math.floor(r[1]+1+g.rng()*(r[3]-r[1]-2));if(!(scene==='bank'&&x>=g.zoo.bankLayout.wallX&&y<=144)&&open(g,x,y,scene)&&!g.rescue.animals.some(a=>a.scene===scene&&x>a.rect?.[0]&&x<a.rect?.[2]&&y>a.rect?.[1]&&y<a.rect?.[3]))return [x,y];}return null;}
 export function initCrowds(g){
- const counts={bank:14,street:54,zoo:26,zooUpper:14,zooPavilion:12,petstore:8,hardware:4};
+ const counts={airport:24,bank:14,street:54,zoo:26,zooUpper:14,zooPavilion:12,petstore:8,hardware:4};
  for(const [scene,count] of Object.entries(counts))for(let i=0;i<count;i++){const p=point(g,scene);if(!p)continue;g.humans.push({id:scene+'-crowd-'+i,scene,x:p[0]+.5,y:p[1]+.5,home:[p[0]+.5,p[1]+.5],angle:g.rng()*Math.PI*2,wallet:scene==='bank'?60+Math.floor(g.rng()*100):0,asleep:false,picked:false,color:i%4,visitor:scene.startsWith('zoo')||scene==='petstore',wait:g.rng()*3,carId:scene==='street'&&i<18?'city-car-'+i:null});}
  g.humans.sort((a,b)=>(a.scene==='bank'?0:1)-(b.scene==='bank'?0:1));
 }

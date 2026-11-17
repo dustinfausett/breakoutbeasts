@@ -11,7 +11,7 @@ export function completeTasksForTesting(g){if(!g||g.phase!=='play')return false;
   for(const a of r.animals){g.openGate(g.gate(a.gate));a.state='running';enterCityAnimal(g,a);a.state='escaped';}
   if(g.prison){g.prison.active=false;for(const lock of g.prison.locks){lock.done=true;lock.owner=null;lock.game=null;}g.openGate(g.gate('police-prison'));}
   g.openGate(g.gate('city-vault'));g.openGate(g.gate('city-cage'));g.openGate(g.gate('rescue-holding'));
-  const f=r.flight;f.aboard=new Set();f.values=Object.fromEntries(PLANE_JOBS.map(j=>[j.id,j.choices[1]]));f.travel=0;f.y=397;f.phase='boarding';
+  const f=r.flight;f.aboard=new Set();f.values=Object.fromEntries(PLANE_JOBS.map(j=>[j.id,j.choices[1]]));f.travel=0;f.y=397;f.phase='boarding';f.prepared=true;
   for(const p of crew){p.inPlane=false;if(boarded.has(p.id)){p.location='airport';p.x=101.5;p.y=407.5;p.safe=[p.x,p.y];}}
   g._callControl(30,'police');
  }else if(g.zooId==='parking'){

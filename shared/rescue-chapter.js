@@ -1,3 +1,4 @@
+import {flightView,runwayAction,stepRunway} from './runway.js';
 import {stationPanel,routeStationClues,stationInstruction} from './stations.js';
 import {FOOD} from './shops.js';
 import {TOOLS} from './hardware.js';
@@ -56,8 +57,9 @@ export function rescueObject(g,p,o){
  if(o.kind==='rescuePanel'){
   if(g.rescue.signal)return {text:'Habitat signal network is online',idle:true};if(!powerDone(g))return {text:'Connect every habitat relay first',idle:true};if(active(g).some(q=>q.id!==p.id&&q.chapterStation===o.index))return {text:'This station is occupied; choose another',idle:true};return {text:'Enter this signal-house station',run:()=>{p.chapterStation=o.index;p.hold=null;if(!g.rescue.panelPhase){g.rescue.panelPhase='waiting';g.rescue.panelRemaining=180;routeClues(g);}}};
  }
+ if(o.kind==='airportSecurity')return {text:isDisguised(p)?'Show costume at security (E)':'Security requires a shirt, hat and pants disguise',idle:!isDisguised(p),run:()=>{if(isDisguised(p)){p.airportCleared=fingerprint(p);p.x=76.5;p.y=410.5;p.safe=[p.x,p.y];}}};
  if(o.kind==='boardPlane'){
-  if(!allRescued(g))return {text:'Free every zoo, pet-store and Animal Control animal before boarding',idle:true};return {text:'Board the escape plane',run:()=>{p.inPlane=true;p.hold=null;p.x=g.rescue.flight.x;p.y=g.rescue.flight.y;g.rescue.flight.aboard.add(p.id);}};
+  if(p.airportCleared!==fingerprint(p))return {text:'Pass airport security in your current costume first',idle:true};if(!allRescued(g))return {text:'Free every zoo, pet-store and Animal Control animal before boarding',idle:true};return {text:'Board the escape plane',run:()=>{p.inPlane=true;p.hold=null;p.x=g.rescue.flight.x;p.y=g.rescue.flight.y;g.rescue.flight.aboard.add(p.id);}};
  }
  return null;
 }
@@ -84,7 +86,7 @@ function releaseCage(g){g.openGate(g.gate('rescue-holding'));for(const p of acti
 export function rescueAction(g,pid,msg){
  const p=g.players.get(pid),r=g.rescue;if(!p?.active||!p.connected||p.caged||p.capturedT>0||g.phase!=='play')return;
  if(msg.op==='leavePlane'&&p.inPlane&&r.flight.phase==='boarding'){p.inPlane=false;r.flight.aboard.delete(p.id);p.x=101.5;p.y=407.5;p.safe=[p.x,p.y];p.grace=3;return;}
- if(msg.op==='flight'&&p.inPlane){const job=PLANE_JOBS.find(j=>j.id===msg.control),index=PLANE_JOBS.indexOf(job),crew=active(g);if(!job||crew[index%crew.length].id!==pid||!job.choices.includes(msg.value)||r.flight.phase==='departed')return;r.flight.values[job.id]=msg.value;if(msg.value===job.choices[1])g.emit({k:'flighttask',pid:p.id,obj:job.id});return;}
+ if(['flight','honk','retry'].includes(msg.op)){runwayAction(g,p,msg);return;}
  if(p.chapterStation==null)return;
  const panel=r.panels[pid];if(msg.op==='leave'&&r.panelPhase==='waiting'){p.chapterStation=null;return;}
  if(!active(g).every(q=>q.connected&&q.chapterStation!=null))return;
@@ -108,12 +110,11 @@ export function stepRescue(g,dt){
   if(r.panelRemaining<=0){for(const p of crew){p.chapterStation=null;p.captureOrigin='rescue';g._capture({},p);newPanel(g,p);}r.panelPhase='waiting';r.panelRemaining=180;routeClues(g);g.emit({k:'districtpanelraid'});}
   if(crew.every(p=>r.panels[p.id].done===5)){r.signal=true;r.panelPhase='complete';for(const p of crew)p.chapterStation=null;g.emit({k:'districtsignal'});}
  }
- const f=r.flight,aboard=crew.length&&crew.every(p=>p.inPlane&&p.connected&&!p.caged&&p.capturedT<=0),correct=PLANE_JOBS.every(j=>f.values[j.id]===j.choices[1]);
- if(aboard&&correct&&allRescued(g)){f.phase='takeoff';f.travel+=dt*4;f.y=397-f.travel;for(const p of crew){p.x=f.x;p.y=f.y;}if(f.travel>=44){f.phase='departed';for(const p of crew)p.muzzled=false;g.phase='complete';g.emit({k:'flightdeparted'});g.emit({k:'complete'});}}
+ stepRunway(g,dt);
 }
 export function rescuePublic(g){const r=g.rescue;if(!r)return null;return {animals:r.animals.map(a=>({id:a.id,species:a.species,mechanism:a.mechanism,scene:a.scene,location:a.location||a.scene,x:a.x,y:a.y,state:a.state,face:a.face,moving:a.moving})),freed:r.animals.filter(a=>a.state==='escaped').length,total:r.animals.length,power:{done:powerDone(g),inserted:active(g).filter(p=>r.inserted.has(p.id)).length,need:active(g).length,team:active(g).map(p=>({id:p.id,name:p.name,index:g.order.indexOf(p.id),collected:r.fuses.has(p.id),inserted:r.inserted.has(p.id)}))},signal:r.signal,description:r.description,holding:{captured:active(g).filter(p=>p.caged&&p.cageDistrict==='rescue').length,progress:r.cageProgress},flight:{x:r.flight.x,y:r.flight.y,phase:r.flight.phase,progress:Math.min(1,r.flight.travel/44),aboard:active(g).filter(p=>p.inPlane).length,need:active(g).length},cages:r.animals.map(a=>({id:a.id,mechanism:a.mechanism,scene:a.scene,state:a.state}))};}
 export function rescuePersonal(g,p){const r=g.rescue;if(!r)return {};
- const result={};if(p.inPlane){const crew=active(g);result.flight={...rescuePublic(g).flight,controls:PLANE_JOBS.filter((j,i)=>crew[i%crew.length].id===p.id).map(j=>({...j,value:r.flight.values[j.id]||j.choices[0]}))};}
+ const result={};if(p.inPlane){const crew=active(g);result.flight={...rescuePublic(g).flight,...flightView(g),controls:PLANE_JOBS.filter((j,i)=>crew[i%crew.length].id===p.id).map(j=>({...j,value:r.flight.values[j.id]||j.choices[0]}))};}
  if(p.chapterStation!=null){const panel=r.panels[p.id],target=active(g).find(q=>r.panels[q.id]?.done<5&&r.panels[q.id]?.reader===p.id),other=target?r.panels[target.id]:null,t=other?.tasks[other.done],c=t?other.controls[t.control]:null;result.control={district:true,phase:r.panelPhase,remaining:r.panelRemaining,limit:180,powered:panel.powered,done:panel.done,controls:panel.controls,ready:active(g).every(q=>q.connected&&q.chapterStation!=null),paused:active(g).some(q=>!q.connected),team:active(g).map(q=>({id:q.id,name:q.name,inside:q.chapterStation!=null,powered:r.panels[q.id].powered,done:r.panels[q.id].done})),instruction:t?{target:target.id,index:other.done,control:t.control,value:t.value,text:stationInstruction(c,t.value)}:{text:''}};}
  return result;
 }

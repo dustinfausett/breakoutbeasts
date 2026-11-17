@@ -383,6 +383,8 @@ function handleEvent(ev) {
     case 'districtsignal': caption('All habitat signal consoles complete. Release the remaining animals!','good');break;
     case 'districtpanelraid': caption('The signal-house guards broke in. Rescue the team and try the consoles again.','alert');break;
     case 'districtcagerescue': caption('The zoo rescue cage is open!','good');break;
+    case 'flightjoke': if(ev.pid!==app.myId)audio.play(['flightquack','flightbanana','flightburp'][ev.sound%3]);break;
+    case 'flightcrash': audio.play('capture');caption('Runway attempt failed. Retry from the cockpit.','alert');break;
     case 'flightdeparted': caption('All animals rescued. Wildwing crew is airborne!','good');break;
     case 'shopPaid': if(ev.pid===app.myId)caption(`Paid $${ev.amount}. Thank you!`,'good');break;
     case 'shopTheft': caption(`${ev.name} left without paying. Police are coming!`,'alert');break;
@@ -595,7 +597,7 @@ function clientView() {
     world: w, zoo: w.zoo, staff:s.st,
     prison:s.me?.prison,rescue:s.rescue,flight:s.me?.flight,
     vehicle:s.me?.vehicle,
-    me: { holding:!!me.hk,stamina:s.me?.stamina,exhausted:s.me?.exhausted,money:s.me?.city?.money||0,tools:s.me?.city?.tools||[],shopping:!!s.me?.city?.shopping,shopCategory:s.me?.city?.category,cart:s.me?.city?.cart||[],food:s.me?.city?.food||{},location:me.location,cageDistrict:me.cageDistrict,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
+    me: { outfit:s.me?.city?.outfit||{},airportCleared:s.me?.airportCleared,holding:!!me.hk,stamina:s.me?.stamina,exhausted:s.me?.exhausted,money:s.me?.city?.money||0,tools:s.me?.city?.tools||[],shopping:!!s.me?.city?.shopping,shopCategory:s.me?.city?.category,cart:s.me?.city?.cart||[],food:s.me?.city?.food||{},location:me.location,cageDistrict:me.cageDistrict,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
     obj: s.obj,
     objects: d.objects.map((o, i) => ({ ...o, state: s.os[i] })),
     gates: d.gates.map((g, i) => ({ ...g, state: Number(s.g[i]) })),

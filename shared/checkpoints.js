@@ -19,7 +19,7 @@ function valid(d){
  if(!d||d.v!==1||!stages.includes(d.stage)||!integer(d.cash,10000000)||!Array.isArray(d.members)||(d.members.length<1||d.members.length>10)||!Array.isArray(d.tools)||d.tools.length!==4||!d.tools.every(n=>integer(n,80)))return false;
  const used=new Set();for(const p of d.members){if(!p||!integer(p.a,9)||used.has(p.a)||!integer(p.o,511)||!integer(p.t,15)||!Array.isArray(p.e)||p.e.length!==3||!p.e.every((s,i)=>integer(s,2,-1)&&(s<0||(p.o&(1<<(i*3+s))))))return false;if(p.f!=null&&(!Array.isArray(p.f)||p.f.length!==3||!p.f.every(n=>integer(n,99))))return false;used.add(p.a);}
  if(d.stage!=='city')return d.city==null&&(!['zoo','control'].includes(d.stage)||(d.moon&&integer(d.moon.free,1023)&&integer(d.moon.fuses,1023)&&typeof d.moon.power==='boolean'));
- const c=d.city;return !!c&&scenes.includes(c.scene)&&integer(c.released,(1<<19)-1)&&typeof c.power==='boolean'&&typeof c.signal==='boolean'&&(!c.signal||c.power)&&typeof c.vault==='boolean'&&integer(c.cash,12000)&&Array.isArray(c.visited)&&c.visited.length<=10&&c.visited.every(n=>integer(n,9))&&Array.isArray(c.bank)&&c.bank.length<=14&&c.bank.every(n=>Array.isArray(n)&&n.length===2&&integer(n[0],1000)&&typeof n[1]==='boolean');
+ const c=d.city;return !!c&&(c.securityPaid==null||integer(c.securityPaid,1023))&&scenes.includes(c.scene)&&integer(c.released,(1<<19)-1)&&typeof c.power==='boolean'&&typeof c.signal==='boolean'&&(!c.signal||c.power)&&typeof c.vault==='boolean'&&integer(c.cash,12000)&&Array.isArray(c.visited)&&c.visited.length<=10&&c.visited.every(n=>integer(n,9))&&Array.isArray(c.bank)&&c.bank.length<=14&&c.bank.every(n=>Array.isArray(n)&&n.length===2&&integer(n[0],1000)&&typeof n[1]==='boolean');
 }
 export function encodeCheckpoint(data){if(!valid(data))throw new Error('This checkpoint cannot be saved.');const text=JSON.stringify(data),payload=btoa(text).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');const code='BB1.'+payload+'.'+checksum(payload);if(code.length>MAX_SAVE_CODE)throw new Error('This checkpoint is too large.');return code;}
 export function decodeCheckpoint(raw){
@@ -35,7 +35,7 @@ export function captureCheckpoint(g,hostId){
  if(['zoo','control'].includes(stage)){data.moon={free:[...crew.filter(p=>p.escaped).map(p=>p.animal),...g.npcs.filter(n=>n.state!=='caged').map(n=>n.animal)].reduce((mask,a)=>mask|(1<<ANIMAL_IDS.indexOf(a)),0),fuses:g.parts.filter(pt=>pt.inserted).reduce((mask,pt)=>{const p=g.players.get(pt.pid);return p?mask|(1<<ANIMAL_IDS.indexOf(p.animal)):mask;},0),power:g.powerDone()};}
  if(stage==='city'){
   const host=crew.find(p=>p.id===hostId)||crew[0],r=g.rescue;
-  data.city={scene:r?(host.inVehicle?'street':host.inPlane?'airport':host.caged||host.capturedT>0?(host.cageDistrict==='rescue'?'zoo':'street'):host.location||'street'):'street',released:r?r.animals.reduce((mask,a)=>a.state==='caged'?mask:mask|(1<<cageIds.indexOf(a.id)),0):0,power:!!r&&crew.every(p=>r.inserted.has(p.id)),signal:!!r?.signal,vault:!!g.gate('city-vault')?.state,cash:g.vaultCash??12000,visited:[...(g.visited||[])].map(id=>g.zoo.destinations.findIndex(d=>d.id===id)).filter(i=>i>=0),bank:(g.humans||[]).filter(n=>n.scene==='bank').map(n=>[n.wallet,!!n.picked])};
+  data.city={securityPaid:crew.filter(p=>p.airportPaid).reduce((mask,p)=>mask|(1<<ANIMAL_IDS.indexOf(p.animal)),0),scene:r?(host.inVehicle?'street':host.inPlane?'airport':host.caged||host.capturedT>0?(host.cageDistrict==='rescue'?'zoo':'street'):host.location||'street'):'street',released:r?r.animals.reduce((mask,a)=>a.state==='caged'?mask:mask|(1<<cageIds.indexOf(a.id)),0):0,power:!!r&&crew.every(p=>r.inserted.has(p.id)),signal:!!r?.signal,vault:!!g.gate('city-vault')?.state,cash:g.vaultCash??12000,visited:[...(g.visited||[])].map(id=>g.zoo.destinations.findIndex(d=>d.id===id)).filter(i=>i>=0),bank:(g.humans||[]).filter(n=>n.scene==='bank').map(n=>[n.wallet,!!n.picked])};
  }
  return data;
 }
@@ -57,7 +57,7 @@ export function applyCheckpoint(g,d){
   g.drainEvents();g.rebuildBlock();
  }
  if(d.stage!=='city')return;
- const c=d.city;g.vaultCash=c.cash;if(c.vault){g.openGate(g.gate('city-vault'));g._callControl(30,'police');}g.visited=new Set(c.visited.map(i=>g.zoo.destinations[i]?.id).filter(Boolean));
+ const c=d.city;for(const p of crew)p.airportPaid=!!((c.securityPaid||0)&(1<<ANIMAL_IDS.indexOf(p.animal)));g.vaultCash=c.cash;if(c.vault){g.openGate(g.gate('city-vault'));g._callControl(30,'police');}g.visited=new Set(c.visited.map(i=>g.zoo.destinations[i]?.id).filter(Boolean));
  for(const [i,n] of g.humans.filter(n=>n.scene==='bank').entries())if(c.bank[i]){n.wallet=c.bank[i][0];n.picked=c.bank[i][1];}
  if(c.power){for(const p of crew){g.rescue.fuses.add(p.id);g.rescue.inserted.add(p.id);const o=g.obj('rescue-fuse-'+g.order.indexOf(p.id));if(o)o.state=1;}g.obj('rescue-generator').state=crew.length;}
  g.rescue.signal=c.signal;if(c.signal)g.rescue.panelPhase='complete';

@@ -388,6 +388,7 @@ function handleEvent(ev) {
     case 'flightdeparted': caption('All animals rescued. Wildwing crew is airborne!','good');break;
     case 'shopPaid': if(ev.pid===app.myId)caption(`Paid $${ev.amount}. Thank you!`,'good');break;
     case 'shopTheft': caption(`${ev.name} left without paying. Police are coming!`,'alert');break;
+    case 'securitypaid': caption('Team security fee paid. Everyone is cleared!','good');break;
     case 'cash': if(ev.pid===app.myId)caption(`Collected $${ev.amount}.`,'good');break;
     case 'policeidentified': caption(`${ev.name} has been identified! Change clothes to lose the description.`,'alert');break;
     case 'prisonunlock': caption('A prison lock clicked open!','good');break;
@@ -597,7 +598,7 @@ function clientView() {
     world: w, zoo: w.zoo, staff:s.st,
     prison:s.me?.prison,rescue:s.rescue,flight:s.me?.flight,
     vehicle:s.me?.vehicle,
-    me: { outfit:s.me?.city?.outfit||{},airportCleared:s.me?.airportCleared,holding:!!me.hk,stamina:s.me?.stamina,exhausted:s.me?.exhausted,money:s.me?.city?.money||0,tools:s.me?.city?.tools||[],shopping:!!s.me?.city?.shopping,shopCategory:s.me?.city?.category,cart:s.me?.city?.cart||[],food:s.me?.city?.food||{},location:me.location,cageDistrict:me.cageDistrict,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
+    me: { outfit:s.me?.city?.outfit||{},airportCleared:s.me?.airportCleared,airportPaid:s.me?.airportPaid,holding:!!me.hk,stamina:s.me?.stamina,exhausted:s.me?.exhausted,money:s.me?.city?.money||0,tools:s.me?.city?.tools||[],shopping:!!s.me?.city?.shopping,shopCategory:s.me?.city?.category,cart:s.me?.city?.cart||[],food:s.me?.city?.food||{},location:me.location,cageDistrict:me.cageDistrict,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
     obj: s.obj,
     objects: d.objects.map((o, i) => ({ ...o, state: s.os[i] })),
     gates: d.gates.map((g, i) => ({ ...g, state: Number(s.g[i]) })),

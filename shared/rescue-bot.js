@@ -26,5 +26,5 @@ export function rescueBot(bot,v,dt){
  if(!r.power.done)return idle();
  if(!r.signal){return scene('zooControl')||use('rescue-panel-'+mine.index);}
  const a=r.animals.find(a=>a.state==='caged');if(a){if(a.mechanism==='key'&&!v.me.keys)return null;return scene(a.scene)||use(a.mechanism==='team'?`team-${a.id}-${mine.index}`:'release-'+a.id);}
- if(r.freed!==r.total)return idle();return scene('airport')||use(v.me.airportCleared?'board-plane':'airport-security');
+ if(r.freed!==r.total)return idle();if(!v.me.airportPaid&&v.me.money<100)return scene('bank')||use('vault-cash');return scene('airport')||use(v.me.airportCleared?'board-plane':'airport-security');
 }

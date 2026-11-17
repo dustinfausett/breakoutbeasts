@@ -266,7 +266,7 @@ export class Renderer {
     }
 
     for(const car of snap.cars||[snap.obj.parking?.car])if(car&&visible(car.x,car.y)){
-      ctx.save();ctx.translate(car.x*TS,car.y*TS);ctx.rotate(car.angle);if(car.police)drawPoliceCar(ctx,now,car.stolen);else carArt(ctx,-32,-24,64,48,car.colorIndex||0);ctx.restore();
+      ctx.save();ctx.translate(car.x*TS,car.y*TS);ctx.rotate(car.angle);if(car.police)drawPoliceCar(ctx,now,car.stolen);else carArt(ctx,-32,-24,64,48,car.colorIndex||0);if(car.taserUntil>snap.time||car.disabled&&Math.floor(now/180)%2){ctx.strokeStyle='#83e4ff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-36,-14);ctx.lineTo(-23,-23);ctx.lineTo(-12,-14);ctx.lineTo(4,-24);ctx.lineTo(20,-15);ctx.lineTo(34,-21);ctx.stroke();}ctx.restore();
     }
     const plane=snap.rescue?.flight;
     if(plane){ctx.save();ctx.translate(plane.x*TS,plane.y*TS);ctx.fillStyle='#c8d9d5';ctx.beginPath();ctx.moveTo(0,-125);ctx.lineTo(18,-75);ctx.lineTo(18,-10);ctx.lineTo(230,52);ctx.lineTo(225,78);ctx.lineTo(18,47);ctx.lineTo(15,115);ctx.lineTo(75,140);ctx.lineTo(70,151);ctx.lineTo(0,137);ctx.lineTo(-70,151);ctx.lineTo(-75,140);ctx.lineTo(-15,115);ctx.lineTo(-18,47);ctx.lineTo(-225,78);ctx.lineTo(-230,52);ctx.lineTo(-18,-10);ctx.lineTo(-18,-75);ctx.closePath();ctx.fill();ctx.strokeStyle='#577982';ctx.lineWidth=4;ctx.stroke();ctx.fillStyle='#275065';ctx.fillRect(-12,-70,24,22);ctx.fillStyle='#e0ae65';ctx.fillRect(-18,2,36,6);ctx.restore();}

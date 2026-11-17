@@ -42,7 +42,7 @@ export function fleetAction(g,pid,msg){
   if(msg.op==='unlock'){car.unlocked=true;car.lightsUntil=g.time+5;g.emit({k:'carunlock',x:car.x,y:car.y,name:p.name});}
   else if(g.time>=(car.panicReady||0)){car.alarmUntil=g.time+8;car.panicReady=g.time+2;car.alarmPulse=0;}return;
  }
- if(!car||!p.inVehicle)return;
+ if(!car||!p.inVehicle)return;if(car.disabled&&msg.op!=='leave')return;
  withCar(g,car,()=>ParkingGame.prototype.vehicleAction.call(g,pid,msg));
  if(!p.inVehicle){p.vehicleId=null;assignCrew(g,car);}
 }
@@ -57,11 +57,12 @@ export function stepFleet(g,dt){
    continue;
   }
 
+  if(car.disabled){car.speed=0;car.values.gas=0;car.values.brake=1;continue;}
   withCar(g,car,()=>g._stepVehicle(dt,crewFor(g,car)));
  }
  g.rebuildBlock();
 }
-export function publicCar(car){return {id:car.id,police:!!car.police,stolen:!!car.stolen,x:car.x,y:car.y,angle:car.angle,colorIndex:car.colorIndex||0,speed:car.speed,steering:car.values.steering,lightsUntil:car.lightsUntil,alarmUntil:car.alarmUntil};}
+export function publicCar(car){return {id:car.id,taserUntil:car.taserUntil||0,wanted:!!car.wanted,disabled:!!car.disabled,taserHits:car.taserHits||0,police:!!car.police,stolen:!!car.stolen,x:car.x,y:car.y,angle:car.angle,colorIndex:car.colorIndex||0,speed:car.speed,steering:car.values.steering,lightsUntil:car.lightsUntil,alarmUntil:car.alarmUntil};}
 export function fleetPersonal(g,p){
  const car=g.cars.find(c=>c.id===p.vehicleId);if(!p.inVehicle||!car)return null;const crew=crewFor(g,car),controls=g._carControls();return {city:true,unlocked:car.unlocked,car:publicCar(car),inCar:crew.length,need:crew.length,team:crew.map(p=>({id:p.id,name:p.name,inside:true,connected:p.connected})),roles:Object.entries(car.owners).map(([id,pid])=>({id,pid,name:g.players.get(pid)?.name,label:controls.find(c=>c.id===id).label})),controls:controls.filter(c=>car.owners[c.id]===p.id).map(c=>({...c,value:car.values[c.id]}))};
 }

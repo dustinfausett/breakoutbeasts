@@ -1,3 +1,4 @@
+import {showEventCaption} from './event-captions.js';
 import {mountPrisonUI,updatePrisonUI} from './prison-ui.js';
 import {createMissionCodeTracker,isDesktopComputer} from './secret-code.js';
 import {renderRoundScore} from './round-results.js';
@@ -94,7 +95,8 @@ function applySettings() {
   $('#title-hard').checked=settings.hard;$('#join-hard').checked=settings.hard;
 }
 
-function caption(text, cls = '', sound = false) {
+const caption=showCaption;
+function showCaption(text, cls = '', sound = false) {
   if (sound && !settings.captions) return;
   const box = $('#captions');
   const d = document.createElement('div');
@@ -330,6 +332,7 @@ function handleEvent(ev) {
   const r = app.renderer;
   r.addEvent(ev);
   const mine = ev.pid === app.myId;
+  const caption=(...args)=>{if(showEventCaption(ev.k))showCaption(...args);};
   switch (ev.k) {
     case 'msg': caption(ev.text); break;
     case 'gate': if (nearMe(ev.x, ev.y)) { audio.play(ev.open ? 'gate' : 'gateClose'); caption(ev.open ? '[Clank] A gate swings open' : '[Clang] A gate slams shut', '', true); } break;
@@ -347,7 +350,7 @@ function handleEvent(ev) {
     case 'radio': caption('[Radio] Loose animal spotted! All keepers are converging. Break line of sight before hiding.', 'alert'); break;
     case 'suspicious': if (app.world && nearMe(app.world.snap.st[ev.id]?.x || 0, app.world.snap.st[ev.id]?.y || 0, 9)) { audio.play('suspicious'); caption('[Hmm?] A keeper noticed something…', '', true); } break;
     case 'investigate': break;
-    case 'capture': audio.play('capture'); caption(mine ? 'You were caught! Back to your enclosure…' : `${ev.name} was caught! Steal a key for their cage or build an escape ramp.`, 'alert'); break;
+    case 'capture': audio.play('capture'); if(app.world?.zoo.id==='city'){caption(mine?'You were captured!':`${ev.name||nameOf(ev.pid)} was captured!`,'alert');break;}caption(mine ? 'You were caught! Back to your enclosure…' : `${ev.name} was caught! Steal a key for their cage or build an escape ramp.`, 'alert'); break;
     case 'rescue': audio.play('rescue'); { const o = app.world?.snap?.obj.rescue; caption(`${ANIMALS[ev.animal].name} is free!${o ? ` (${o.n}/${o.need} needed)` : ''}`, 'good'); } break;
     case 'escaped': audio.play('rescue'); caption(mine ? 'You escaped your enclosure!' : `${ev.name} escaped!`, 'good'); break;
     case 'chewed': audio.play('crunch'); caption('[Crunch] Wood chewed through', '', true); break;
@@ -399,6 +402,8 @@ function handleEvent(ev) {
     case 'vaultopen': caption('The vault is open — grab the money!','good');break;
     case 'cityrescue': caption('The animal-control cage is open!','good');break;
     case 'cityvisit': caption(`Discovered ${ev.name}!`, 'good');break;
+    case 'cartaser': caption(ev.stopped?'Car disabled! Police are surrounding it.':`Car tasered: ${ev.hits}/5`,'alert');audio.play('capture');break;
+    case 'policereset': caption('Everyone is jailed. Police presence is back to normal.');break;
     case 'policerunover': caption('Police alerted! Two officers arrive in 15 seconds.','alert');break;
     case 'policebackup': caption('Two more police officers have arrived.','alert');break;
     case 'runover': audio.play('capture');caption('Keeper knocked out for this chapter.', 'good');break;
@@ -422,11 +427,11 @@ function onEnd(res) {
   app.results = res;
   input.releaseAll();
   const mins = Math.floor(res.time / 60), secs = String(res.time % 60).padStart(2, '0');
-  $('#complete-h').textContent=res.stage==='city'?(res.flightEscaped?'All animals free — plane escaped!':'City explored!'):res.stage==='parking'?'Parking lot escaped!':'Zoo escaped!';
-  $('#complete .tagline').textContent=res.flightEscaped?'The rescue crew is airborne. Every animal is free!':res.stage==='parking'?'The crew drove through the exit. Continue into Breakout City.':'You escaped the zoo. The parking lot is next.';
-  const continueButton=document.querySelector('[data-act="continue"]');continueButton.hidden=!['parking','city'].includes(res.next);continueButton.disabled=app.lobby?.hostId!==app.myId;
+  $('#complete-h').textContent=res.stage==='takeoff'?'Takeoff complete!':res.stage==='city'?(res.flightEscaped?'All animals free — plane escaped!':'Everyone aboard!'):res.stage==='parking'?'Parking lot escaped!':'Zoo escaped!';
+  $('#complete .tagline').textContent=res.next==='takeoff'?'City chapter complete. Continue to the runway takeoff challenge.':res.flightEscaped?'The rescue crew is airborne. Every animal is free!':res.stage==='parking'?'The crew drove through the exit. Continue into Breakout City.':'You escaped the zoo. The parking lot is next.';
+  const continueButton=document.querySelector('[data-act="continue"]');continueButton.hidden=!['parking','city','takeoff'].includes(res.next);continueButton.disabled=app.lobby?.hostId!==app.myId;
   $('#complete-stats').innerHTML = `<p><b>${esc(res.zoo)}</b> escaped in <b>${mins}:${secs}</b></p>
-    ${res.flightEscaped?`<p>All ${res.districtTotal} zoo, pet-store and Animal Control animals rescued. The whole crew flew away!</p>`:res.stage==='parking'?'<p>Getaway wagon stolen · every animal has a car responsibility.</p>':`<p>Animals freed: <b>${res.rescued}/${res.total}</b>${res.rescued === res.total ? ' — every animal is free! ★' : ''}</p>`}
+    ${res.stage==='city'?`<p>All ${res.districtRescued}/${res.districtTotal} animals rescued. Everyone is aboard the plane.</p>`:res.flightEscaped?`<p>All ${res.districtTotal} zoo, pet-store and Animal Control animals rescued. The whole crew flew away!</p>`:res.stage==='parking'?'<p>Getaway wagon stolen · every animal has a car responsibility.</p>':`<p>Animals freed: <b>${res.rescued}/${res.total}</b>${res.rescued === res.total ? ' — every animal is free! ★' : ''}</p>`}
     ${res.score?'':`<p>Times caught: <b>${res.captures}</b>${res.captures === 0 ? ' — perfectly sneaky! ★' : ''}</p>`}
     ${res.score?renderRoundScore(res.score,portraitURL):`<div class="players">${res.players.map((p) => `<span><img src="${portraitURL(p.animal)}" alt="">${esc(p.name)}${p.active ? '' : ' (left)'}</span>`).join('')}</div>`}`;
   const isHost = app.lobby?.hostId === app.myId;

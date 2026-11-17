@@ -1,3 +1,6 @@
+import {prepareTakeoff} from './runway.js';
+import {completeTasksForTesting as prepareAirport} from './mission-testing.js';
+import {CLOTHES} from './wardrobe.js';
 import {completeTasksForTesting} from './mission-testing.js';
 import {captureCheckpoint,encodeCheckpoint,decodeCheckpoint,applyCheckpoint,checkpointSummary} from './checkpoints.js';
 // Transport-agnostic room: lobby, animal picks, readiness, mission lifecycle, reconnection.
@@ -163,16 +166,16 @@ export class Room {
         if (notReady.length) return this.error(pid, 'not_ready', `Waiting for ${notReady.map((q) => q.name).join(', ')} to be ready.`);
         const offline = list.filter((q) => !q.connected);
         if (offline.length) return this.error(pid, 'not_ready', `Waiting for ${offline.map((q) => q.name).join(', ')} to reconnect.`);
-        this.startMission(this.loadedCheckpoint?.stage||(['zoo','control','parking','driving','city'].includes(msg.startAt)?msg.startAt:'zoo'),this.loadedCheckpoint);
+        this.startMission(this.loadedCheckpoint?.stage||(['zoo','control','parking','driving','city','airport','takeoff'].includes(msg.startAt)?msg.startAt:'zoo'),this.loadedCheckpoint);
         break;
       }
       case 'continue': {
-        if(pid!==this.hostId)return this.error(pid,'not_host','Only the host can continue the team to the parking lot.');
-        if(this.phase!=='complete'||!['moonleaf','parking'].includes(this.game?.zooId))return;
+        if(pid!==this.hostId)return this.error(pid,'not_host','Only the host can continue to the next chapter.');
+        if(this.phase!=='complete'||(!['moonleaf','parking','city'].includes(this.game?.zooId)||this.game?.flightChapter))return;
         const remaining=[...this.players.values()].filter(p=>this.game.players.get(p.id)?.active&&!p.spectator);
         if(!remaining.length)return this.error(pid,'no_crew','Return to the lobby to choose a new crew.');
         if(remaining.some(p=>!p.connected))return this.error(pid,'waiting','Wait for your teammates to reconnect before continuing.');
-        this.startMission(this.game.zooId==='parking'?'city':'parking');break;
+        this.startMission(this.game.zooId==='city'?'takeoff':this.game.zooId==='parking'?'city':'parking');break;
       }
       case 'prison': if(this.phase==='playing')this.game?.prisonAction?.(pid,msg);break;
       case 'dig': if(this.phase==='playing')this.game?.digAction(pid,msg);break;
@@ -224,7 +227,7 @@ export class Room {
       case 'replay':
         if (pid !== this.hostId) return this.error(pid, 'not_host', 'Only the host can restart the mission.');
         if (this.phase === 'lobby') return;
-        this.startMission(['parking','city'].includes(this.game?.zooId)?this.game.zooId:'zoo');
+        this.startMission(this.game?.flightChapter?'takeoff':['parking','city'].includes(this.game?.zooId)?this.game.zooId:'zoo');
         break;
       case 'toLobby':
         if (pid !== this.hostId) return this.error(pid, 'not_host', 'Only the host can return everyone to the lobby.');
@@ -249,14 +252,17 @@ export class Room {
   }
 
   startMission(stage='zoo',saved=null) {
-    const checkpoint=stage;stage=stage==='control'?'zoo':stage==='driving'?'parking':stage;
-    const continuing=(stage==='parking'&&this.game?.zooId==='moonleaf')||(stage==='city'&&this.game?.zooId==='parking');
+    const checkpoint=stage;stage=stage==='airport'?'city':stage==='control'?'zoo':stage==='driving'?'parking':stage;
+    const continuing=(stage==='parking'&&this.game?.zooId==='moonleaf')||(stage==='city'&&this.game?.zooId==='parking')||(stage==='takeoff'&&this.game?.zooId==='city');
+    const previous=this.game;
     const carColor=this.game?.vehicle?.colorIndex;
     const eligible=continuing?new Set(this.game.activePlayers().map(p=>p.id)):null;
     for (const p of this.players.values()) { p.spectator = false; }
     const list = [...this.players.values()].filter((p) => p.animal && p.connected && (!eligible||eligible.has(p.id))).sort((a, b) => a.joinedAt - b.joinedAt);
     const seed = Math.floor(this.rng() * 1e9);
-    this.game = new (stage==='city'?CityGame:stage==='parking'?ParkingGame:Game)({previousCarSlot:this.lastCarSlot,carColor:stage==='city'?carColor:null,zooId: this.zooId, players: list.map((p) => ({ id: p.id, name: p.name, animal: p.animal })), seed, options: this.options });
+    this.game = new (['city','takeoff'].includes(stage)?CityGame:stage==='parking'?ParkingGame:Game)({previousCarSlot:this.lastCarSlot,carColor:stage==='city'?carColor:null,zooId: this.zooId, players: list.map((p) => ({ id: p.id, name: p.name, animal: p.animal })), seed, options: this.options });
+    if(stage==='takeoff'){prepareTakeoff(this.game);if(continuing)for(const p of this.game.activePlayers()){const old=previous.players.get(p.id);if(old)for(const key of ['money','outfit','owned','tools','food','airportPaid'])p[key]=structuredClone(old[key]);}}
+    if(checkpoint==='airport'&&!saved){const g=this.game;prepareAirport(g);for(const [i,p] of g.activePlayers().entries()){p.money=100;p.inVehicle=false;p.vehicleId=null;p.location='airport';p.x=68.5+i%3;p.y=410.5+Math.floor(i/3);for(const c of CLOTHES.filter(c=>c.animal===p.animal&&c.style===0)){p.owned.push(c.id);p.outfit[c.slot]=c.id;}}}
     if(checkpoint==='control'&&!saved){
       const g=this.game;for(const part of g.parts)part.inserted=true;for(const n of g.npcs)g.openGate(g.gate(g.zoo.enclosures[n.enc].mainGate));
       for(const o of g.objects)if(o.kind==='socket')o.state=1;
@@ -265,7 +271,7 @@ export class Room {
     if(checkpoint==='driving'){
       const g=this.game,crew=g.activePlayers();if(crew[0]){crew[0].cageKeys=1;g.vehicleAction(crew[0].id,{op:'unlock'});}for(const p of crew){p.inVehicle=true;p.x=g.vehicle.x;p.y=g.vehicle.y;}
     }
-    this.game.scoreLog.practice=checkpoint!=='zoo'&&!continuing&&!saved;
+    this.game.scoreLog.practice=checkpoint!=='zoo'&&!continuing&&!saved||!!(continuing&&previous?.scoreLog.practice);
     if(saved)applyCheckpoint(this.game,saved);
     this.loadedCheckpoint=null;
     for (const p of this.players.values()) if (!list.includes(p)) p.spectator = true;
@@ -339,7 +345,7 @@ export class Room {
     }
     if (this.game.phase === 'complete') {
       this.phase = 'complete';
-      this.results = {...this.game.results(),stage:this.game.zooId==='city'?'city':this.game.zooId==='parking'?'parking':'zoo',next:this.game.zooId==='moonleaf'?'parking':this.game.zooId==='parking'?'city':null};
+      this.results = {...this.game.results(),stage:this.game.flightChapter?'takeoff':this.game.zooId==='city'?'city':this.game.zooId==='parking'?'parking':'zoo',next:this.game.zooId==='moonleaf'?'parking':this.game.zooId==='parking'?'city':this.game.zooId==='city'&&!this.game.flightChapter?'takeoff':null};
       this.broadcast({ t: 'end', results: this.results });
       this.broadcastLobby();
     }

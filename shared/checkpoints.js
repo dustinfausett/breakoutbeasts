@@ -8,7 +8,7 @@ import {RESCUE_SPECIES} from './rescue-data.js';
 import {enterCityAnimal} from './city-movement.js';
 export const MAX_SAVE_CODE=3200;
 const slots=['shirt','hat','pants'];
-const stages=['zoo','control','parking','driving','city'];
+const stages=['zoo','control','parking','driving','city','takeoff'];
 const scenes=['street','bank','hardware','grocery','police','thrift','control','zoo','zooUpper','zooPavilion','zooControl','petstore','airport'];
 const cageIds=[...RESCUE_SPECIES,'control-dog','control-cat','control-rabbit'];
 const integer=(v,max,min=0)=>Number.isInteger(v)&&v>=min&&v<=max;
@@ -30,7 +30,7 @@ export function decodeCheckpoint(raw){
 export function captureCheckpoint(g,hostId){
  const crew=g.activePlayers();if(!crew.length)throw new Error('Return to the lobby and choose a crew before saving.');const members=new Map((g.checkpointWardrobe||[]).map(p=>[p.a,{...p,t:0}])),tools=[...(g.checkpointSpareTools||[0,0,0,0])];
  for(const original of crew){const unpaid=original.cart||[],p={...original,owned:(original.owned||[]).filter(id=>!unpaid.some(c=>c.id===id)),tools:(original.tools||[]).filter(id=>!unpaid.some(c=>c.id===id)),food:{...original.food},outfit:{...original.outfit}};for(const item of unpaid){if(item.type==='food')p.food[item.id]=Math.max(0,(p.food[item.id]||0)-1);if(item.type==='clothes'){const c=CLOTHES.find(c=>c.id===item.id);if(p.outfit[c.slot]===item.id)delete p.outfit[c.slot];}}members.set(ANIMAL_IDS.indexOf(p.animal),{a:ANIMAL_IDS.indexOf(p.animal),o:maskClothes(p),e:slots.map(slot=>CLOTHES.find(c=>c.id===p.outfit?.[slot])?.style??-1),t:maskTools(p),f:FOOD.map(f=>Math.min(99,p.food?.[f.id]||0))});for(const id of p.tools||[]){const i=TOOLS.findIndex(t=>t.id===id);if(i>=0)tools[i]++;}}
- let stage=g.zooId==='city'?'city':g.zooId==='parking'?(g.phase==='complete'?'city':g.vehicle.unlocked?'driving':'parking'):g.phase==='complete'?'parking':g.keysActive()?'control':'zoo';
+ let stage=g.flightChapter||g.zooId==='city'&&g.phase==='complete'?'takeoff':g.zooId==='city'?'city':g.zooId==='parking'?(g.phase==='complete'?'city':g.vehicle.unlocked?'driving':'parking'):g.phase==='complete'?'parking':g.keysActive()?'control':'zoo';
  const data={v:1,stage,cash:crew.reduce((sum,p)=>sum+(p.money||0),0),members:[...members.values()],tools};
  if(['zoo','control'].includes(stage)){data.moon={free:[...crew.filter(p=>p.escaped).map(p=>p.animal),...g.npcs.filter(n=>n.state!=='caged').map(n=>n.animal)].reduce((mask,a)=>mask|(1<<ANIMAL_IDS.indexOf(a)),0),fuses:g.parts.filter(pt=>pt.inserted).reduce((mask,pt)=>{const p=g.players.get(pt.pid);return p?mask|(1<<ANIMAL_IDS.indexOf(p.animal)):mask;},0),power:g.powerDone()};}
  if(stage==='city'){
@@ -39,7 +39,7 @@ export function captureCheckpoint(g,hostId){
  }
  return data;
 }
-export function checkpointSummary(d){const names={zoo:'Moonleaf Zoo — enclosure checkpoint',control:'Moonleaf Zoo — control house',parking:'Parking lot — find the getaway car',driving:'Parking lot — getaway car unlocked',city:'Breakout City'};if(d.stage!=='city')return names[d.stage];const freed=cageIds.filter((_,i)=>d.city.released&(1<<i)).length;return `Breakout City · ${({street:'city streets',bank:'Cedar Bank',hardware:'Beaver Hardware',police:'police station',grocery:'Acorn Groceries',thrift:'Second Paw Thrift',control:'Animal Control',zoo:'Northgate Zoo',zooUpper:'upper terrace',zooPavilion:'bird house',zooControl:'signal house',petstore:'pet store',airport:'Wildwing Airport'})[d.city.scene]} · ${freed}/19 animals released${d.city.power?' · power restored':''}${d.city.signal?' · signal house complete':''}`;}
+export function checkpointSummary(d){const names={takeoff:'Wildwing — runway takeoff',zoo:'Moonleaf Zoo — enclosure checkpoint',control:'Moonleaf Zoo — control house',parking:'Parking lot — find the getaway car',driving:'Parking lot — getaway car unlocked',city:'Breakout City'};if(d.stage!=='city')return names[d.stage];const freed=cageIds.filter((_,i)=>d.city.released&(1<<i)).length;return `Breakout City · ${({street:'city streets',bank:'Cedar Bank',hardware:'Beaver Hardware',police:'police station',grocery:'Acorn Groceries',thrift:'Second Paw Thrift',control:'Animal Control',zoo:'Northgate Zoo',zooUpper:'upper terrace',zooPavilion:'bird house',zooControl:'signal house',petstore:'pet store',airport:'Wildwing Airport'})[d.city.scene]} · ${freed}/19 animals released${d.city.power?' · power restored':''}${d.city.signal?' · signal house complete':''}`;}
 export function applyCheckpoint(g,d){
  g.scoreLog.resumed=true;
  const crew=g.activePlayers(),used=new Set(),counts=[...d.tools];g.checkpointWardrobe=d.members.map(p=>({a:p.a,o:p.o,e:[...p.e],f:p.f||[0,0,0],t:0}));

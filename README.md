@@ -696,3 +696,25 @@ Police capture immediately removes all cash, worn clothes and owned disguises, i
 Focused simulation and multiplayer browser checks cover preserved bank timing, vault-search priority, confiscation, unchanged teammate inventory, getaway protection through doorways, and the player-facing escape warning.
 
 Validation: all 1,012 team compositions completed without deadlocks. The bank/prison focused suite passed 19 checks, save/shortcut regressions passed 21, and the multiplayer browser flow passed all six checks without browser errors. A syntax typo in the revised vault test was corrected and that test passed on rerun. Build and whitespace checks pass.
+
+### Wanted cars, five-hit tasers and police reset
+
+Running over an officer marks that specific car as wanted. Officers who see it can fire tasers in range with clear sight; each officer has a firing cooldown. Four hits leave the car usable, and the fifth disables its engine until the police reset. Nearby officers approach different sides of the car. Two officers surrounding a stopped car for two seconds tranquilize its occupants and send them to police jail. Animals may climb out and flee; a stopped ordinary car also does not conceal visibly recognized animals. Current disguises retain their recognition delay in an ordinary stopped car. Wanted-car hits and disabled state appear in the car status display, with electrical effects on the vehicle.
+
+The elevated police presence and runover reinforcement queues remain until every active animal is physically jailed at the police station. Capturing only part of the crew does not reset them. Once all are jailed, outstanding reinforcements and dispatch alarms are cancelled, wanted-car records clear, disabled vehicles reset and police return to their normal starting numbers. This reset happens once per all-jailed event; it does not free the prisoners.
+
+Ambient event popups—including police backups, shell bumps, alarms, sightings and taser warnings—are suppressed. Capture notifications stay visible. Direct cash/payment feedback and player emotes remain available; taser progress and alarms remain in their HUD displays.
+
+Focused simulation tests and a two-player browser flow cover the five-hit threshold, stopped-car arrests, clear sight, partial/full jail resets, suppressed ambient warnings, preserved capture notifications and visible taser status.
+
+### Boarding score screen and the takeoff chapter
+
+When every connected animal boards at the airport, the city chapter ends with its team score, medal and player awards. The host's **Continue** button starts a separate Wildwing takeoff chapter with a fresh timer and its own score. Waiting for other animals to board does not start the runway clock. The existing randomized caller/controls, speed gates, five-hit vehicle rules and capture-only ambient-warning policy remain in place.
+
+The secret start menu now includes **Airport — security and boarding** and **Plane — runway takeoff**. The airport test start supplies completed rescue objectives, fitted disguises and the pooled security fee so the crew can test boarding. The takeoff start places the crew aboard immediately and begins the playable runway challenge. These direct starts are marked as practice, including continuation from the airport shortcut. Safe progress codes also support restarting the takeoff chapter.
+
+Tests cover partial boarding, city score/Continue, host permissions, takeoff scores and saved-flight restoration. A real two-player browser flow passed airport boarding, the score screen, Continue, private caller/pilot controls and successful takeoff; a separate solo browser start opened all flight controls directly from the secret menu.
+
+The hidden desktop task-completion word also supports the takeoff chapter: it prepares every flight control and leaves the scene open. Choose **Take off** when ready to finish that practice attempt; typing the word does not force the results screen.
+
+Final validation: the full suite passed **278/278**, including all **1,012** original-zoo team compositions. Focused reruns passed the final vehicle-surrounding and takeoff-shortcut changes. The multiplayer vehicle-arrest browser flow passed seven checks; the boarding/Continue/takeoff flow passed nine, including a direct solo takeoff start. Both had no browser errors. Build and whitespace checks pass.

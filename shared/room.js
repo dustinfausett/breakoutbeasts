@@ -1,4 +1,4 @@
-import {completeMissionForTesting} from './mission-testing.js';
+import {completeTasksForTesting} from './mission-testing.js';
 import {captureCheckpoint,encodeCheckpoint,decodeCheckpoint,applyCheckpoint,checkpointSummary} from './checkpoints.js';
 // Transport-agnostic room: lobby, animal picks, readiness, mission lifecycle, reconnection.
 // The Node server wraps it with WebSockets; solo play wraps it with a direct in-browser link.
@@ -129,7 +129,7 @@ export class Room {
   handle(pid, msg) {
     const p = this.players.get(pid);
     if (!p || !msg || typeof msg.t !== 'string') return;
-    if(this.paused&&['in','testComplete','dig','city','vehicle','rescue','panel','continueWithout','chat','emote'].includes(msg.t))return;
+    if(this.paused&&['in','prison','testComplete','dig','city','vehicle','rescue','panel','continueWithout','chat','emote'].includes(msg.t))return;
     switch (msg.t) {
       case 'name': p.name = cleanName(msg.name, p.name); this.broadcastLobby(); break;
       case 'pick': {
@@ -174,6 +174,7 @@ export class Room {
         if(remaining.some(p=>!p.connected))return this.error(pid,'waiting','Wait for your teammates to reconnect before continuing.');
         this.startMission(this.game.zooId==='parking'?'city':'parking');break;
       }
+      case 'prison': if(this.phase==='playing')this.game?.prisonAction?.(pid,msg);break;
       case 'dig': if(this.phase==='playing')this.game?.digAction(pid,msg);break;
       case 'rescue': if(this.phase==='playing')this.game?.rescueAction?.(pid,msg);break;
       case 'city': if(this.phase==='playing')this.game?.cityAction?.(pid,msg);break;
@@ -187,7 +188,7 @@ export class Room {
       }
       case 'testComplete': {
         if(pid!==this.hostId||!p.connected||this.phase!=='playing'||this.paused||msg.code!=='breakoutbeast'||!this.game?.players.get(pid)?.active)return;
-        if(completeMissionForTesting(this.game)){this.queues.clear();this.game.drainEvents();}
+        if(completeTasksForTesting(this.game)){this.queues.clear();this.game.drainEvents();}
         break;
       }
       case 'in': {

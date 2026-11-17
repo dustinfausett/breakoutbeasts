@@ -302,7 +302,11 @@ function buildActionSprites(){
 }
 
 export const SPRITES = {};
+
+function buildPoliceSprites(){const pal={...STAFF.pal,c:'#263d73',C:'#162647',s:'#345b91',S:'#203c68',p:'#1b2e4d',y:'#f1d270'},r=[make(STAFF.rows,pal),make(walkFrame(STAFF.rows),pal)];SPRITES.police={r,l:r.map(flip),run:{r:[...r,...r],l:[...r,...r].map(flip)}};const down=document.createElement('canvas');down.width=16;down.height=16;const ctx=down.getContext('2d');ctx.translate(16,0);ctx.rotate(Math.PI/2);ctx.drawImage(r[0],0,0);SPRITES.policeDown={r:[down],l:[flip(down)]};}
+
 export function buildSprites() {
+  buildPoliceSprites();
   if(IMAGES.actors){
     const ids=['redpanda','elephant','monkey','beaver','giraffe','penguin','zebra','meerkat','tortoise','flamingo','staff','staffDown'];
     ids.forEach((id,index)=>{

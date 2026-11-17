@@ -17,7 +17,7 @@ export function viewFromGame(game, pid) {
   const p = game.players.get(pid);
   return {
     vehicle:['parking','city'].includes(game.zooId)?game.personal(pid)?.vehicle:null,
-    rescue:game.rescue?rescuePublic(game):null,flight:game.rescue?rescuePersonal(game,p).flight:null,
+    prison:game.zooId==='city'?game.personal(pid)?.prison:null,rescue:game.rescue?rescuePublic(game):null,flight:game.rescue?rescuePersonal(game,p).flight:null,
     panel:game.rescue?rescuePersonal(game,p).control:controlPersonal(game,pid),
     teamClues:p.chapterStation!=null?game.activePlayers().map(q=>rescuePersonal(game,q).control?.instruction).filter(Boolean):p.inControlRoom?game.activePlayers().map(q=>controlPersonal(game,q.id)?.instruction).filter(Boolean):[],
     world: game, zoo: game.zoo, staff:game.staff.map(s=>({x:s.x,y:s.y,d:s.dir,ar:game.time<game.alertUntil})),

@@ -1,3 +1,4 @@
+import {drawPoliceCar} from './police-art.js';
 import {drawOutfit} from './clothing.js';
 // Canvas renderer: crisp integer-scaled pixel art, night lighting, vision cones, effects.
 
@@ -265,7 +266,7 @@ export class Renderer {
     }
 
     for(const car of snap.cars||[snap.obj.parking?.car])if(car&&visible(car.x,car.y)){
-      ctx.save();ctx.translate(car.x*TS,car.y*TS);ctx.rotate(car.angle);carArt(ctx,-32,-24,64,48,car.colorIndex||0);ctx.restore();
+      ctx.save();ctx.translate(car.x*TS,car.y*TS);ctx.rotate(car.angle);if(car.police)drawPoliceCar(ctx,now,car.stolen);else carArt(ctx,-32,-24,64,48,car.colorIndex||0);ctx.restore();
     }
     const plane=snap.rescue?.flight;
     if(plane){ctx.save();ctx.translate(plane.x*TS,plane.y*TS);ctx.fillStyle='#c8d9d5';ctx.beginPath();ctx.moveTo(0,-125);ctx.lineTo(18,-75);ctx.lineTo(18,-10);ctx.lineTo(230,52);ctx.lineTo(225,78);ctx.lineTo(18,47);ctx.lineTo(15,115);ctx.lineTo(75,140);ctx.lineTo(70,151);ctx.lineTo(0,137);ctx.lineTo(-70,151);ctx.lineTo(-75,140);ctx.lineTo(-15,115);ctx.lineTo(-18,47);ctx.lineTo(-225,78);ctx.lineTo(-230,52);ctx.lineTo(-18,-10);ctx.lineTo(-18,-75);ctx.closePath();ctx.fill();ctx.strokeStyle='#577982';ctx.lineWidth=4;ctx.stroke();ctx.fillStyle='#275065';ctx.fillRect(-12,-70,24,22);ctx.fillStyle='#e0ae65';ctx.fillRect(-18,2,36,6);ctx.restore();}
@@ -280,7 +281,7 @@ export class Renderer {
     }
     for(const a of snap.rescue?.animals||[])if(a.state!=='escaped'||a.location==='street')ents.push({y:a.y,draw:()=>this._drawAnimal(ctx,'rescue_'+a.species,a.x,a.y,a.face,a.moving,0,now,{action:a.moving?'run':'walk'})});
     for(const human of humans)ents.push({y:human.y,draw:()=>this._drawHuman(ctx,human,now)});
-    for (const s of staff) ents.push({ y: s.y, draw: () => this._drawStaff(ctx, s, now) });
+    for (const s of staff.filter(s=>!s.inCar)) ents.push({ y: s.y, draw: () => this._drawStaff(ctx, s, now) });
     ents.sort((a, b) => a.y - b.y);
     for (const e of ents) e.draw();
 
@@ -433,7 +434,7 @@ export class Renderer {
       case 'vehicle': break;
       case 'districtLink':ctx.fillStyle='#bdad79';for(let i=0;i<4;i++)ctx.fillRect(ox+i*3,oy+12-i*3,15-i*3,3);ctx.fillStyle='#fff1ae';ctx.font='bold 8px monospace';ctx.fillText('↕',ox+4,oy-2);break;
       case 'rescueFuse':if(!state){ctx.fillStyle='#e5ba4f';ctx.fillRect(ox+4,oy+1,8,13);ctx.fillStyle='#e5f2d5';ctx.fillRect(ox+6,oy+4,4,6);}break;
-      case 'rescueLock':case 'rescueTeam':case 'rescuePanel':case 'rescueLatch':ctx.fillStyle=state?'#79b87b':'#c18758';ctx.fillRect(ox+2,oy+2,12,12);ctx.fillStyle='#283c42';ctx.fillRect(ox+5,oy+4,6,5);if(o.index!=null){ctx.fillStyle='#fff0aa';ctx.font='bold 7px monospace';ctx.textAlign='center';ctx.fillText(String(o.index+1),ox+8,oy+11);}break;
+      case 'prisonLock':case 'rescueLock':case 'rescueTeam':case 'rescuePanel':case 'rescueLatch':ctx.fillStyle=state?'#79b87b':'#c18758';ctx.fillRect(ox+2,oy+2,12,12);ctx.fillStyle='#283c42';ctx.fillRect(ox+5,oy+4,6,5);if(o.index!=null){ctx.fillStyle='#fff0aa';ctx.font='bold 7px monospace';ctx.textAlign='center';ctx.fillText(String(o.index+1),ox+8,oy+11);}break;
       case 'rescueGenerator':ctx.fillStyle='#718389';ctx.fillRect(ox-5,oy-8,26,24);ctx.fillStyle=state?'#9cdd94':'#d2a74e';for(let i=0;i<3;i++)ctx.fillRect(ox+i*5,oy,3,3);break;
       case 'boardPlane':ctx.fillStyle='#e0c49a';for(let i=0;i<4;i++)ctx.fillRect(ox+i*3,oy+13-i*3,15-i*3,3);break;
       case 'cityDoor':ctx.fillStyle='#23464c';ctx.fillRect(ox+1,oy,14,16);ctx.strokeStyle='#ffe9a1';ctx.strokeRect(ox+1,oy,14,16);ctx.fillStyle='#ffe9a1';ctx.fillRect(ox+10,oy+8,2,2);break;
@@ -547,8 +548,8 @@ export class Renderer {
     ctx.fillStyle=['#66849e','#a17980','#7d9565','#a78d60'][n.color];ctx.fillRect(-5,-7-bob,10,9);ctx.fillStyle='#e8bd98';ctx.fillRect(-3,-13-bob,7,6);ctx.fillStyle='#493b35';ctx.fillRect(-3,-14-bob,7,2);ctx.fillStyle='#202c37';ctx.fillRect(-4,2-bob,3,5+(n.moving?bob:0));ctx.fillRect(2,2-bob,3,5-(n.moving?bob:0));ctx.fillStyle='#241e21';ctx.fillRect(1,-11-bob,1,1);ctx.fillStyle='#e3d8a6';ctx.fillRect(0,-6-bob,1,5);if(n.calling){ctx.fillStyle='#d9b67b';ctx.fillRect(7,-15,4,8);ctx.fillStyle='#8cdbdf';ctx.fillRect(8,-13,2,4);}if(n.asleep){ctx.fillStyle='#fff0bf';ctx.font='8px monospace';ctx.fillText('z',8,-8);}ctx.restore();
   }
   _drawStaff(ctx, s, now) {
-    if(s.s===6){const image=SPRITES.staffDown.r[0];ctx.drawImage(image,s.x*TS-16,s.y*TS-14,32,22);return;}
-    this._drawAnimal(ctx,'staff',s.x,s.y,Math.cos(s.d)<0?'left':'right',s.mv,0,now,{action:s.s===2?'run':'walk'});
+    if(s.s===6){const image=(s.police?SPRITES.policeDown:SPRITES.staffDown).r[0];ctx.drawImage(image,s.x*TS-16,s.y*TS-14,32,22);return;}
+    this._drawAnimal(ctx,s.police?'police':'staff',s.x,s.y,Math.cos(s.d)<0?'left':'right',s.mv,0,now,{action:s.s===2?'run':'walk'});
     if(s.police){ctx.fillStyle='#253f79';ctx.fillRect(s.x*TS-6,s.y*TS-11,12,4);ctx.fillStyle='#ffe486';ctx.fillRect(s.x*TS-1,s.y*TS-3,3,3);}
   }
 

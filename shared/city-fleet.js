@@ -1,3 +1,4 @@
+import {stepPoliceCar} from './police.js';
 import {stepTraffic} from './traffic.js';
 import {carsOverlap,stepAnimalCarPushes} from './car-pushing.js';
 import {Game} from './game.js';
@@ -50,6 +51,7 @@ export function fleetFits(g,x,y,angle){return g._terrainFits(x,y,angle)&&!g.cars
 export function stepFleet(g,dt){
  stepAnimalCarPushes(g,dt);
  for(const car of g.cars){
+  if(car.police&&!car.stolen){stepPoliceCar(g,car,dt);continue;}
   if(car.traffic){
    stepTraffic(g,car,dt);
    continue;
@@ -59,7 +61,7 @@ export function stepFleet(g,dt){
  }
  g.rebuildBlock();
 }
-export function publicCar(car){return {id:car.id,x:car.x,y:car.y,angle:car.angle,colorIndex:car.colorIndex||0,speed:car.speed,steering:car.values.steering,lightsUntil:car.lightsUntil,alarmUntil:car.alarmUntil};}
+export function publicCar(car){return {id:car.id,police:!!car.police,stolen:!!car.stolen,x:car.x,y:car.y,angle:car.angle,colorIndex:car.colorIndex||0,speed:car.speed,steering:car.values.steering,lightsUntil:car.lightsUntil,alarmUntil:car.alarmUntil};}
 export function fleetPersonal(g,p){
  const car=g.cars.find(c=>c.id===p.vehicleId);if(!p.inVehicle||!car)return null;const crew=crewFor(g,car),controls=g._carControls();return {city:true,unlocked:car.unlocked,car:publicCar(car),inCar:crew.length,need:crew.length,team:crew.map(p=>({id:p.id,name:p.name,inside:true,connected:p.connected})),roles:Object.entries(car.owners).map(([id,pid])=>({id,pid,name:g.players.get(pid)?.name,label:controls.find(c=>c.id===id).label})),controls:controls.filter(c=>car.owners[c.id]===p.id).map(c=>({...c,value:car.values[c.id]}))};
 }

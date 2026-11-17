@@ -1,10 +1,11 @@
+import {mountPrisonUI,updatePrisonUI} from './prison-ui.js';
 import {createMissionCodeTracker,isDesktopComputer} from './secret-code.js';
 import {renderRoundScore} from './round-results.js';
 import {mountDigPicker,updateDigPicker} from './dig-picker.js';
 import {decodeCheckpoint} from './shared/checkpoints.js';
 import {mountLiveMap,updateLiveMap} from './live-map.js';
 import {mountRescueUI,updateRescueUI} from './rescue-ui.js';
-import {mountCityUI,updateCityUI} from './city-ui.js';
+import {mountCityUI,updateCityUI,layoutNavigatorGPS} from './city-ui.js';
 import { mountVehiclePanel, updateVehiclePanel, updateKeyFob, releaseVehicleControls } from './vehicle-panel.js';
 // Breakout Beasts! client controller: menus, lobby, HUD, game loop, audio and captions.
 
@@ -70,7 +71,7 @@ let overlayReturn = null;
 
 function setObjectivesOpen(open){
   app.objectivesOpen=!!open;$('#objectives').hidden=!open;$('#objectives').classList.remove('collapsed');
-  $('#objectives-toggle').setAttribute('aria-expanded',String(!!open));
+  $('#objectives-toggle').setAttribute('aria-expanded',String(!!open));layoutNavigatorGPS();
 }
 $('#objectives-toggle').addEventListener('click',()=>setObjectivesOpen(!app.objectivesOpen));
 $('#objectives-toggle').addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='Enter'){e.preventDefault();e.stopPropagation();if(!e.repeat)setObjectivesOpen(!app.objectivesOpen);}});
@@ -273,7 +274,7 @@ function connStatus(state, info) {
 
 // ---------------- game ----------------
 function enterGame(msg) {
-  updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
+  updatePrisonUI(null,0);updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
   setObjectivesOpen(false);
   app.wasInCar=false;
   updateKeyFob(false);
@@ -293,7 +294,7 @@ function enterGame(msg) {
 }
 
 function leaveGameView(toLobby) {
-  updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
+  updatePrisonUI(null,0);updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
   updateKeyFob(false);
   updateVehiclePanel(null);
   app.inGame = false;
@@ -386,8 +387,11 @@ function handleEvent(ev) {
     case 'shopPaid': if(ev.pid===app.myId)caption(`Paid $${ev.amount}. Thank you!`,'good');break;
     case 'shopTheft': caption(`${ev.name} left without paying. Police are coming!`,'alert');break;
     case 'cash': if(ev.pid===app.myId)caption(`Collected $${ev.amount}.`,'good');break;
-    case 'controlcalled': caption('Animal control called! Get out of the bank within 2 minutes.','alert');break;
-    case 'controlarrived': caption('Animal control arrived! Anyone still in the bank is captured.','alert');break;
+    case 'policeidentified': caption(`${ev.name} has been identified! Change clothes to lose the description.`,'alert');break;
+    case 'prisonunlock': caption('A prison lock clicked open!','good');break;
+    case 'prisonopen': caption('The police prison door is open!','good');break;
+    case 'controlcalled': caption(ev.kind==='police'?`Vault alarm! Police arrive in ${Math.ceil(ev.seconds||30)} seconds.`:'Animal control called! Get out of the bank within 2 minutes.','alert');break;
+    case 'controlarrived': caption(ev.kind==='police'?'Police arrived! They are searching the bank and streets.':'Animal control arrived! Anyone still in the bank is captured.','alert');break;
     case 'vaultopen': caption('The vault is open — grab the money!','good');break;
     case 'cityrescue': caption('The animal-control cage is open!','good');break;
     case 'cityvisit': caption(`Discovered ${ev.name}!`, 'good');break;
@@ -405,6 +409,7 @@ function handleEvent(ev) {
 }
 
 function onEnd(res) {
+  updatePrisonUI(null,0);
   updateLiveMap(null);updateCityUI(null,null,null);updateRescueUI(null,null);
   updateVehiclePanel(null);
   updateControlPanel(null);
@@ -502,6 +507,7 @@ function updateHUD() {
 
   // prompts
   const pm = s.me;
+  updatePrisonUI(app.overlay?null:pm?.prison,s.time);
   const showingResults=app.overlay==='complete';
   updateLiveMap(showingResults?null:w);updateRescueUI(showingResults?null:s.rescue,showingResults?null:pm);
   updateCityUI(showingResults?null:pm,o.parking?.city,w.zoo);updateDigPicker(app.overlay||app.paused?null:pm,w);
@@ -567,6 +573,7 @@ function gameTick() {
   else inp = (app.overlay && app.overlay !== 'complete') ? { mx: 0, my: 0, sp: false, e: false } : input.state();
   if (app.overlay === 'complete') inp = { mx: 0, my: 0, sp: false, e: false };
   if(inp.city)app.link?.send({t:'city',...inp.city});
+  if(inp.prison)app.link?.send({t:'prison',...inp.prison});
   if(inp.rescue)app.link?.send({t:'rescue',...inp.rescue});
   if(inp.vehicle)app.link?.send({t:'vehicle',...inp.vehicle});
   if(inp.panel)app.link?.send({t:'panel',...inp.panel});
@@ -586,9 +593,9 @@ function clientView() {
   return {
     panel:s.me?.control,teamClues:Object.values(app.teamClues),
     world: w, zoo: w.zoo, staff:s.st,
-    rescue:s.rescue,flight:s.me?.flight,
+    prison:s.me?.prison,rescue:s.rescue,flight:s.me?.flight,
     vehicle:s.me?.vehicle,
-    me: { holding:!!me.hk,stamina:s.me?.stamina,exhausted:s.me?.exhausted,money:s.me?.city?.money||0,tools:s.me?.city?.tools||[],shopping:!!s.me?.city?.shopping,shopCategory:s.me?.city?.category,cart:s.me?.city?.cart||[],food:s.me?.city?.food||{},location:me.location,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
+    me: { holding:!!me.hk,stamina:s.me?.stamina,exhausted:s.me?.exhausted,money:s.me?.city?.money||0,tools:s.me?.city?.tools||[],shopping:!!s.me?.city?.shopping,shopCategory:s.me?.city?.category,cart:s.me?.city?.cart||[],food:s.me?.city?.food||{},location:me.location,cageDistrict:me.cageDistrict,caged:!!me.caged,keys:me.ck,id: app.myId, x: s.me.x, y: s.me.y, animal: me.a, face: me.f, flags: me.s, carry: me.c, materials: me.supplies, enc: w.zoo.enclosures.findIndex((e) => e.animal === me.a) },
     obj: s.obj,
     objects: d.objects.map((o, i) => ({ ...o, state: s.os[i] })),
     gates: d.gates.map((g, i) => ({ ...g, state: Number(s.g[i]) })),
@@ -633,7 +640,7 @@ async function startSolo() {
 }
 
 function toTitle() {
-  updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);updateVehiclePanel(null);updateKeyFob(false);updateControlPanel(null);
+  updatePrisonUI(null,0);updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);updateVehiclePanel(null);updateKeyFob(false);updateControlPanel(null);
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.link = null; app.mode = null; app.lobby = null; app.inGame = false; app.world = null;
   audio.stopMusic();
@@ -762,7 +769,7 @@ function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 async function boot() {
   try {
     mountLiveMap();mountRescueUI(msg=>app.link?.send(msg));
-    mountCityUI(msg=>app.link?.send(msg));mountDigPicker(msg=>app.link?.send(msg));
+    mountCityUI(msg=>app.link?.send(msg));mountPrisonUI(msg=>app.link?.send(msg));mountDigPicker(msg=>app.link?.send(msg));
     mountControlPanel(msg=>app.link?.send(msg));
     mountVehiclePanel(msg=>app.link?.send(msg));
     await loadImages();

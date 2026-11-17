@@ -868,7 +868,9 @@ export class Game {
     stepControlRoom(this,dt);
     if(!exit.state)return;
     const act = this.activePlayers();
-    if (act.length && act.every((p) => p.connected && p.inExit)) {
+    const allOutside=act.length&&act.every(p=>p.connected&&p.inExit);
+    if(!allOutside)this.testExitNeedsDeparture=false;
+    if (allOutside&&!this.testExitNeedsDeparture) {
       this.phase = 'complete';
       this.emit({ k: 'complete' });
     }

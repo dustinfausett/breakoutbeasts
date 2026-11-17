@@ -6,8 +6,8 @@ function playerLog(g,pid){if(!pid||!g.players.has(pid))return null;const logs=g.
 export function scoreEvent(g,e){if(!g.scoreLog)return;if(e.pids){for(const pid of new Set(e.pids))scoreEvent(g,{...e,pids:null,pid});return;}const s=g.scoreLog,p=playerLog(g,e.helperPid||e.pid);if(e.k==='radio'&&p&&g.time-p.lastSeen>=5){p.lastSeen=g.time;p.sightings++;s.sightings++;}if(['shopTheft','controlcalled','visitorcalling'].includes(e.k))s.alarms++;
  if(!p)return;
  if(e.k==='capture')p.captures++;if(e.k==='noise')p.noises++;if(['bitten','citybite'].includes(e.k))p.bites++;if(e.k==='cash')p.cash+=Math.max(0,e.amount||0);if(e.k==='muzzleoff'&&e.helperPid&&e.helperPid!==e.pid)p.helped++;if(e.k==='dug')p.digs++;
- const metric=e.k==='rescue'||e.k==='districtrescue'?'rescues':['paneltask','socket','relayconnected','flighttask'].includes(e.k)?'tasks':e.k==='keystolen'?'keys':null;
- if(metric){const key=[e.k,e.pid,e.animal||e.cage||e.obj||e.done||e.staff||e.car||'once'].join('|');if(!s.seen.has(key)){s.seen.add(key);p[metric]++;}}
+ const metric=e.k==='rescue'||e.k==='districtrescue'?'rescues':['paneltask','socket','relayconnected','flighttask','prisonunlock'].includes(e.k)?'tasks':e.k==='keystolen'?'keys':null;
+ if(metric){const key=[e.k,e.pid,e.animal||e.cage||e.obj||e.done||e.lock||e.staff||e.car||'once'].join('|');if(!s.seen.has(key)){s.seen.add(key);p[metric]++;}}
 }
 export function scoreTick(g,dt){for(const p of g.activePlayers()){if(!p.connected)continue;const m=playerLog(g,p.id);m.activeSeconds+=dt;if(p.moving&&p.sprintT>0)m.runSeconds+=dt;if(['rescueTeam','rescueBrace','cageWall','cityVault'].includes(p.hold?.kind))m.holdSeconds+=dt;
  const car=p.inVehicle?(g.cars||[g.vehicle]).find(c=>c&&(!p.vehicleId||c.id===p.vehicleId)):null;if(car&&Math.abs(car.speed)>.1&&Object.values(car.owners).includes(p.id))m.driveSeconds+=dt;

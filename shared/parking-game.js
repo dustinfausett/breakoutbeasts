@@ -127,7 +127,8 @@ export class ParkingGame extends Game{
    else{if(Math.abs(v.speed)>.5&&this.time>v.bumpUntil){v.bumpUntil=this.time+.8;this.emit({k:'carbump',x:v.x,y:v.y});this.noise(v.x,v.y,16);}v.speed=0;}
   }
   for(const p of team){p.x=v.x;p.y=v.y;}this.rebuildBlock();
-  if(this.zooId==='parking'&&v.x>=67.5&&v.x<=74&&v.y>=60){this.phase='complete';for(const p of team)p.muzzled=false;this.emit({k:'carstolen'});this.emit({k:'complete'});}
+  const atExit=v.x>=67.5&&v.x<=74&&v.y>=60;if(!atExit)this.testExitNeedsDeparture=false;
+  if(this.zooId==='parking'&&atExit&&!this.testExitNeedsDeparture){this.phase='complete';for(const p of team)p.muzzled=false;this.emit({k:'carstolen'});this.emit({k:'complete'});}
   this._stepCityVisits?.();
  }
  _buildHoldingCage(){

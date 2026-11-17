@@ -392,6 +392,7 @@ function handleEvent(ev) {
     case 'cash': if(ev.pid===app.myId)caption(`Collected $${ev.amount}.`,'good');break;
     case 'policeidentified': caption(`${ev.name} has been identified! Change clothes to lose the description.`,'alert');break;
     case 'prisonunlock': caption('A prison lock clicked open!','good');break;
+    case 'prisonescape': caption('Police alerted! You have 20 seconds to get away.','alert');break;
     case 'prisonopen': caption('The police prison door is open!','good');break;
     case 'controlcalled': caption(ev.kind==='police'?`Vault alarm! Police arrive in ${Math.ceil(ev.seconds||30)} seconds.`:'Animal control called! Get out of the bank within 2 minutes.','alert');break;
     case 'controlarrived': caption(ev.kind==='police'?'Police arrived! They are searching the bank and streets.':'Animal control arrived! Anyone still in the bank is captured.','alert');break;

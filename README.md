@@ -671,7 +671,7 @@ Validation: all 1,012 original-zoo compositions complete without deadlocks. Full
 
 Airport security requires the whole connected crew together in full disguises. The fee is $100 per animal, paid from combined team cash: two animals with $20 and $180 can pay the $200 total. No money is taken until everyone is present and the group can afford the full fee. Contributions never make a balance negative. Payments are saved per animal in checkpoint codes; checking a changed outfit does not charge again.
 
-Any nearby human can be pickpocketed for $1 once. Biting lets the animal take a $20 wallet once, makes the local crowd flee and dispatches searching animal-control officers to that scene. Keys remain a separate theft action. Entering the bank vault immediately raises police alert and sends officers inside; an outfit seen inside is identified without the normal disguise delay. Cash/action captions now appear above bottom action prompts, clear of the top status bars, including touch layouts.
+Any nearby human can be pickpocketed for $1 once. Biting lets the animal take a $20 wallet once, makes the local crowd flee and dispatches searching animal-control officers to that scene. Keys remain a separate theft action. Entering the bank vault raises police alert and makes the vault the officers’ search priority without shortening the 30-second arrival countdown; an outfit seen inside is identified without the normal disguise delay. Cash/action captions now appear above bottom action prompts, clear of the top status bars, including touch layouts.
 
 Validation: all 1,012 Moonleaf team compositions pass. The full run's two outdated airport/campaign fixtures were updated for the fee and the harder bank patrols, and their reruns pass. The rescue-puzzle campaign uses funded crews to isolate relays, consoles, rescues and takeoff from bank combat. Focused tests cover pooled $20/$180 payment, insufficient funds, absent teammates, duplicate payments, saved fees, $1/$20 theft across scenes, local animal control and immediate vault identification. Browser checks cover group payment, hardware-store theft and popup visibility at desktop/landscape/portrait sizes.
 
@@ -684,3 +684,15 @@ Running over a city police officer keeps that officer permanently down for the c
 Focused tests cover caller privacy, randomized readers/orders, unique control ownership, solo play, caller departure, all crew sizes and independent police reinforcement deadlines. Multiplayer browser checks verify private commands, absence of pilot hints and cooperative takeoff without browser errors.
 
 Validation for this update: the full suite passed 265/265 tests, including all 1,012 team compositions with no deadlocks. Additional focused reruns passed the final caller-departure and independent runover-deadline cases. The two-player caller/pilot browser flow completed takeoff with private commands and no browser errors; build and whitespace checks pass.
+
+### Bank arrival timing and prison escape consequences
+
+Opening the bank vault keeps the full 30-second police response countdown. Entering the vault raises alert and records it as the bank officers' search priority; it neither spawns officers nor shortens their arrival timer. Once police arrive, they prioritize that recorded vault location and immediately identify an outfit they see inside.
+
+Unlocking the police prison alerts up to four existing nearby street officers and sends them toward the station. Escapees and free rescuers already inside receive a 20-second getaway allowance, which survives passing through the exit door. Officers arriving early wait outside until the allowance ends, then enter and search the station. This response does not spawn extra officers.
+
+Police capture immediately removes all cash, worn clothes and owned disguises, including clothing cached from a resumed checkpoint. Teammates keep their possessions; tools and non-clothing shop items keep their existing rules. Prisoners must earn new money and acquire new clothes after escape.
+
+Focused simulation and multiplayer browser checks cover preserved bank timing, vault-search priority, confiscation, unchanged teammate inventory, getaway protection through doorways, and the player-facing escape warning.
+
+Validation: all 1,012 team compositions completed without deadlocks. The bank/prison focused suite passed 19 checks, save/shortcut regressions passed 21, and the multiplayer browser flow passed all six checks without browser errors. A syntax typo in the revised vault test was corrected and that test passed on rerun. Build and whitespace checks pass.

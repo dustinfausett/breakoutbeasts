@@ -1,0 +1,20 @@
+import {dist} from './util.js';
+export const ARCADE_GAMES=[['catch','Fruit Catch','Move the basket left or right. Catch five falling apples.'],['mole','Whack a Turnip','Tap the turnip when it appears. Hit five turnips.'],['memory','Memory Match','Tap two cards. Find all three matching pairs.'],['timing','Perfect Landing','Press Land when the moving marker is in the green zone. Get three landings.'],['maze','Snack Maze','Use arrows or the direction buttons to collect three snacks.']];
+const near=(p,o)=>o&&p.location==='airport'&&dist(p.x,p.y,o.x+.5,o.y+.5)<2.1;
+export function arcadeObject(g,p,o){if(o.kind!=='arcadeMachine')return null;return {text:'Hold E: play '+ARCADE_GAMES[o.index][1]+' ($5)',run:()=>{if(p.location!=='airport'||p.caged||p.arcade)return;p.hold={kind:'arcadeStart',btn:'e',obj:o.id,t:0,need:.6};}};}
+export function arcadeHold(g,p,inp,dt){const h=p.hold;if(h.kind!=='arcadeStart')return false;const o=g.obj(h.obj);if(!inp.e||!p.connected||p.caged||p.capturedT>0||!near(p,o)){p.hold=null;return true;}h.t+=dt;if(h.t<h.need)return true;p.hold=null;if(p.money<5){g.msg(p,'You need $5 to play.');return true;}p.money-=5;const [type,name,instructions]=ARCADE_GAMES[o.index],deck=[0,0,1,1,2,2];for(let i=deck.length-1;i>0;i--){const j=Math.floor(g.rng()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+ p.arcade={type,name,instructions,machine:o.id,started:g.time,status:'playing',score:0,goal:type==='memory'||type==='timing'||type==='maze'?3:5,basket:2,column:Math.floor(g.rng()*5),fall:0,target:Math.floor(g.rng()*6),deck,flipped:[],matched:[],cursor:[1,1],message:'',lastAction:-99};return true;}
+export function arcadeAction(g,pid,m){const p=g.players.get(pid),a=p?.arcade;if(!p?.active||!p.connected||!a||g.phase!=='play'||p.caged||p.capturedT>0)return;if(m.op==='close'){p.arcade=null;return;}if(a.status!=='playing'||!near(p,g.obj(a.machine))||g.time-a.lastAction<.09)return;
+ a.lastAction=g.time;
+ if(a.type==='catch'&&m.op==='move'&&[-1,1].includes(m.dx))a.basket=Math.max(0,Math.min(4,a.basket+m.dx));
+ if(a.type==='mole'&&m.op==='tap'&&Number.isInteger(m.index)&&m.index===a.target){a.score++;a.target=(a.target+1+Math.floor(g.rng()*5))%6;}
+ if(a.type==='memory'&&m.op==='tap'&&Number.isInteger(m.index)&&m.index>=0&&m.index<6&&!a.matched.includes(m.index)&&!a.flipped.includes(m.index)&&a.flipped.length<2){a.flipped.push(m.index);if(a.flipped.length===2){const [x,y]=a.flipped;if(a.deck[x]===a.deck[y]){a.matched.push(x,y);a.flipped=[];a.score++;}else a.hideAt=g.time+.7;}}
+ if(a.type==='timing'&&m.op==='land'){const v=timingPosition(g.time,a.started);if(v>=.35&&v<=.65){a.score++;a.message='Smooth landing!';}else a.message='A little bumpy! Try again.';}
+ if(a.type==='maze'&&m.op==='move'&&Number.isInteger(m.dx)&&Number.isInteger(m.dy)&&Math.abs(m.dx)+Math.abs(m.dy)===1){const [x,y]=[a.cursor[0]+m.dx,a.cursor[1]+m.dy];if(mazeOpen(x,y))a.cursor=[x,y];const t=[[6,1],[6,4],[1,4]][a.score];if(t&&a.cursor[0]===t[0]&&a.cursor[1]===t[1])a.score++;}
+ finish(g,p,a);
+}
+export function timingPosition(time,start){const t=((time-start)/2.4)%2;return t<=1?t:2-t;}
+export function mazeOpen(x,y){return x>=1&&x<=6&&y>=1&&y<=4&&!(x===3&&y===2)&&!(x===4&&y===3);}
+function finish(g,p,a){if(a.score>=a.goal){a.status='won';a.message='You won! The animals demand a tiny trophy.';p.arcadeWins=(p.arcadeWins||0)+1;g.emit({k:'arcadewin',pid:p.id});}}
+export function stepArcade(g,dt){for(const p of g.activePlayers()){const a=p.arcade;if(!a)continue;if(p.caged||p.capturedT>0||!p.connected||!near(p,g.obj(a.machine))){p.arcade=null;continue;}if(a.status!=='playing')continue;if(a.type==='catch'){a.fall+=dt*.65;if(a.fall>=1){if(a.basket===a.column)a.score++;a.fall=0;a.column=Math.floor(g.rng()*5);finish(g,p,a);}}if(a.type==='memory'&&a.flipped.length===2&&g.time>=a.hideAt)a.flipped=[];}}
+export function arcadePersonal(g,p){const a=p.arcade;if(!a)return null;const {deck,...v}=a;return {...v,cards:deck.map((n,i)=>a.flipped.includes(i)||a.matched.includes(i)?n:null),marker:timingPosition(g.time,a.started)};}

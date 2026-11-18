@@ -1,3 +1,4 @@
+import {airportDecor} from './airport-art.js';
 import {drawPoliceCar} from './police-art.js';
 import {drawOutfit} from './clothing.js';
 // Canvas renderer: crisp integer-scaled pixel art, night lighting, vision cones, effects.
@@ -75,6 +76,7 @@ export class Renderer {
       if(d.kind==='runway'){g.fillStyle='#596064';g.fillRect(ox,oy,d.w*16,d.h*16);g.fillStyle='#eee5c4';for(let y=24;y<d.h*16;y+=56)g.fillRect(ox+d.w*8-5,oy+y,10,26);g.strokeStyle='#e7dfc0';g.lineWidth=3;g.strokeRect(ox+8,oy+8,d.w*16-16,d.h*16-16);continue;}
       if(d.kind==='plane')continue;
       if(d.kind==='parkingBay'){g.strokeStyle='#d8d8b7';g.lineWidth=1;g.strokeRect(ox,oy,d.w*16,d.h*16);continue;}
+      if(airportDecor(g,d,ox,oy))continue;
       if(d.kind==='shelfLabel'){g.fillStyle='#fff1ac';g.fillRect(ox-2,oy-10,Math.max(40,d.text.length*6+4),13);g.fillStyle='#292b32';g.font='bold 10px monospace';g.textAlign='left';g.fillText(d.text,ox,oy);continue;}
       if(d.kind==='foodShelf'){g.fillStyle='#795236';g.fillRect(ox,oy,d.w*16,d.h*16);for(let x=4;x<d.w*16;x+=12){g.fillStyle=d.food==='meat'?'#ce6d64':d.food==='fish'?'#85b9c3':'#efca55';g.fillRect(ox+x,oy+8,8,5);g.fillRect(ox+x+2,oy+5,4,10);}g.fillStyle='#d6b581';g.fillRect(ox,oy+22,d.w*16,3);continue;}
       if(d.kind==='interiorSign'){g.fillStyle='#e6c879';g.font='bold 12px monospace';g.textAlign='left';g.fillText(d.text,ox,oy);continue;}

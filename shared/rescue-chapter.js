@@ -58,9 +58,16 @@ export function rescueObject(g,p,o){
  if(o.kind==='rescuePanel'){
   if(g.rescue.signal)return {text:'Habitat signal network is online',idle:true};if(!powerDone(g))return {text:'Connect every habitat relay first',idle:true};if(active(g).some(q=>q.id!==p.id&&q.chapterStation===o.index))return {text:'This station is occupied; choose another',idle:true};return {text:'Enter this signal-house station',run:()=>{p.chapterStation=o.index;p.hold=null;if(!g.rescue.panelPhase){g.rescue.panelPhase='waiting';g.rescue.panelRemaining=180;routeClues(g);}}};
  }
- if(o.kind==='airportSecurity'){const crew=active(g),fee=()=>crew.filter(q=>!q.airportPaid).length*100,ready=()=>crew.every(q=>q.connected&&!q.caged&&!q.inVehicle&&q.location==='airport'&&dist(q.x,q.y,o.x+.5,o.y+.5)<6&&isDisguised(q))&&crew.reduce((sum,q)=>sum+(q.money||0),0)>=fee();return {text:ready()?`Pay airport security: $${fee()} from team cash (E)`:`Gather everyone in full disguises · team fee $${fee()}`,idle:!ready(),run:()=>{if(!ready())return;let remaining=fee();for(const q of crew){const contribution=Math.min(q.money||0,remaining);q.money-=contribution;remaining-=contribution;}for(const [i,q] of crew.entries()){q.airportPaid=true;q.airportCleared=fingerprint(q);q.x=76.5+i%3;q.y=410.5+Math.floor(i/3);q.safe=[q.x,q.y];}g.emit({k:'securitypaid'});}};}
+ if(o.kind==='airportSecurity'){
+  const crew=active(g),waiting=()=>crew.filter(q=>!q.airportPaid||q.airportCleared!==fingerprint(q)),fee=()=>waiting().filter(q=>!q.airportPaid).length*100;
+  const ready=()=>waiting().length>0&&waiting().every(q=>q.connected&&!q.caged&&!q.inVehicle&&q.location==='airport'&&q.x<71&&dist(q.x,q.y,o.x+.5,o.y+.5)<6&&isDisguised(q)&&!q.cart?.length)&&crew.reduce((sum,q)=>sum+(q.money||0),0)>=fee();
+  return {text:ready()?`Pay airport security: $${fee()} from team cash (E)`:`Gather uncleared animals in full disguises · team fee $${fee()}`,idle:!ready(),run:()=>{
+   if(!ready())return;const entrants=waiting();let remaining=fee();for(const q of crew){const contribution=Math.min(q.money||0,remaining);q.money-=contribution;remaining-=contribution;}
+   for(const [i,q] of entrants.entries()){q.airportPaid=true;q.airportCleared=fingerprint(q);q.airportAirside=true;q.x=76.5+i%3;q.y=410.5+Math.floor(i/3);q.safe=[q.x,q.y];q.hold=null;q.under=null;}g.emit({k:'securitypaid'});
+  }};
+ }
  if(o.kind==='boardPlane'){
-  if(p.airportCleared!==fingerprint(p))return {text:'Pass airport security in your current costume first',idle:true};if(!allRescued(g))return {text:'Free every zoo, pet-store and Animal Control animal before boarding',idle:true};return {text:'Board the escape plane',run:()=>{p.inPlane=true;p.hold=null;p.x=g.rescue.flight.x;p.y=g.rescue.flight.y;g.rescue.flight.aboard.add(p.id);}};
+  if(!p.airportPaid||p.airportCleared!==fingerprint(p))return {text:'Pass airport security in your current costume first',idle:true};if(!allRescued(g))return {text:'Free every zoo, pet-store and Animal Control animal before boarding',idle:true};return {text:'Board the escape plane',run:()=>{p.inPlane=true;p.hold=null;p.x=g.rescue.flight.x;p.y=g.rescue.flight.y;g.rescue.flight.aboard.add(p.id);}};
  }
  return null;
 }

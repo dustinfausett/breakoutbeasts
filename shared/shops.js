@@ -2,10 +2,11 @@ import {CLOTHES} from './wardrobe.js';
 import {TOOLS} from './hardware.js';
 import {makeKeepers} from './staff.js';
 import {dist} from './util.js';
+export const AIRPORT_SNACKS=[{id:'airport-chips',name:'Runway Chips',price:5,snack:true,description:'Eat to restore stamina.'},{id:'airport-juice',name:'Cloud Juice',price:6,snack:true,description:'Drink to restore stamina.'},{id:'airport-cookie',name:'Pawprint Cookie',price:5,snack:true,description:'Eat to restore stamina.'}];
 export const FOOD=[{id:'meat',name:'Meat',price:20},{id:'fish',name:'Fish',price:15},{id:'bananas',name:'Bananas',price:10}];
-export const STORE_SCENES=['thrift','hardware','grocery'];
+export const STORE_SCENES=['thrift','hardware','grocery','airport'];
 const near=(p,o)=>o&&dist(p.x,p.y,o.x+.5,o.y+.5)<1.9;
-export function shelfCatalog(p,category){return category==='tools'?TOOLS:category==='food'?FOOD:FOOD.some(f=>f.id===category)?FOOD.filter(f=>f.id===category):CLOTHES.filter(c=>c.animal===p.animal&&c.slot===category);}
+export function shelfCatalog(p,category){return category==='snacks'?AIRPORT_SNACKS:category==='tools'?TOOLS:category==='food'?FOOD:FOOD.some(f=>f.id===category)?FOOD.filter(f=>f.id===category):CLOTHES.filter(c=>c.animal===p.animal&&c.slot===category&&!!c.airport===(p.location==='airport'));}
 export function shopObject(g,p,o){
  if(o.kind==='shopShelf'){if(p.location!==o.scene)return null;return {text:`Hold E: browse ${o.label}`,run:()=>{p.hold={kind:'shopBrowse',btn:'e',obj:o.id,t:0,need:.7};}};}
  if(['shopCounter','hardwareCounter','groceryCounter'].includes(o.kind)&&STORE_SCENES.includes(p.location))return {text:p.cart?.length?`Hold E: pay $${cartCost(p)}`:'Choose items from the labeled shelves first',...(p.cart?.length?{run:()=>{p.hold={kind:'shopPay',btn:'e',obj:o.id,t:0,need:1.4};}}:{idle:true})};
@@ -16,6 +17,7 @@ export function shopHold(g,p,inp,dt){const h=p.hold;if(!['shopBrowse','shopPay']
  if(h.kind==='shopBrowse'){p.shopping=true;p.shopShelf=o.id;p.shopCategory=o.category;return true;}
  const total=cartCost(p);if(p.money<total){g.msg(p,`You need $${total} to pay. Find more money or return items to their shelves.`);return true;}p.money-=total;p.cart=[];g.emit({k:'shopPaid',pid:p.id,amount:total});return true;}
 export function shopAction(g,p,msg){
+ if(msg.op==='eatSnack'){const item=AIRPORT_SNACKS.find(c=>c.id===msg.item);if(item&&(p.food?.[item.id]||0)>0&&!p.cart?.some(c=>c.id===item.id)){p.food[item.id]--;p.stamina=Math.min(1,p.stamina+.4);if(p.stamina>.75){p.staminaYellow=false;p.exhausted=false;}g.msg(p,'Snack eaten. Stamina restored.');}return true;}
  if(msg.op==='closeShop'){p.shopping=false;p.shopShelf=null;return true;}
  if(msg.op==='returnCart'){for(const item of p.cart||[]){if(item.type==='food')p.food[item.id]=Math.max(0,(p.food[item.id]||0)-1);if(item.type==='tool')p.tools=p.tools.filter(id=>id!==item.id);if(item.type==='clothes'){p.owned=p.owned.filter(id=>id!==item.id);const c=CLOTHES.find(c=>c.id===item.id);if(p.outfit[c.slot]===item.id)delete p.outfit[c.slot];}}p.cart=[];return true;}
  if(!['take','wear'].includes(msg.op))return false;

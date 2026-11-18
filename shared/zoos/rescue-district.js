@@ -1,3 +1,4 @@
+import {addAirportTerminal} from './airport-terminal.js';
 import {T} from '../tiles.js';
 import {RESCUE_SPECIES,RESCUE_NAMES} from '../rescue-data.js';
 export function addRescueDistrict({rect,decor,objects,interiors,destinations,controlCages=[]}){
@@ -58,6 +59,7 @@ export function addRescueDistrict({rect,decor,objects,interiors,destinations,con
  const binPoints=[[6,234],[23,235],[38,229],[62,238],[6,302],[38,317],[61,320],[106,270],[139,273],[120,209],[136,223],[131,316]];
  for(const [i,[x,y]] of binPoints.entries())objects.push({id:'district-bin-'+i,kind:'can',x,y,label:'Zoo garbage can'});
  rect(71,351,72,424,T.WALL);objects.push({id:'airport-security',kind:'airportSecurity',x:69,y:410,stand:[68,410],walkable:true,label:'Costume security checkpoint'});decor.push({kind:'sign',x:67,y:408,text:'SECURITY: HAT + SHIRT + PANTS'});rect(7,354,69,403,T.FLOOR,4);rect(73,354,151,423,T.PATH,3);decor.push({kind:'runway',x:94,y:356,w:40,h:64},{kind:'plane',x:100,y:388,w:33,h:18});objects.push({id:'board-plane',kind:'boardPlane',x:101,y:406,walkable:true,label:'Board the escape plane'});
+ const airportLayout=addAirportTerminal({rect,objects,decor,gates});
  const routes=[{route:[[33,235],[26,235],[26,216],[33,216]],start:0,scene:'zoo'},{route:[[60,216],[40,216],[40,235],[60,235]],start:0,scene:'zoo'},{route:[[33,301],[26,301],[33,321],[40,301]],start:0,scene:'zooUpper'},{route:[[122,258],[122,272],[139,272]],start:0,scene:'zooPavilion'},{route:[[120,210],[120,224],[135,224]],start:0,scene:'petstore'}];
- return {gates,cages,holding,routes,visitors:[['zoo',25,216],['zoo',40,216],['zoo',29,235],['zooUpper',30,301],['zooUpper',40,303],['zooPavilion',122,258],['zooPavilion',122,271],['petstore',120,211],['petstore',120,223]]};
+ return {airportLayout,gates,cages,holding,routes,visitors:[['zoo',25,216],['zoo',40,216],['zoo',29,235],['zooUpper',30,301],['zooUpper',40,303],['zooPavilion',122,258],['zooPavilion',122,271],['petstore',120,211],['petstore',120,223]]};
 }

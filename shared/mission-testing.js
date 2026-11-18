@@ -4,13 +4,13 @@ import {enterCityAnimal} from './city-movement.js';
 export function completeTasksForTesting(g){if(!g||g.phase!=='play')return false;g.scoreLog.practice=true;
  if(g.flightChapter){const f=g.rescue.flight;f.task=8;f.altitude=1000;f.speed=150;f.angle=10;f.roll=0;f.stability=0;f.phase='testReady';return true;}
  const crew=g.activePlayers();const roomDoors=new Map(crew.filter(p=>p.inControlRoom).map(p=>[p.id,g.objects.find(o=>o.kind==='controlDoor'&&o.index===g.controlRoom.entered[p.id])]));const boarded=new Set(crew.filter(p=>p.inPlane).map(p=>p.id));
- for(const p of crew){p.prisonGame=null;p.carry=null;p.shopping=false;p.shopShelf=null;p.hold=null;p.under=null;p.hop=null;p.slide=null;p.shell=false;p.capturedT=0;p.caged=false;p.digChoice=null;p.digTarget=null;p.chapterStation=null;p.inControlRoom=false;p.muzzled=false;p.running=false;p.sprintT=0;p.flinch=0;p.input={mx:0,my:0,e:false,sp:false,b:false,run:false};}
+ for(const p of crew){p.arcade=null;p.prisonGame=null;p.carry=null;p.shopping=false;p.shopShelf=null;p.hold=null;p.under=null;p.hop=null;p.slide=null;p.shell=false;p.capturedT=0;p.caged=false;p.digChoice=null;p.digTarget=null;p.chapterStation=null;p.inControlRoom=false;p.muzzled=false;p.running=false;p.sprintT=0;p.flinch=0;p.input={mx:0,my:0,e:false,sp:false,b:false,run:false};}
  if(g.zooId==='city'){
   const r=g.rescue;r.fuses=new Set(crew.map(p=>p.id));r.inserted=new Set(crew.map(p=>p.id));r.signal=true;r.panelPhase='complete';r.cageProgress=0;
   for(const panel of Object.values(r.panels)){panel.done=5;panel.powered=true;}
   for(const o of g.objects)if(['rescueFuse','rescueGenerator','rescueLock','rescueTeam'].includes(o.kind))o.state=o.kind==='rescueGenerator'?crew.length:1;
   for(const a of r.animals){g.openGate(g.gate(a.gate));a.state='running';enterCityAnimal(g,a);a.state='escaped';}
-  if(g.prison){g.prison.active=false;for(const lock of g.prison.locks){lock.done=true;lock.owner=null;lock.game=null;}g.openGate(g.gate('police-prison'));}
+  for(const pr of [g.prison,g.airportPrison].filter(Boolean)){pr.active=false;for(const lock of pr.locks){lock.done=true;lock.owner=null;lock.game=null;}g.openGate(g.gate(pr.gate));}
   g.openGate(g.gate('city-vault'));g.openGate(g.gate('city-cage'));g.openGate(g.gate('rescue-holding'));
   const f=r.flight;f.aboard=new Set();f.values=Object.fromEntries(PLANE_JOBS.map(j=>[j.id,j.choices[1]]));f.travel=0;f.y=397;f.phase='boarding';f.prepared=true;
   for(const p of crew){p.inPlane=false;if(boarded.has(p.id)){p.location='airport';p.x=101.5;p.y=407.5;p.safe=[p.x,p.y];}}

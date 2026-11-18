@@ -1,3 +1,4 @@
+import {mountArcadeUI,updateArcadeUI} from './arcade-ui.js';
 import {showEventCaption} from './event-captions.js';
 import {mountPrisonUI,updatePrisonUI} from './prison-ui.js';
 import {createMissionCodeTracker,isDesktopComputer} from './secret-code.js';
@@ -276,7 +277,7 @@ function connStatus(state, info) {
 
 // ---------------- game ----------------
 function enterGame(msg) {
-  updatePrisonUI(null,0);updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
+  updateArcadeUI(null);updatePrisonUI(null,0);updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
   setObjectivesOpen(false);
   app.wasInCar=false;
   updateKeyFob(false);
@@ -296,7 +297,7 @@ function enterGame(msg) {
 }
 
 function leaveGameView(toLobby) {
-  updatePrisonUI(null,0);updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
+  updateArcadeUI(null);updatePrisonUI(null,0);updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);
   updateKeyFob(false);
   updateVehiclePanel(null);
   app.inGame = false;
@@ -421,7 +422,7 @@ function handleEvent(ev) {
 }
 
 function onEnd(res) {
-  updatePrisonUI(null,0);
+  updateArcadeUI(null);updatePrisonUI(null,0);
   updateLiveMap(null);updateCityUI(null,null,null);updateRescueUI(null,null);
   updateVehiclePanel(null);
   updateControlPanel(null);
@@ -520,7 +521,7 @@ function updateHUD() {
 
   // prompts
   const pm = s.me;
-  updatePrisonUI(app.overlay?null:pm?.prison,s.time);
+  updatePrisonUI(app.overlay?null:pm?.prison,s.time);updateArcadeUI(app.overlay?null:pm);
   const showingResults=app.overlay==='complete';
   updateLiveMap(showingResults?null:w);updateRescueUI(showingResults?null:s.rescue,showingResults?null:pm);
   updateCityUI(showingResults?null:pm,o.parking?.city,w.zoo);updateDigPicker(app.overlay||app.paused?null:pm,w);
@@ -653,7 +654,7 @@ async function startSolo() {
 }
 
 function toTitle() {
-  updatePrisonUI(null,0);updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);updateVehiclePanel(null);updateKeyFob(false);updateControlPanel(null);
+  updateArcadeUI(null);updatePrisonUI(null,0);updateDigPicker(null,null);updateLiveMap(null);updateRescueUI(null,null);updateCityUI(null,null,null);updateVehiclePanel(null);updateKeyFob(false);updateControlPanel(null);
   if (app.link) { try { app.link.close(); } catch { /* */ } }
   app.link = null; app.mode = null; app.lobby = null; app.inGame = false; app.world = null;
   audio.stopMusic();
@@ -783,7 +784,7 @@ function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 async function boot() {
   try {
     mountLiveMap();mountRescueUI(msg=>app.link?.send(msg));
-    mountCityUI(msg=>app.link?.send(msg));mountPrisonUI(msg=>app.link?.send(msg));mountDigPicker(msg=>app.link?.send(msg));
+    mountCityUI(msg=>app.link?.send(msg));mountPrisonUI(msg=>app.link?.send(msg));mountArcadeUI(msg=>app.link?.send(msg));mountDigPicker(msg=>app.link?.send(msg));
     mountControlPanel(msg=>app.link?.send(msg));
     mountVehiclePanel(msg=>app.link?.send(msg));
     await loadImages();

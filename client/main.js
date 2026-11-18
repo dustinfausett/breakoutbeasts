@@ -506,7 +506,7 @@ function updateHUD() {
     if(p.mu)st+=' · MUZZLED';
     if (p.c) st += p.c === 'wood' ? ' · log' : ' · fuse';
     if (p.s & PF.GRACE) st += ' · safe';
-    t += `<div class="tm ${p.id === app.myId ? 'me' : ''}"><img src="${portraitURL(p.a)}" alt=""><div><b>${esc(p.n)}</b><small>${st}</small><progress class="tag-stamina" data-stamina-pid="${p.id}" aria-label="${esc(p.n)} stamina" max="1" value="1"></progress></div></div>`;
+    t += `<div class="tm ${p.id === app.myId ? 'me' : ''}"><img src="${portraitURL(p.skin||p.a)}" alt=""><div><b>${esc(p.n)}</b><small>${st}</small><progress class="tag-stamina" data-stamina-pid="${p.id}" aria-label="${esc(p.n)} stamina" max="1" value="1"></progress></div></div>`;
   }
   if ($('#team').dataset.h !== t) { $('#team').innerHTML = t; $('#team').dataset.h = t; }
   for(const p of s.pl){const bar=$('#team').querySelector(`[data-stamina-pid="${p.id}"]`);if(bar){bar.value=p.stamina??1;bar.classList.toggle('yellow',!!p.staminaYellow);}}

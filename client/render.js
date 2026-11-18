@@ -1,3 +1,4 @@
+import {drawMonsterOutfit} from './monster-sprites.js';
 import {airportDecor} from './airport-art.js';
 import {drawPoliceCar} from './police-art.js';
 import {drawOutfit} from './clothing.js';
@@ -514,7 +515,7 @@ export class Renderer {
   _drawAnimal(ctx, animal, x, y, face, moving, wobble, now, opts = {}) {
     const img = this._sprite(animal, face, moving, now,opts.action);
     const bob = !moving && !this.settings.reducedMotion ? (Math.floor(now / 500 + x) % 2) : 0;
-    const iw=animal.startsWith('rescue_')?img.width:IMAGES.actors?24:16,ih=iw;
+    const iw=animal.startsWith('monster_')?24:animal.startsWith('rescue_')?img.width:IMAGES.actors?24:16,ih=opts.squash?14:iw;
     const dx = Math.round(x * TS - iw / 2), dy = Math.round(y * TS - ih + 6 - bob);
     ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(Math.round(x * TS - 5), Math.round(y * TS + 4), 10, 2);
     if (wobble) { ctx.save(); ctx.translate(x * TS, y * TS + 6); ctx.rotate(Math.sin(now / 90) * 0.25 * wobble); ctx.drawImage(img, -iw/2, -ih,iw,ih); ctx.restore(); }
@@ -523,9 +524,9 @@ export class Renderer {
   }
 
   _drawPlayer(ctx, p, now) {
-    let id = p.a;
-    if (p.s & PF.SHELL) id = 'shell';
-    if (p.a === 'penguin' && (p.s & PF.SLIDE)) id = 'penguinSlide';
+    let id = p.skin||p.a;
+    if (!p.skin&&(p.s & PF.SHELL)) id = 'shell';
+    if (!p.skin&&p.a === 'penguin' && (p.s & PF.SLIDE)) id = 'penguinSlide';
     const face = p.f === 'left' ? 'left' : p.f === 'right' ? 'right' : (this._lastFace?.[p.id] || 'right');
     this._lastFace = this._lastFace || {}; if (p.f === 'left' || p.f === 'right') this._lastFace[p.id] = p.f;
     let y = p.y;
@@ -535,8 +536,8 @@ export class Renderer {
     // ring marker under each player (colour per animal)
     ctx.strokeStyle = ANIMALS[p.a].color; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.ellipse(p.x * TS, p.y * TS + 5, 7, 3, 0, 0, Math.PI * 2); ctx.stroke();
-    this._drawAnimal(ctx, id, p.x, y, face, p.mv || (p.s & PF.SPRINT), (p.s & PF.WOBBLE) ? Math.min(1, p.wb * 1.5) : 0, now,{action:p.ba?'bite':p.mv?'run':'walk'});
-    drawOutfit(ctx,p.a,p.outfit,p.x*TS-8,y*TS-10,16,16,face);
+    this._drawAnimal(ctx, id, p.x, y, face, p.mv || (p.s & PF.SPRINT), (p.s & PF.WOBBLE) ? Math.min(1, p.wb * 1.5) : 0, now,{action:p.ba?'bite':p.mv?(p.skin?(p.s&PF.SPRINT?'run':'walk'):'run'):'walk',squash:!!(p.skin&&(p.s&(PF.SHELL|PF.SLIDE)))});
+    if(p.skin)drawMonsterOutfit(ctx,p.outfit,p.x*TS,y*TS);else drawOutfit(ctx,p.a,p.outfit,p.x*TS-8,y*TS-10,16,16,face);
     if(p.tool){ctx.save();ctx.translate(p.x*TS+9,y*TS-7);ctx.rotate(Math.sin(now/100)*.6);ctx.fillStyle='#9fc3cc';ctx.fillRect(-1,-7,3,13);ctx.fillRect(-4,-8,9,3);ctx.fillStyle='#d49953';ctx.fillRect(-1,1,3,6);ctx.restore();}
     ctx.globalAlpha = 1;
     if(p.mu&&!objectArt(ctx,15,Math.round(p.x*TS+(face==='left'?-10:0)),Math.round(y*TS-7),10,9)){ctx.fillStyle='#aeb8b9';ctx.fillRect(p.x*TS+(face==='left'?-7:1),y*TS-5,6,4);}

@@ -3,6 +3,7 @@
 export const IMAGES={};
 export async function loadImages(){
  const names=new URLSearchParams(location.search).get('art')==='detailed'?['thrift-props','city-props','cockpit-controls','rescue-animals','car','logo','actors','terrain','objects','panel','walk-animals-a','walk-animals-b']:['logo','car','cockpit-controls','city-props','thrift-props'];
+ names.push('secret-monsters');
  await Promise.all(names.map(async name=>{
   const image=new Image();image.src=window.__BB_ASSETS__?.[name]||`assets/${name}.png`;
   await image.decode();IMAGES[name]=image;

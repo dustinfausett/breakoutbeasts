@@ -1,3 +1,4 @@
+import {buildMonsterSprites} from './monster-sprites.js';
 import {buildRescueSprites} from './rescue-sprites.js';
 // Generated actor and walking atlases, with original code-drawn fallback art.
 // All art in this file is original to this project (no external assets).
@@ -306,6 +307,7 @@ export const SPRITES = {};
 function buildPoliceSprites(){const pal={...STAFF.pal,c:'#263d73',C:'#162647',s:'#345b91',S:'#203c68',p:'#1b2e4d',y:'#f1d270'},r=[make(STAFF.rows,pal),make(walkFrame(STAFF.rows),pal)];SPRITES.police={r,l:r.map(flip),run:{r:[...r,...r],l:[...r,...r].map(flip)}};const down=document.createElement('canvas');down.width=16;down.height=16;const ctx=down.getContext('2d');ctx.translate(16,0);ctx.rotate(Math.PI/2);ctx.drawImage(r[0],0,0);SPRITES.policeDown={r:[down],l:[flip(down)]};}
 
 export function buildSprites() {
+  buildMonsterSprites(SPRITES,IMAGES);
   buildPoliceSprites();
   if(IMAGES.actors){
     const ids=['redpanda','elephant','monkey','beaver','giraffe','penguin','zebra','meerkat','tortoise','flamingo','staff','staffDown'];
@@ -348,7 +350,7 @@ const portraitCache = {};
 export function portraitURL(id, scale = 4) {
   const key = id + scale;
   if (portraitCache[key]) return portraitCache[key];
-  const src = SPRITES[id].r[0];
+  const src = id.startsWith('monster_')?SPRITES[id].idle.r:SPRITES[id].r[0];
   const c = document.createElement('canvas');c.width=96;c.height=96;
   const g=c.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(src,0,0,96,96);
   portraitCache[key] = c.toDataURL();

@@ -1,3 +1,4 @@
+import {monsterSkin} from './monster-skins.js';
 import {pauseDraggedStaff,grabSleepingStaff,followDraggedStaff,stopDragging,staffFlashlight} from './dragging.js';
 import {newScoreLog,scoreEvent,scoreTick,roundScore} from './scoring.js';
 import {freeDigTarget,digAction,finishGroundDig,smashTarget,finishTerrainHit,refreshTunnelWidths,stepStamina,BIG} from './mobility.js';
@@ -1358,7 +1359,7 @@ export class Game {
       pd: this.plates.map((p) => (p.down ? 1 : 0)),
       pl: this.order.map((id) => {
         const p = this.players.get(id);
-        return { id, dragging:p.dragging, stamina:r2(p.stamina), staminaYellow:!!p.staminaYellow, exhausted:!!p.exhausted, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, room:!!p.inControlRoom, mu:!!p.muzzled,ba:(p.biteAnimT||0)>0||p.hold?.kind==='muzzleHelp', ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
+        return { id, skin:monsterSkin(p.name), dragging:p.dragging, stamina:r2(p.stamina), staminaYellow:!!p.staminaYellow, exhausted:!!p.exhausted, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, room:!!p.inControlRoom, mu:!!p.muzzled,ba:(p.biteAnimT||0)>0||p.hold?.kind==='muzzleHelp', ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
       }),
       permanent:this.permanentAlert,
       darts:this.darts.map(d=>({x:r2(d.x),y:r2(d.y),dx:d.dx,dy:d.dy})),
@@ -1377,7 +1378,7 @@ export class Game {
     const e = this.interactTarget(p);
     const sp = this.abilityTarget(p);
     return {
-      id: pid, x: p.x, y: p.y, seq: p.lastSeq,
+      id: pid,skin:monsterSkin(p.name), x: p.x, y: p.y, seq: p.lastSeq,
       dragging:p.dragging,stamina:p.stamina,staminaYellow:!!p.staminaYellow,exhausted:p.exhausted,running:p.running,digChoice:p.digChoice,digTarget:p.digTarget,control:controlPersonal(this,pid),
       pe: e ? { t: e.text, ok: !!e.run } : null,
       ps: sp ? { t: sp.text, ok: !!sp.run } : null,

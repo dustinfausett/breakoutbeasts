@@ -60,3 +60,9 @@ test('free helpers can reach every airport lock and a city police reset preserve
  for(let i=0;i<8;i++){const o=g.obj('airport-lock-'+i);assert.ok(bfs(g.w,g.h,Math.floor(p.x),Math.floor(p.y),[o.x,o.y+1],(x,y)=>canOccupy(g,p.animal,x+.5,y+.5,null)),o.id);}
  p.caged=false;p.location='street';p.policeEscapeUntil=0;g._capture({police:true},p);g._returnToEnclosure(p);g._stepKeysAndExit(.05);assert.equal(g.staff.filter(s=>s.airport).length,3);
 });
+test('airport arrests from police, responding animal control and ordinary keepers all finish in the airport jail',()=>{
+ for(const officer of [{police:true},{animalControl:true},{}]){const g=make(1),p=g.activePlayers()[0];foot(g,p);p.grace=0;p.money=75;outfit(p);g._capture(officer,p);assert.equal(p.captureOrigin,'airportPolice');assert.ok(p.capturedT>0);for(let i=0;i<24;i++)g.step(.05);assert.equal(p.location,'airport');assert.equal(p.cageDistrict,'airport');assert.equal(p.caged,true);assert.equal(p.money,0);assert.equal(prisonPersonal(g,p).required,1);assert.equal(g.rescue.cageProgress,0);}
+});
+test('airport capture routing repairs an old rescue origin before the return countdown completes',()=>{
+ const g=make(1),p=g.activePlayers()[0];foot(g,p);p.captureOrigin='rescue';p.capturedT=.01;g.step(.05);assert.equal(p.location,'airport');assert.equal(p.cageDistrict,'airport');assert.equal(p.caged,true);
+});

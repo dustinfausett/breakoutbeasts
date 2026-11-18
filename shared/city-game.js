@@ -125,6 +125,7 @@ export class CityGame extends ParkingGame{
   h.t+=dt;if(h.t>=h.need){p.cageHits=Math.min(2,p.cageHits+1);p.hold=null;this.emit({k:'cageram',pid:p.id});if(this.activePlayers().every(q=>q.cageHits>=2))this._releaseCityCage();}
  }
  _returnToEnclosure(p){
+  if(p.location==='airport')p.captureOrigin='airportPolice';
   if(['police','airportPolice'].includes(p.captureOrigin)){policeImprison(this,p);return;}
   this.policeWanted?.delete(p.id);
   if(rescueReturn(this,p))return;p.cageDistrict='city';
@@ -132,7 +133,7 @@ export class CityGame extends ParkingGame{
   const index=this.order.indexOf(p.id),slot=this.zoo.controlLayout.slots[index];p.x=slot[0]+.5;p.y=slot[1]+.5;p.safe=[p.x,p.y];p.grace=5;this.closeGate(this.gate('city-cage'));
  }
  _prisonEscape(prisoners){if(prisoners[0]?.location==='airport'){this._raiseAlert();for(const p of prisoners){p.policeEscapeUntil=this.time+20;p.grace=20;}for(const s of this.staff.filter(s=>s.airport)){s.state='investigate';s.path=null;s.goal=[52,397];}this.emit({k:'prisonescape',seconds:20});return;}alertPrisonEscape(this,prisoners);}
- _capture(s,p){if(s.police&&p.policeEscapeUntil>this.time)return;if(s.police){p.money=0;p.outfit={};p.owned=[];p.cart=(p.cart||[]).filter(item=>item.type!=='clothes');p.shopShelf=null;p.airportCleared=null;this.checkpointWardrobe=(this.checkpointWardrobe||[]).filter(m=>m.a!==ANIMAL_IDS.indexOf(p.animal));}const car=this.cars?.find(c=>c.id===p.vehicleId);p.inVehicle=false;p.vehicleId=null;p.carKeys=[];p.carFob=null;if(car)assignCrew(this,car);cancelPrisonGame(this,p);p.arcade=null;p.captureOrigin=s.police?(p.location==='airport'?'airportPolice':'police'):isRescueScene(p.location)?'rescue':'city';p.chapterStation=null;p.inPlane=false;p.shopping=false;super._capture(s,p);}
+ _capture(s,p){const localAirport=p.location==='airport',policeArrest=!!s.police||localAirport;if(policeArrest&&p.policeEscapeUntil>this.time)return;if(policeArrest){p.money=0;p.outfit={};p.owned=[];p.cart=(p.cart||[]).filter(item=>item.type!=='clothes');p.shopShelf=null;p.airportCleared=null;this.checkpointWardrobe=(this.checkpointWardrobe||[]).filter(m=>m.a!==ANIMAL_IDS.indexOf(p.animal));}const car=this.cars?.find(c=>c.id===p.vehicleId);p.inVehicle=false;p.vehicleId=null;p.carKeys=[];p.carFob=null;if(car)assignCrew(this,car);cancelPrisonGame(this,p);p.arcade=null;p.captureOrigin=localAirport?'airportPolice':s.police?'police':isRescueScene(p.location)?'rescue':'city';p.chapterStation=null;p.inPlane=false;p.shopping=false;super._capture(s,p);}
  _releaseCityCage(){this.openGate(this.gate('city-cage'));for(const p of this.activePlayers())if(p.caged&&p.cageDistrict!=='rescue'&&p.cageDistrict!=='police'){p.caged=false;p.cageHits=0;p.hold=null;p.grace=5;}this.emit({k:'cityrescue'});}
  _stepKeysAndExit(dt){if(this.flightChapter){stepRunway(this,dt);return;}stepFleet(this,dt);for(const p of this.activePlayers())recoverCityPlayer(this,p);this._stepCity(dt);stepRescue(this,dt);stepPolice(this,dt);stepPrison(this);stepAirport(this,dt);}
  _stepCity(dt){

@@ -1,10 +1,11 @@
+import {stopDragging} from './dragging.js';
 import {PLANE_JOBS} from './rescue-data.js';
 import {enterCityAnimal} from './city-movement.js';
 // Complete objectives without taking players out of the playable mission.
 export function completeTasksForTesting(g){if(!g||g.phase!=='play')return false;g.scoreLog.practice=true;
  if(g.flightChapter){const f=g.rescue.flight;f.task=8;f.altitude=1000;f.speed=150;f.angle=10;f.roll=0;f.stability=0;f.phase='testReady';return true;}
  const crew=g.activePlayers();const roomDoors=new Map(crew.filter(p=>p.inControlRoom).map(p=>[p.id,g.objects.find(o=>o.kind==='controlDoor'&&o.index===g.controlRoom.entered[p.id])]));const boarded=new Set(crew.filter(p=>p.inPlane).map(p=>p.id));
- for(const p of crew){p.arcade=null;p.prisonGame=null;p.carry=null;p.shopping=false;p.shopShelf=null;p.hold=null;p.under=null;p.hop=null;p.slide=null;p.shell=false;p.capturedT=0;p.caged=false;p.digChoice=null;p.digTarget=null;p.chapterStation=null;p.inControlRoom=false;p.muzzled=false;p.running=false;p.sprintT=0;p.flinch=0;p.input={mx:0,my:0,e:false,sp:false,b:false,run:false};}
+ for(const p of crew){stopDragging(g,p);p.arcade=null;p.prisonGame=null;p.carry=null;p.shopping=false;p.shopShelf=null;p.hold=null;p.under=null;p.hop=null;p.slide=null;p.shell=false;p.capturedT=0;p.caged=false;p.digChoice=null;p.digTarget=null;p.chapterStation=null;p.inControlRoom=false;p.muzzled=false;p.running=false;p.sprintT=0;p.flinch=0;p.input={mx:0,my:0,e:false,sp:false,b:false,run:false};}
  if(g.zooId==='city'){
   const r=g.rescue;r.fuses=new Set(crew.map(p=>p.id));r.inserted=new Set(crew.map(p=>p.id));r.signal=true;r.panelPhase='complete';r.cageProgress=0;
   for(const panel of Object.values(r.panels)){panel.done=5;panel.powered=true;}

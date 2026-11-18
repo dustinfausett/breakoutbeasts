@@ -42,7 +42,8 @@ test('bite input goes through room input queues and does not repeat while held',
  const room=new Room({code:'TEST',send:()=>{},options:{staff:true}});room.addPlayer('Tester');room.handle('p1',{t:'pick',animal:'redpanda'});room.handle('p1',{t:'start'});
  const g=room.game,p=g.players.get('p1');g.staff=g.staff.slice(0,1);const s=g.staff[0];s.x=20.5;s.y=14.5;s.dir=0;p.x=19.3;p.y=14.5;p.face='right';
  room.handle('p1',{t:'in',s:1,b:true});room.tick();assert.equal(s.state,'unconscious');
- for(let i=0;i<40;i++)room.tick();assert.equal(s.downUntil,30.05);
+ for(let i=0;i<40;i++)room.tick();assert.ok(Math.abs(s.downUntil-g.time-30)<1e-8);assert.equal(p.dragging,s.id);
+ room.handle('p1',{t:'in',s:2,b:false});room.tick();assert.equal(p.dragging,null);assert.ok(s.downUntil-g.time<30);
 });
 
 test('walls and distance prevent bites; muzzles prevent all biting',()=>{

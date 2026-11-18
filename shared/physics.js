@@ -46,7 +46,8 @@ export function speedFor(world, p, steady) {
   if (t === T.POND) s *= p.animal === 'penguin' ? 1.5 : 0.85;
   if (t === T.ROPE) s *= 0.8;
   if (t === T.BEAM && steady) s *= 0.45;
-  if (p.sprintT > 0) s *= 1.9;
+  if(p.dragging!=null)s*=.5;
+  else if (p.sprintT > 0) s *= 1.9;
   return s;
 }
 

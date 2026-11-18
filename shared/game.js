@@ -1,3 +1,4 @@
+import {pauseDraggedStaff,grabSleepingStaff,followDraggedStaff,stopDragging,staffFlashlight} from './dragging.js';
 import {newScoreLog,scoreEvent,scoreTick,roundScore} from './scoring.js';
 import {freeDigTarget,digAction,finishGroundDig,smashTarget,finishTerrainHit,refreshTunnelWidths,stepStamina,BIG} from './mobility.js';
 // Authoritative game simulation for one mission. Runs on the server for online rooms and in the
@@ -141,7 +142,7 @@ export class Game {
       id: pd.id, name: pd.name || ANIMALS[pd.animal].name, animal: pd.animal, enc: enc.index,
       x: enc.spawn[0] + 0.5, y: enc.spawn[1] + 0.5, face: 'down', active: true, connected: true,
       input: { mx: 0, my: 0, sp: false, e: false }, prevSp: false, prevE: false, lastSeq: 0,
-      stamina:1,staminaYellow:false,staminaUsing:false,exhausted:false,running:false,digChoice:null,digTarget:null,carry: null, shell: false, slide: null, sprintT: 0, noiseT: 0, cd: 0, cdMax: 1, grace: 0, capturedT: 0,
+      dragging:null,dragLength:0,stamina:1,staminaYellow:false,staminaUsing:false,exhausted:false,running:false,digChoice:null,digTarget:null,carry: null, shell: false, slide: null, sprintT: 0, noiseT: 0, cd: 0, cdMax: 1, grace: 0, capturedT: 0,
       under: null, hop: null, hold: null, lookout: 0, wobble: 0, onBeam: false, safe: null,
       muzzled:false, muzzleRattles:0, biteAnimT:0, biteCool:0, prevB:false, flinch:0,
       escaped: false, hidden: false, exposed: false, prepared: false, materials: 0, cageKeys: 0, ramCool: 0,
@@ -222,7 +223,7 @@ export class Game {
   setConnected(pid, c) {
     const p = this.players.get(pid);
     if (!p) return;
-    p.connected = c;
+    p.connected = c;if(!c)stopDragging(this,p);
     if (!c) { p.input = { mx: 0, my: 0, sp: false, e: false }; p.hold = null; }
   }
 
@@ -230,7 +231,7 @@ export class Game {
   removePlayer(pid) {
     const p = this.players.get(pid);
     if (!p || !p.active) return;
-    this._dropCarry(p);
+    stopDragging(this,p);this._dropCarry(p);
     p.active = false; p.hold = null; p.shell = false;
     const part = this.parts.find((pt) => pt.pid === pid && !pt.inserted);
     if (part) {
@@ -261,6 +262,7 @@ export class Game {
   // ---------- main step ----------
   step(dt = TICK) {
     if (this.phase !== 'play') return;
+    pauseDraggedStaff(this,dt);
     this.time += dt; this.tick++;
     for (const pid of this.order) this._stepPlayer(this.players.get(pid), dt);
     this._stepGates(dt);
@@ -319,19 +321,20 @@ export class Game {
     if (p.slide) { this._stepSlide(p, dt); this._postMove(p, dt); return; }
 
     if(p.flinch>0)return;
-    if(bEdge)this._bite(p);
+    if(!grabSleepingStaff(this,p)&&bEdge){this._bite(p);grabSleepingStaff(this,p);}
     // continue holds
     if (p.hold) this._continueHold(p, inp, dt);
 
-    if (!p.hold) {
+    if (!p.hold&&p.dragging==null) {
       if (spEdge) this._useAbility(p);
       if (eEdge || (inp.e && this.staff.some(s=>this._canSteal(p,s)))) this._interact(p);
     }
 
     // movement
+    const dragFrom=[p.x,p.y];
     const wants = Math.hypot(inp.mx, inp.my) > 0.15;
     if(p.running&&!inp.run&&p.staminaYellow){p.exhausted=true;p.sprintT=0;}
-    const mayRun=!p.caged&&!p.shell&&!p.hold&&!p.hop&&!p.under&&!p.slide;
+    const mayRun=p.dragging==null&&!p.caged&&!p.shell&&!p.hold&&!p.hop&&!p.under&&!p.slide;
     p.running=!!(inp.run&&wants&&mayRun&&p.stamina>0&&!p.exhausted);
     if(p.running)p.sprintT=Math.max(p.sprintT,.1);
     if (p.hold && wants && !['steal','cityCarKey','citySteal'].includes(p.hold.kind)) {
@@ -357,6 +360,7 @@ export class Game {
       p.face = facingFrom(inp.mx, inp.my, p.face);
     }
     stepStamina(p,dt,!!(p.moving&&p.sprintT>0));
+    followDraggedStaff(this,p,dragFrom);
     this._postMove(p, dt);
   }
 
@@ -466,6 +470,7 @@ export class Game {
   // ---------- abilities ----------
   /** Determine what Space would do right now. Returns {text, run} or {text} or null. */
   abilityTarget(p) {
+    if(p.dragging!=null)return {text:'Release Bite before using an ability',idle:true};
     const [px, py] = this.ptile(p);
     const a = p.animal;
     const dirs = this.dirOrder(p);
@@ -606,6 +611,7 @@ export class Game {
 
   // ---------- interaction (E) ----------
   interactTarget(p) {
+    if(p.dragging!=null)return {text:'Hold Bite and move to drag; release to let go',idle:true};
     if (p.capturedT > 0 || p.under || p.hop || p.slide) return null;
     const [px, py] = this.ptile(p);
     if(p.muzzled){
@@ -1174,6 +1180,7 @@ export class Game {
   }
 
   _capture(s, p) {
+    stopDragging(this,p);
     p.cageKeys=0;p.inControlRoom=false;
     p.capturedT = 1.1;
     p.hold = null; p.slide = null; p.shell = false; p.sprintT = 0;p.digChoice=null;p.digTarget=null;p.running=false;
@@ -1223,6 +1230,7 @@ export class Game {
   }
 
   _returnToEnclosure(p) {
+    stopDragging(this,p);
     p.cageKeys=0;p.inControlRoom=false;
     p.capturedT=0;
     const e = this.zoo.enclosures[p.enc];
@@ -1350,12 +1358,12 @@ export class Game {
       pd: this.plates.map((p) => (p.down ? 1 : 0)),
       pl: this.order.map((id) => {
         const p = this.players.get(id);
-        return { id, stamina:r2(p.stamina), staminaYellow:!!p.staminaYellow, exhausted:!!p.exhausted, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, room:!!p.inControlRoom, mu:!!p.muzzled,ba:(p.biteAnimT||0)>0||p.hold?.kind==='muzzleHelp', ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
+        return { id, dragging:p.dragging, stamina:r2(p.stamina), staminaYellow:!!p.staminaYellow, exhausted:!!p.exhausted, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, room:!!p.inControlRoom, mu:!!p.muzzled,ba:(p.biteAnimT||0)>0||p.hold?.kind==='muzzleHelp', ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
       }),
       permanent:this.permanentAlert,
       darts:this.darts.map(d=>({x:r2(d.x),y:r2(d.y),dx:d.dx,dy:d.dy})),
       security: this.permanentAlert ? -1 : Math.max(0,Math.ceil(this.alertUntil-this.time)),
-      st: this.staff.map((s) => ({ ar:this.time<this.alertUntil, x: r2(s.x), y: r2(s.y), d: r2(s.dir), s: STAFF_STATES.indexOf(s.state), al: r2(s.alert) })),
+      st: this.staff.map((s) => ({ id:s.id,light:staffFlashlight(this,s),draggedBy:s.draggedBy||null, ar:this.time<this.alertUntil, x: r2(s.x), y: r2(s.y), d: r2(s.dir), s: STAFF_STATES.indexOf(s.state), al: r2(s.alert) })),
       np: this.npcs.map((n) => ({ a: n.animal, x: r2(n.x), y: r2(n.y), s: n.state, f: n.face })),
       broken:[...this.destroyedTerrain],lookout,
       obj: this.objectives(),
@@ -1370,13 +1378,13 @@ export class Game {
     const sp = this.abilityTarget(p);
     return {
       id: pid, x: p.x, y: p.y, seq: p.lastSeq,
-      stamina:p.stamina,staminaYellow:!!p.staminaYellow,exhausted:p.exhausted,running:p.running,digChoice:p.digChoice,digTarget:p.digTarget,control:controlPersonal(this,pid),
+      dragging:p.dragging,stamina:p.stamina,staminaYellow:!!p.staminaYellow,exhausted:p.exhausted,running:p.running,digChoice:p.digChoice,digTarget:p.digTarget,control:controlPersonal(this,pid),
       pe: e ? { t: e.text, ok: !!e.run } : null,
       ps: sp ? { t: sp.text, ok: !!sp.run } : null,
       hold: p.hold ? { k: p.hold.kind, p: p.hold.need === Infinity ? -1 : Math.min(1, p.hold.t / p.hold.need) } : null,
       cd: p.cdMax ? Math.round((p.cd / p.cdMax) * 100) / 100 : 0,
       grace: Math.round(p.grace * 10) / 10,
-      special: !!(p.digChoice || p.inControlRoom || p.slide || p.hop || p.under || p.capturedT > 0 || p.shell || p.hold || p.sprintT > 0 || p.onBeam),
+      special: !!(p.dragging!=null || p.digChoice || p.inControlRoom || p.slide || p.hop || p.under || p.capturedT > 0 || p.shell || p.hold || p.sprintT > 0 || p.onBeam),
     };
   }
 

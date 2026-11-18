@@ -260,11 +260,12 @@ export class Renderer {
 
     // vision cones
     const cfg = w.zoo.staff;
-    this._cones = staff.map((s) => ({ s, poly: visionPolygon(w, s, cfg, 16) }));
+    this._cones = staff.filter(s=>(s.light??(s.s===6?0:1))>0).map((s) => ({ s, poly: visionPolygon(w, s, cfg, 16) }));
     for (const { s, poly } of this._cones) {
+      ctx.save();ctx.globalAlpha=s.light??1;
       ctx.beginPath(); poly.forEach(([x, y], j) => (j ? ctx.lineTo(x * TS, y * TS) : ctx.moveTo(x * TS, y * TS))); ctx.closePath();
       ctx.fillStyle = s.s === 2 ? 'rgba(255,80,60,0.28)' : s.s === 1 ? 'rgba(255,170,60,0.26)' : 'rgba(255,240,150,0.18)';
-      ctx.fill();
+      ctx.fill();ctx.restore();
     }
 
     for(const car of snap.cars||[snap.obj.parking?.car])if(car&&visible(car.x,car.y)){
@@ -578,8 +579,8 @@ export class Renderer {
     for (const d of this.world.zoo.decor) if (d.kind === 'lamp') hole(d.x + 0.5, d.y - 0.3, 3.5, 0.8);
     for (const p of players) hole(p.x, p.y, p.id === this.world.myId ? 4.5 : 3, 0.85);
     hole(78.5, 28.5, 4, 0.7);
-    for (const { poly } of this._cones || []) {
-      L.fillStyle = 'rgba(0,0,0,0.75)';
+    for (const { s,poly } of this._cones || []) {
+      L.fillStyle = `rgba(0,0,0,${.75*(s.light??1)})`;
       L.beginPath(); poly.forEach(([x, y], j) => { const [sx, sy] = toS(x, y); if (j) L.lineTo(sx * f, sy * f); else L.moveTo(sx * f, sy * f); }); L.closePath(); L.fill();
     }
     void staff; void now;

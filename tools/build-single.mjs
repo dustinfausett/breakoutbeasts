@@ -62,11 +62,12 @@ const bundle = [
 // Fail the build if a module leaves behind syntax that cannot run as an embedded script.
 new Function(bundle);
 
-const packedAssets=Object.fromEntries(['flight-plane','flight-atlas','thrift-props','city-props','cockpit-controls','rescue-animals','car','logo','actors','terrain','objects','panel','walk-animals-a','walk-animals-b'].map(name=>[name,'data:image/png;base64,'+fs.readFileSync(path.join(CLIENT,'assets',name+'.png')).toString('base64')]));
+const packedAssets=Object.fromEntries(['app-icon-32','app-icon-180','flight-plane','flight-atlas','thrift-props','city-props','cockpit-controls','rescue-animals','car','logo','actors','terrain','objects','panel','walk-animals-a','walk-animals-b'].map(name=>[name,'data:image/png;base64,'+fs.readFileSync(path.join(CLIENT,'assets',name+'.png')).toString('base64')]));
 let html = fs.readFileSync(path.join(CLIENT, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(CLIENT, 'style.css'), 'utf8').replaceAll('url(assets/panel.png)',`url(${packedAssets.panel})`);
 const icon = fs.readFileSync(path.join(CLIENT, 'favicon.svg'), 'utf8').trim();
 html = html.replace('<link rel="icon" href="favicon.svg" type="image/svg+xml">', `<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(icon)}">`);
+html=html.replace('<link rel="manifest" href="manifest.webmanifest">','').replaceAll('href="assets/app-icon-180.png"',`href="${packedAssets['app-icon-180']}"`).replaceAll('href="assets/app-icon-32.png"',`href="${packedAssets['app-icon-32']}"`);
 html = html.replace('<link rel="stylesheet" href="style.css">', () => `<style>\n${css}\n</style>`);
 html = html.replace('<script type="module" src="main.js"></script>', () => `<script>\nwindow.__BB_ASSETS__=${JSON.stringify(packedAssets)};\n${bundle.replace(/<\/script/gi, '<\\/script')}\n</script>`);
 if (/src="main\.js"|href="style\.css"/.test(html)) throw new Error('inlining failed');

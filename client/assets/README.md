@@ -18,3 +18,5 @@ Walking frames change limb positions, with mirrored frames for leftward movement
 The game defaults to the original code-drawn world and characters, with the generated logo active in both styles. All PNGs are intentionally retained here. Open the game with `?art=detailed` to use these generated assets and walking cycles again; no files need to be restored.
 
 - `car.png`: newly generated original top-down station wagon, facing right. Used for every parked and driven car in both art styles, with game-drawn lamp flashes. Its chunky pixel outline and palette match the classic world. The moving car rotates this same sprite; the source image is preserved unchanged.
+
+The original `app-icon-source.png` was generated for Breakout Beasts: a pixel-art red panda breaking a gate, with animal teammates on a dark teal background. `app-icon-{32,180,192,512}.png` are resized exports for the browser favicon, Apple home-screen icon, and web manifest. They are independent of the selectable detailed game artwork.

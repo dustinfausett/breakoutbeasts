@@ -1,3 +1,4 @@
+import {joinLiveGame} from './late-join.js';
 import {prepareTakeoff} from './runway.js';
 import {completeTasksForTesting as prepareAirport} from './mission-testing.js';
 import {CLOTHES} from './wardrobe.js';
@@ -56,8 +57,9 @@ export class Room {
   notice(text) { this.broadcast({ t: 'notice', text }); }
 
   addPlayer(name) {
+    if(this.players.size>=this.maxPlayers&&this.phase!=='lobby'){const vacant=[...this.players.values()].find(p=>!p.connected);if(vacant)this.leave(vacant.id);}
     if (this.players.size >= this.maxPlayers) return { error: 'room_full', message: `This room is full (${this.maxPlayers}/${this.maxPlayers} players).` };
-    if (this.phase !== 'lobby') return { error: 'in_progress', message: 'This mission has already started. Ask the host to return to the lobby, then join again.' };
+
     const id = 'p' + (this.pid++);
     const p = { id, name: cleanName(name, 'Player ' + (this.players.size + 1)), animal: null, ready: false, connected: true, token: makeToken(this.rng), joinedAt: this.pid, dcAt: 0, spectator: false };
     this.players.set(id, p);
@@ -73,12 +75,12 @@ export class Room {
     if (!p) return { error: 'expired', message: 'Your spot in this room has expired.' };
     p.connected = true; p.dcAt = 0;
     this.emptySince = null;
-    if (this.game) this.game.setConnected(p.id, true);
+    if (this.game){if(this.game.players.get(p.id)&&!this.game.players.get(p.id).active)joinLiveGame(this.game,p);this.game.setConnected(p.id,true);p.spectator=false;}
     this.sent.delete(p.id);
     this.sendFn(p.id, { t: 'joined', code: this.code, you: p.id, token: p.token, solo: this.solo, resumed: true });
     if (!this.hostId || !this.players.get(this.hostId)?.connected) this._migrateHost(p.id);
     this.broadcastLobby();
-    if (this.game && this.phase !== 'lobby') this._sendStart(p.id);
+    if (this.game?.players.has(p.id) && this.phase !== 'lobby') this._sendStart(p.id);
     if (this.phase === 'complete' && this.results) this.send(p.id, { t: 'end', results: this.results });
     this.notice(`${p.name} reconnected.`);
     return { player: p };
@@ -136,11 +138,11 @@ export class Room {
     switch (msg.t) {
       case 'name': p.name = cleanName(msg.name, p.name); this.broadcastLobby(); break;
       case 'pick': {
-        if (this.phase !== 'lobby') return;
         const a = msg.animal;
+        if(this.phase!=='lobby'&&this.game?.players.get(pid)?.active)return;
         if (a !== null && !ANIMAL_IDS.includes(a)) return this.error(pid, 'bad_animal', 'Unknown animal.');
         if (a && [...this.players.values()].some((q) => q.id !== pid && q.animal === a)) return this.error(pid, 'animal_taken', `${ANIMALS[a].name} is already taken by a teammate. Pick another animal.`);
-        p.animal = a; p.ready = false;
+        p.animal = a; p.ready = false;if(this.phase!=='lobby'&&a&&this.game){joinLiveGame(this.game,p);p.spectator=false;this._sendStart(pid);if(this.phase==='complete'&&this.results)this.send(pid,{t:'end',results:this.results});}
         this.broadcastLobby();
         break;
       }
@@ -287,6 +289,7 @@ export class Room {
   }
 
   _sendStart(pid) {
+    if(!this.players.get(pid)?.animal)return; // Keep pending live joins on animal selection.
     this.send(pid, { t: 'start', zoo: this.game.zooId, solo: this.solo, team: this.game.order.length });
     this.send(pid,{t:'paused',on:this.paused,hostId:this.hostId});
     this.sent.delete(pid);

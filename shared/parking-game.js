@@ -50,7 +50,8 @@ export class ParkingGame extends Game{
  detectable(p){return !p.inVehicle&&super.detectable(p);}
  _nearCar(p){const v=this.vehicle,c=Math.cos(v.angle),s=Math.sin(v.angle),dx=p.x-v.x,dy=p.y-v.y,u=dx*c+dy*s,l=-dx*s+dy*c;if(Math.hypot(Math.max(0,Math.abs(u)-2.25),Math.max(0,Math.abs(l)-1.65))>1.15)return false;const own=new Set(vehicleCells(v,this.w,this.h));return lineOfSight(p.x,p.y,v.x,v.y,(x,y)=>own.has(y*this.w+x)?tileBlocksVision(this.tileAt(x,y)):this.visionBlocked(x,y));}
  _door(){const v=this.vehicle;return [v.x-Math.sin(v.angle)*2.75,v.y+Math.cos(v.angle)*2.75];}
- interactTarget(p){if(p.caged)return this._cageWallInteraction(p);const target=super.interactTarget(p);if(target)return target;return this._objectInteraction(p,this.obj('getaway'));}
+ _insideHolding(p){return !!this.holdingCage&&p.x>2&&p.x<9&&p.y>52&&p.y<59;}
+ interactTarget(p){if(p.caged||this._insideHolding(p))return this._cageWallInteraction(p);const target=super.interactTarget(p);if(target)return target;return this._objectInteraction(p,this.obj('getaway'));}
  _objectInteraction(p,o){
   if(o.kind==='holdingCageDoor'){if(p.caged)return {text:'Wait for a rescue, or grab a wall when everyone is captured',idle:true};return {text:'Open the cage and free your captured teammates',run:()=>this._openHoldingCage(p.name)};}
   if(o.kind!=='vehicle')return super._objectInteraction(p,o);
@@ -141,17 +142,17 @@ export class ParkingGame extends Game{
  abilityTarget(p){return p.caged?{text:'Hold E at a wall when the whole crew is captured',idle:true}:super.abilityTarget(p);}
  _canSteal(p,s){return !p.caged&&super._canSteal(p,s);}
  _cageWallInteraction(p){
-  if(!this.activePlayers().every(q=>q.caged&&q.capturedT<=0))return {text:'Wait for an uncaptured teammate to open the cage',idle:true};
+  if(!this.activePlayers().every(q=>(q.caged||this._insideHolding(q))&&q.capturedT<=0))return {text:'Wait for an uncaptured teammate to open the cage',idle:true};
   const candidates=[];for(let y=52;y<=58;y++)for(let x=2;x<=8;x++)if((x===2||x===8||y===52||y===58)&&!(x===8&&y===55)&&dist(p.x,p.y,x+.5,y+.5)<1.2&&!this.activePlayers().some(q=>q!==p&&q.hold?.kind==='cageWall'&&q.hold.wall[0]===x&&q.hold.wall[1]===y))candidates.push([x,y]);
   const wall=candidates[0];if(!wall)return {text:'Move beside a free wall section, then hold E',idle:true};
   return {text:'Hold E: grab this wall — everyone must grab together',run:()=>{p.hold={kind:'cageWall',btn:'e',wall,t:0,need:Infinity};}};
  }
  _stepHoldingCage(dt){
-  if(!this.holdingCage)return;const team=this.activePlayers(),ready=team.length>0&&team.every(p=>p.caged&&p.connected&&p.capturedT<=0&&p.hold?.kind==='cageWall'&&p.input.e&&dist(p.x,p.y,p.hold.wall[0]+.5,p.hold.wall[1]+.5)<1.3);
+  if(!this.holdingCage)return;const team=this.activePlayers(),ready=team.length>0&&team.every(p=>(p.caged||this._insideHolding(p))&&p.connected&&p.capturedT<=0&&p.hold?.kind==='cageWall'&&p.input.e&&dist(p.x,p.y,p.hold.wall[0]+.5,p.hold.wall[1]+.5)<1.3);
   this.holdingCage.progress=ready?this.holdingCage.progress+dt:0;if(this.holdingCage.progress>=1.5)this._openHoldingCage('The whole crew');
  }
  _openHoldingCage(name){
-  this.openGate(this.gate('holding-gate'));this.obj('holding-door').state=1;for(const p of this.activePlayers())if(p.caged){p.caged=false;p.hold=null;p.grace=3;}this.holdingCage.progress=0;this.emit({k:'cagerescue',name});
+  this.openGate(this.gate('holding-gate'));this.obj('holding-door').state=1;for(const p of this.activePlayers())if(p.caged||p.hold?.kind==='cageWall'){p.caged=false;p.hold=null;p.grace=3;}this.holdingCage.progress=0;this.emit({k:'cagerescue',name});
  }
  _hitKeepers(){
   const v=this.vehicle;if(Math.abs(v.speed)<.6)return;const c=Math.cos(v.angle),s=Math.sin(v.angle);

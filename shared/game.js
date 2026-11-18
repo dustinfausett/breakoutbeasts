@@ -702,14 +702,16 @@ export class Game {
       case 'cage': {
         const part = this._partForBay(o.bay);
         if (!part) return { text: 'Empty', idle: true };
+        if(part.pid&&part.pid!==p.id)return {text:'This component belongs to '+(this.players.get(part.pid)?.name||'another player'),idle:true};
         if (o.state === 0) return { text: 'Locked — flip the breaker first', idle: true };
         if (o.state === 2) return { text: 'Empty — the fuse is already out', idle: true };
         if (p.carry) return { text: 'Paws full', idle: true };
-        return { text: 'Take the fuse', run: () => { o.state = 2; p.carry = 'fuse:' + o.bay; part.fuse = true; this.emit({ k: 'pickup', pid: p.id }); this.msg(p, 'Fuse in paw! Plug it into the generator in the yard.'); } };
+        return { text: 'Take the fuse', run: () => { if(part.pid&&part.pid!==p.id)return;o.state = 2; p.carry = 'fuse:' + o.bay; part.fuse = true; this.emit({ k: 'pickup', pid: p.id }); this.msg(p, 'Fuse in paw! Plug it into the generator in the yard.'); } };
       }
       case 'breaker': {
         const part = this._partForBay(o.bay);
         if (!part) return null;
+        if(part.pid&&part.pid!==p.id)return {text:'This breaker belongs to another player',idle:true};
         if (o.state === 1) return { text: 'Breaker already on', idle: true };
         return { text: 'Flip the breaker', run: () => { o.state = 1; part.breaker = true; const cage = this.obj(this.bayState[o.bay].cage); if (cage && cage.state === 0) cage.state = 1; this.emit({ k: 'unlock', x: o.x, y: o.y }); } };
       }
@@ -721,6 +723,7 @@ export class Game {
           text: 'Plug in the fuse', run: () => {
             const bay = Number(p.carry.split(':')[1]);
             const part = this._partForBay(bay);
+            if(!part||part.pid&&part.pid!==p.id)return;
             p.carry = null; o.state = 1;
             if (part) { part.inserted = true; part.socket = o.index; }
             this.emit({ k: 'socket',pid:p.id,obj:o.id, x: o.x, y: o.y });

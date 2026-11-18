@@ -236,7 +236,7 @@ function onMessage(msg) {
       if (app.screen === 'animals') buildAnimals();
       if (app.screen === 'lobby') renderLobby();
       if (msg.phase === 'lobby' && app.inGame) leaveGameView(true);
-      if (!prev && app.mode !== 'solo' && msg.phase === 'lobby') {
+      if (!prev && app.mode !== 'solo') {
         const me = msg.players.find((p) => p.id === app.myId);
         if (me && me.animal) { show('lobby'); renderLobby(); } else { show('animals'); buildAnimals(); }
       }
@@ -731,6 +731,7 @@ async function readProgressCode(){const raw=$('#progress-code').value.trim();if(
 function renderPauseMenu(){
   const host=app.mode==='solo'||app.lobby?.hostId===app.myId;
   $('#pause-h').textContent=app.paused?'Group paused':'Menu';
+  $('#pause-copy-room').hidden=app.mode==='solo';$('#pause-room-code').textContent=app.mode==='solo'?'Solo game':`Room code: ${app.lobby?.code||''}`;
   $('#pause-note').textContent=app.paused?(host?'The whole group is paused. Save a checkpoint or resume when ready.':'The host paused the whole group. Wait for the host to resume.'):(host?'Choose Pause & Save Group to freeze play for everyone and generate a progress code.':'The game keeps moving while your menu is open. Only the host can pause and save.');
   $('#pause-save').hidden=!host;$('#pause-resume').disabled=app.groupPaused&&!host;$('#pause-resume').textContent=app.groupPaused&&!host?'Waiting for host':'Resume';$('#quit-btn').textContent=app.mode==='solo'?'Quit to title':'Leave room';
 }
@@ -823,3 +824,5 @@ window.__bb.input = input;
 window.__bb.botState = () => app.bot ? {script:app.bot.scriptName,step:app.bot.si,current:app.bot.script?.[app.bot.si],recent:app.bot.log.slice(-4)} : null;
 window.__bb.state = () => ({ screen: app.screen, overlay: app.overlay, inGame: app.inGame, myId: app.myId, lobby: app.lobby, snap: app.world?.snap ? { tick: app.world.snap.tick, phase: app.world.snap.phase, obj: app.world.snap.obj, pl: app.world.snap.pl, st: app.world.snap.st, g: app.world.snap.g, tv: app.world.snap.tv } : null, results: app.results, conn: app.connState });
 boot();
+
+if('serviceWorker' in navigator&&!globalThis.__BB_ASSETS__&&['http:','https:'].includes(location.protocol))navigator.serviceWorker.register('sw.js').catch(()=>{});

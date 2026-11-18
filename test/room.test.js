@@ -44,12 +44,12 @@ test('only the host starts, and only when everyone picked and is ready', () => {
   assert.ok(last(b.id, 'start'));
 });
 
-test('joining a mission in progress is refused', () => {
+test('joining a mission in progress allows choosing an animal without restarting', () => {
   const { room } = makeRoom();
   const a = room.addPlayer('A').player;
   room.handle(a.id, { t: 'pick', animal: 'zebra' });
   room.handle(a.id, { t: 'start' });
-  assert.equal(room.addPlayer('Late').error, 'in_progress');
+  const g=room.game,late=room.addPlayer('Late').player;assert.ok(late);room.handle(late.id,{t:'pick',animal:'meerkat'});assert.equal(room.game,g);assert.ok(g.players.get(late.id)?.active);
 });
 
 test('host migrates when the host leaves or disconnects', () => {

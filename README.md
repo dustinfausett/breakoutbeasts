@@ -736,3 +736,23 @@ New original AI-generated artwork is included in `client/assets/flight-atlas.png
 Validation: a full regression run passed 278/278 tests, including all 1,012 Moonleaf team compositions. Subsequent focused tests cover the final continuous physics, all 1–8 crew layouts, private information, movement limits, desktop linking/touch independence, reverse braking, gear safety, roster changes, save resumption and altitude completion. An eight-client real-browser flow exercises caller browsing, gauge pages, circular crank gestures, held steering, spring centering, throttle linking, generated art and the real result screen; a phone flow checks separate throttles and responsive controls.
 
 Final checks: the full regression run passed **278/278**, including all **1,012** original-zoo compositions. Final focused reruns passed continuous-flight, chapter, shortcut and scoring checks after tuning. The multiplayer/browser layout suite passed **19 checks** across crews of 1–8, including touch throttles, held steering and real crank gestures. Standalone HTML passed **6 checks** with both generated assets embedded, working gauge pages and explicit practice departure. Smaller crews keep a manual direction shifter with thrust; automated steering does not prevent stopping and reversing. Trim can sustain a climb with the yoke released, and scenery continues moving beyond the end of the physical runway.
+
+### Live room joins, owned components and phone icon
+
+A room code now works after play has started. Share it from **Menu → Room code** or **Copy room invite link**; newcomers enter a name, choose an available animal and join the existing world. The room supports eight connected players. A full room can replace a disconnected slot. Automatic reconnect restores the original animal while its room session is retained, including after the crew continues without that player. Room codes only address the currently running server room; use a progress save code to resume after a server restart.
+
+Live joins add an owned power bay and a unique command station when needed, preserve completed power and objectives, and wait for the new station before resuming an unfinished command puzzle. City joins use available numbered relay/handle slots; takeoff joins receive the current crew's flight-control allocation. Original-zoo fuse collection, breakers and generator insertion now enforce component ownership in the shared simulation, including when a meerkat tunnels into somebody else's bay. Orphaned parts remain usable if their owner leaves.
+
+Animals physically inside the parking or Northgate holding cage can grab a wall alongside captured teammates, even when they were not captured. Everyone inside must hold a different wall section together; the existing rescue progress circle shows the shared effort.
+
+The original generated pixel-art red-panda gate-break icon is saved as `client/assets/app-icon-source.png`, with 32-, 180-, 192- and 512-pixel exports. It was generated for this game and adds no third-party stock assets. The web manifest supplies Android install artwork and standalone display; the Apple touch icon supplies iPhone/iPad artwork. The service worker caches only icon files: gameplay and multiplayer still require the network. The downloadable HTML embeds its icons and does not register a service worker.
+
+To add the deployed site to a phone:
+
+1. Open the game's HTTPS address in Safari on iPhone/iPad, or Chrome on Android.
+2. On iPhone/iPad, use **Share → Add to Home Screen → Add**. On Android, use the browser menu's **Install app** or **Add to Home screen** option.
+3. Launch **Breakout Beasts!** from the new animal icon. If an older home-screen shortcut keeps the old icon, remove that shortcut and add it again.
+
+Regression checks: `test/live-join.test.js` covers live joins across chapters, expired-session restoration, full-room replacement, eight-player puzzle slots, command-room progress, component ownership and uncaptured cage helpers. `e2e/live-join.mjs` checks a named guest joining a running room, the Menu code, fuse protection, manifest, Apple icon, service-worker registration and icon dimensions in Chromium.
+
+Validation: the full Node suite passed 286/286 tests, including all 1,012 original-zoo team compositions. Final live-join/room checks passed 20/20 and the live-join/Northgate checks passed 25/25; the expanded eight-player late-join crew also completed the zoo. Browser checks passed for live room joining and phone icon registration, and the standalone takeoff build loaded and completed without browser errors. Build and whitespace checks pass.

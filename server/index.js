@@ -111,8 +111,7 @@ export function createServer({ port = 8080, host = '0.0.0.0', roomOptions = {}, 
             info.room = room; info.pid = p.id;
             room.resume(msg.token);
           } else {
-            if (room.players.size >= room.maxPlayers) return reply({ t: 'error', code: 'room_full', message: `Room ${code} is full (${room.maxPlayers}/${room.maxPlayers} players).` });
-            if (room.phase !== 'lobby') return reply({ t: 'error', code: 'in_progress', message: 'That mission has already started. Ask the host to return to the lobby, then join again.' });
+            if (room.players.size >= room.maxPlayers&&![...room.players.values()].some(p=>!p.connected)) return reply({ t: 'error', code: 'room_full', message: `Room ${code} is full (${room.maxPlayers}/${room.maxPlayers} players).` });
             info.room = room; info.pid = 'p' + room.pid;
             const r = room.addPlayer(msg.name);
             if (r.error) { info.room = null; info.pid = null; reply({ t: 'error', code: r.error, message: r.message }); }

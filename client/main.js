@@ -375,6 +375,7 @@ function handleEvent(ev) {
     case 'exitOpen': audio.play('complete'); caption('The Moonleaf Gate is open! Everyone to the exit!', 'good'); break;
     case 'bayopen': caption(`Bay ${ev.bay + 1} is open!`, 'good'); break;
     case 'rattle': audio.play('clang'); caption('[Clang clang] A bin rattles — keepers will investigate', '', true); break;
+    case 'ventriloquism': if(nearMe(ev.x,ev.y,25))audio.play('lookout');break;
     case 'noise': if (nearMe(ev.x, ev.y, 10)) caption('[Noise] Keepers nearby can hear that', '', true); break;
     case 'emote': audio.play('emote'); caption(`${ev.name}: “${ev.text}”`); break;
     case 'adapt': caption('Tasks adjusted for the remaining team. Finished work was kept.', 'good'); break;
@@ -504,9 +505,10 @@ function updateHUD() {
     if(p.mu)st+=' · MUZZLED';
     if (p.c) st += p.c === 'wood' ? ' · log' : ' · fuse';
     if (p.s & PF.GRACE) st += ' · safe';
-    t += `<div class="tm ${p.id === app.myId ? 'me' : ''}"><img src="${portraitURL(p.a)}" alt=""><div><b>${esc(p.n)}</b><small>${st}</small></div></div>`;
+    t += `<div class="tm ${p.id === app.myId ? 'me' : ''}"><img src="${portraitURL(p.a)}" alt=""><div><b>${esc(p.n)}</b><small>${st}</small><progress class="tag-stamina" data-stamina-pid="${p.id}" aria-label="${esc(p.n)} stamina" max="1" value="1"></progress></div></div>`;
   }
   if ($('#team').dataset.h !== t) { $('#team').innerHTML = t; $('#team').dataset.h = t; }
+  for(const p of s.pl){const bar=$('#team').querySelector(`[data-stamina-pid="${p.id}"]`);if(bar){bar.value=p.stamina??1;bar.classList.toggle('yellow',!!p.staminaYellow);}}
 
   // waiting for reconnect
   const wt = $('#waiting');
@@ -522,7 +524,7 @@ function updateHUD() {
   const showingResults=app.overlay==='complete';
   updateLiveMap(showingResults?null:w);updateRescueUI(showingResults?null:s.rescue,showingResults?null:pm);
   updateCityUI(showingResults?null:pm,o.parking?.city,w.zoo);updateDigPicker(app.overlay||app.paused?null:pm,w);
-  $('#stamina').hidden=!!(pm?.vehicle||pm?.control||pm?.flight);$('#stamina-fill').value=pm?.stamina??1;$('#tbtn-run').hidden=!!(pm?.vehicle||pm?.control||pm?.flight);
+  $('#stamina').hidden=!!(pm?.vehicle||pm?.control||pm?.flight);$('#stamina-fill').value=pm?.stamina??1;$('#stamina').classList.toggle('yellow',!!pm?.staminaYellow);$('#tbtn-run').hidden=!!(pm?.vehicle||pm?.control||pm?.flight);
   updateControlPanel(pm?.control||null);
   const inCar=s.phase==='play'&&!!pm?.vehicle;
   if(app.wasInCar!==inCar){input.releaseAll();app.wasInCar=inCar;}

@@ -209,8 +209,8 @@ const ENCLOSURES = {
       '##GG#####|#g##',
       'PPPPkPPPPPPPPP',
     ],
-    hint: 'Balance across the beam (hold Space to steady), wade into the pond and stretch over the water to the switch (Space).',
-    solution: [{ go: [4, 5] }, { beam: ['right', 8] }, { go: [10, 4] }, { face: 'right' }, { space: 1 }, { wait: 0.5 }, { go: [11, 9] }, { go: [11, 11] }],
+    hint: 'Balance across the beam (hold Space to steady), wade into the pond and reach over the water to the switch (E). Space throws your voice to distract guards.',
+    solution: [{ go: [4, 5] }, { beam: ['right', 8] }, { go: [10, 4] }, { face: 'right' }, { holdE: 1 }, { wait: 0.5 }, { go: [11, 9] }, { go: [11, 11] }],
   },
 };
 

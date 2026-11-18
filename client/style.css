@@ -263,3 +263,47 @@ body.runway-active #flight-panel{display:block!important;overflow:auto;backgroun
 .flight-gauge{margin:4px;width:160px;flex-shrink:0;text-align:center}.flight-gauge canvas{width:100%!important;height:auto}.flight-gauge figcaption{font-size:13px;color:#ffe3a0}.flight-gauge output{display:block;font:700 24px monospace;color:#fff1c7;background:#143039;border:1px solid #a99264;padding:3px}@media(max-width:600px){.flight-gauge{width:calc(50% - 8px)}.flight-gauge figcaption{font-size:12px}}
 .flight-readout{position:fixed;z-index:45;top:max(8px,env(safe-area-inset-top));padding:8px 12px;border:2px solid #c4ae78;background:#12363def;color:#ffe4a0;font:bold 17px monospace;pointer-events:none}#flight-runway-left{right:max(12px,env(safe-area-inset-right))}#flight-caller-speed{left:max(12px,env(safe-area-inset-left))}@media(max-width:600px){.flight-readout{font-size:13px;padding:6px}}
 .flight-input.covered:after{content:'UP\A\A\A\A DOWN';white-space:pre;position:absolute;right:0;top:8px;font-size:10px;color:#ffdfa0;pointer-events:none}.flight-input.switch:after{content:'ON\A\A\A\A OFF';white-space:pre;position:absolute;right:0;top:8px;font-size:10px;color:#ffdfa0;pointer-events:none}
+
+/* The local stamina strip sits at the device edge; desktop uses the name tags. */
+.stamina{display:none;position:fixed;left:20%;right:20%;bottom:max(5px,env(safe-area-inset-bottom));padding:0;background:transparent;border:0;z-index:10;pointer-events:none}
+.stamina progress,.tag-stamina{display:block;width:100%;height:6px;border:0;border-radius:2px;overflow:hidden;background:#1a302c;appearance:none;accent-color:#70dc6d}
+.stamina progress::-webkit-progress-bar,.tag-stamina::-webkit-progress-bar{background:#1a302c}
+.stamina progress::-webkit-progress-value,.tag-stamina::-webkit-progress-value{background:#70dc6d}
+.stamina progress::-moz-progress-bar,.tag-stamina::-moz-progress-bar{background:#70dc6d}
+.stamina.yellow progress,.tag-stamina.yellow{accent-color:#f2c94e}
+.stamina.yellow progress::-webkit-progress-value,.tag-stamina.yellow::-webkit-progress-value{background:#f2c94e}
+.stamina.yellow progress::-moz-progress-bar,.tag-stamina.yellow::-moz-progress-bar{background:#f2c94e}
+.tm>div{flex:1;min-width:0}.tag-stamina{margin-top:4px;height:5px}
+body.touch-on .stamina:not([hidden]){display:block}body.touch-on .tag-stamina{display:none}
+@media(max-width:700px),(pointer:coarse){.stamina:not([hidden]){display:block}.tag-stamina{display:none}}
+
+/* CRT procedure and warning terminal, readable without relying on a red lamp. */
+#caller{max-width:none;background:#071713;color:#99f3a2;border:5px ridge #6e8272;border-radius:7px;padding:14px 18px;font-family:'Courier New',monospace;box-shadow:inset 0 0 28px #0009;text-shadow:0 0 5px #69d48455}
+#caller .dos-title{font-size:12px;letter-spacing:1px;border-bottom:1px solid #4a9762;padding-bottom:8px;margin-bottom:10px}
+#flight-warning-screen{border:1px solid #426f53;padding:8px 10px;margin-bottom:12px;background:#06100c;color:#9ae6ac;min-height:52px}
+#flight-warning-screen>span{font-size:10px;letter-spacing:2px;display:block;opacity:.7;margin-bottom:4px}
+#flight-warning-message{font-size:14px;line-height:1.4;white-space:normal}
+#flight-warning-screen.alert{color:#ffd27e;border-color:#d48849;background:#20150b;text-shadow:0 0 5px #c77b3244}
+#caller #instruction-current{min-height:2.3em;line-height:1.3;margin:14px 0;font-size:clamp(19px,2.6vw,30px)}
+#instruction-before,#instruction-after{color:#79bb91;opacity:1;font-size:13px;line-height:1.4;min-height:18px}
+#caller button{font-family:inherit;background:#102d1d;color:#a8f6b4;border:1px solid #609a72;padding:7px 12px}
+#physical-controls{gap:8px;padding:6px 0}
+#physical-controls .physical-control{width:176px;border:2px solid #6c8177;border-radius:8px;background:linear-gradient(#233c3e,#10272e);box-shadow:inset 0 1px #a9b58d44,0 3px 5px #0005;padding:8px}
+#physical-controls h3{color:#eee0b0;font-size:13px;letter-spacing:.4px}
+.flight-input{height:160px;outline-offset:2px}.flight-input:focus-visible{outline:2px solid #e4c578}.flight-input.held{cursor:grabbing;background:#fff4bf09;border-radius:6px}
+.flight-input .handle{display:none}
+@media(max-width:650px){#caller{padding:10px;border-width:3px}#caller .dos-title{font-size:10px}#flight-warning-message{font-size:12px}#physical-controls .physical-control{width:calc(50% - 4px);min-width:132px}.flight-input{height:138px}}
+@media(max-height:500px){#physical-controls .physical-control{width:145px;min-width:125px}.flight-input{height:115px}#caller #instruction-current{font-size:20px}}
+.flight-input.shifter:after{content:none}
+/* Keep the aircraft in view while scrolling the cockpit, including on solo screens. */
+#flight-view{position:sticky;top:0;z-index:3;height:30dvh;background:#8bc8d6;border-bottom:3px solid #617a76}
+#flight-console{display:flex;gap:10px;align-items:stretch;margin:8px 0}
+#flight-console>#caller,#flight-console>#gauges{flex:1;min-width:0;margin:0}
+#flight-console #gauge-faces{display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:4px;overflow:auto;align-content:start}
+#flight-console .flight-gauge{margin:4px 0;text-align:center;min-width:0}
+#flight-console #gauge-faces canvas{display:block;width:100%;height:auto;max-width:140px;margin:auto}
+#flight-console .flight-gauge figcaption{font-size:10px;line-height:1.3;min-height:26px}
+#flight-console .flight-gauge output{font-size:19px}
+@media(max-width:700px){#flight-console{flex-direction:column}#flight-view{height:28dvh}#flight-console #gauge-faces{grid-template-columns:repeat(auto-fit,minmax(65px,1fr))}}
+@media(max-height:500px){#flight-view{height:32dvh}}
+#flight-console .flight-gauge{width:100%}

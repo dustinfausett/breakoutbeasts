@@ -75,10 +75,10 @@ export const ANIMALS = {
   },
   flamingo: {
     id: 'flamingo', name: 'Flamingo', difficulty: 'Hard', speed: 4.3,
-    ability: 'Wade & Stretch',
-    abilityText: 'Wades through shallow ponds, stretches across water to reach switches and balances on beams.',
+    ability: 'Ventriloquism',
+    abilityText: 'Throws a distracting sound 15 tiles in the direction you face, drawing nearby guards away. Also wades through ponds.',
     limitText: 'Wobbles on balance beams — move carefully or hold Space to steady yourself.',
-    controls: 'Press Space facing water to reach a switch beyond it. On a beam, hold Space to steady your steps.',
+    controls: 'Press Space to throw your voice. Press E to reach a switch across water. Hold Space on a beam to steady your steps.',
     color: '#f08aa8',
   },
 };

@@ -1,5 +1,5 @@
 import {newScoreLog,scoreEvent,scoreTick,roundScore} from './scoring.js';
-import {freeDigTarget,digAction,finishGroundDig,smashTarget,finishTerrainHit,refreshTunnelWidths,BIG} from './mobility.js';
+import {freeDigTarget,digAction,finishGroundDig,smashTarget,finishTerrainHit,refreshTunnelWidths,stepStamina,BIG} from './mobility.js';
 // Authoritative game simulation for one mission. Runs on the server for online rooms and in the
 // browser for solo play, so both modes share exactly the same rules.
 
@@ -141,7 +141,7 @@ export class Game {
       id: pd.id, name: pd.name || ANIMALS[pd.animal].name, animal: pd.animal, enc: enc.index,
       x: enc.spawn[0] + 0.5, y: enc.spawn[1] + 0.5, face: 'down', active: true, connected: true,
       input: { mx: 0, my: 0, sp: false, e: false }, prevSp: false, prevE: false, lastSeq: 0,
-      stamina:1,exhausted:false,running:false,digChoice:null,digTarget:null,carry: null, shell: false, slide: null, sprintT: 0, noiseT: 0, cd: 0, cdMax: 1, grace: 0, capturedT: 0,
+      stamina:1,staminaYellow:false,staminaUsing:false,exhausted:false,running:false,digChoice:null,digTarget:null,carry: null, shell: false, slide: null, sprintT: 0, noiseT: 0, cd: 0, cdMax: 1, grace: 0, capturedT: 0,
       under: null, hop: null, hold: null, lookout: 0, wobble: 0, onBeam: false, safe: null,
       muzzled:false, muzzleRattles:0, biteAnimT:0, biteCool:0, prevB:false, flinch:0,
       escaped: false, hidden: false, exposed: false, prepared: false, materials: 0, cageKeys: 0, ramCool: 0,
@@ -330,8 +330,8 @@ export class Game {
 
     // movement
     const wants = Math.hypot(inp.mx, inp.my) > 0.15;
+    if(p.running&&!inp.run&&p.staminaYellow){p.exhausted=true;p.sprintT=0;}
     const mayRun=!p.caged&&!p.shell&&!p.hold&&!p.hop&&!p.under&&!p.slide;
-    if(p.stamina>=.3&&!inp.run)p.exhausted=false;
     p.running=!!(inp.run&&wants&&mayRun&&p.stamina>0&&!p.exhausted);
     if(p.running)p.sprintT=Math.max(p.sprintT,.1);
     if (p.hold && wants && !['steal','cityCarKey','citySteal'].includes(p.hold.kind)) {
@@ -356,7 +356,7 @@ export class Game {
     } else if (wants) {
       p.face = facingFrom(inp.mx, inp.my, p.face);
     }
-    if(p.moving&&p.sprintT>0){p.stamina=Math.max(0,p.stamina-dt/4);if(p.stamina<=0){p.exhausted=true;p.running=false;p.sprintT=0;}}else{p.stamina=Math.min(1,p.stamina+dt*.22);}
+    stepStamina(p,dt,!!(p.moving&&p.sprintT>0));
     this._postMove(p, dt);
   }
 
@@ -571,18 +571,11 @@ export class Game {
         return { text: p.shell ? 'Pop out of shell' : 'Tuck into shell', run: () => { p.shell = !p.shell; p.cd = 0.3; p.cdMax = 0.3; this.emit({ k: 'shell', pid: p.id, on: p.shell }); } };
       }
       case 'flamingo': {
-        for (const d of dirs) {
-          const [x1, y1] = nb(d); const [x2, y2] = nb(d, 2);
-          let o = this.objAt(x1, y1);
-          if (o && o.kind === 'lever' && (o.reach === 'water' || o.reach === 'normal')) return this._reachRun(p, o, d, 'Stretch to switch');
-          const t1 = this.tileAt(x1, y1);
-          if (t1 === T.WATER || t1 === T.POND) {
-            o = this.objAt(x2, y2);
-            if (o && o.kind === 'lever' && (o.reach === 'water' || o.reach === 'normal')) return this._reachRun(p, o, d, 'Stretch across the water');
-          }
-        }
-        if (p.onBeam) return { text: 'Hold to steady yourself', idle: true };
-        return { text: 'Stretch (face water with a switch beyond)', idle: true };
+        if(p.cd>0)return {text:'Voice recharging',idle:true};
+        return {text:'Throw your voice 15 tiles ahead',run:()=>{
+          const [dx,dy]=DIRS[p.face],x=Math.max(1.5,Math.min(this.w-1.5,p.x+dx*15)),y=Math.max(1.5,Math.min(this.h-1.5,p.y+dy*15));
+          p.cd=5;p.cdMax=5;this.noise(x,y,18,p);this.emit({k:'ventriloquism',pid:p.id,x,y});
+        }};
       }
     }
     return null;
@@ -624,6 +617,14 @@ export class Game {
     }
     const guard = this.staff.find(s => this._canSteal(p, s));
     if (guard) return { text: 'Hold E to steal a cage key from behind', run: () => { p.hold = { kind: 'steal', btn: 'e', staff: guard.id, t: 0, need: .9 }; } };
+    // Wading and reaching are natural movement interactions; Space throws the voice.
+    if(p.animal==='flamingo'){
+      const [dx,dy]=DIRS[p.face];
+      for(const n of [1,2]){
+        const o=this.objAt(px+dx*n,py+dy*n);
+        if(o?.kind==='lever'&&['water','normal'].includes(o.reach||'normal')&&(n===1||[T.WATER,T.POND].includes(this.tileAt(px+dx,py+dy))))return this._reachRun(p,o,p.face,'Reach the switch');
+      }
+    }
     // tunnels
     if (this.tileAt(px, py) === T.BURROW) {
       const b = this.burrows.find((bb) => bb.dug && ((bb.a[0] === px && bb.a[1] === py) || (bb.b[0] === px && bb.b[1] === py)));
@@ -1349,7 +1350,7 @@ export class Game {
       pd: this.plates.map((p) => (p.down ? 1 : 0)),
       pl: this.order.map((id) => {
         const p = this.players.get(id);
-        return { id, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, room:!!p.inControlRoom, mu:!!p.muzzled,ba:(p.biteAnimT||0)>0||p.hold?.kind==='muzzleHelp', ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
+        return { id, stamina:r2(p.stamina), staminaYellow:!!p.staminaYellow, exhausted:!!p.exhausted, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, room:!!p.inControlRoom, mu:!!p.muzzled,ba:(p.biteAnimT||0)>0||p.hold?.kind==='muzzleHelp', ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
       }),
       permanent:this.permanentAlert,
       darts:this.darts.map(d=>({x:r2(d.x),y:r2(d.y),dx:d.dx,dy:d.dy})),
@@ -1369,7 +1370,7 @@ export class Game {
     const sp = this.abilityTarget(p);
     return {
       id: pid, x: p.x, y: p.y, seq: p.lastSeq,
-      stamina:p.stamina,exhausted:p.exhausted,running:p.running,digChoice:p.digChoice,digTarget:p.digTarget,control:controlPersonal(this,pid),
+      stamina:p.stamina,staminaYellow:!!p.staminaYellow,exhausted:p.exhausted,running:p.running,digChoice:p.digChoice,digTarget:p.digTarget,control:controlPersonal(this,pid),
       pe: e ? { t: e.text, ok: !!e.run } : null,
       ps: sp ? { t: sp.text, ok: !!sp.run } : null,
       hold: p.hold ? { k: p.hold.kind, p: p.hold.need === Infinity ? -1 : Math.min(1, p.hold.t / p.hold.need) } : null,

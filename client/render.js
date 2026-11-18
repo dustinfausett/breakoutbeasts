@@ -536,6 +536,8 @@ export class Renderer {
     // ring marker under each player (colour per animal)
     ctx.strokeStyle = ANIMALS[p.a].color; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.ellipse(p.x * TS, p.y * TS + 5, 7, 3, 0, 0, Math.PI * 2); ctx.stroke();
+    // Scale the monster and its accessories together around the feet.
+    if(p.skin){ctx.save();ctx.translate(p.x*TS,y*TS+6);ctx.scale(.75,.75);ctx.translate(-p.x*TS,-y*TS-6);}
     this._drawAnimal(ctx, id, p.x, y, face, p.mv || (p.s & PF.SPRINT), (p.s & PF.WOBBLE) ? Math.min(1, p.wb * 1.5) : 0, now,{action:p.ba?'bite':p.mv?(p.skin?(p.s&PF.SPRINT?'run':'walk'):'run'):'walk',squash:!!(p.skin&&(p.s&(PF.SHELL|PF.SLIDE)))});
     if(p.skin)drawMonsterOutfit(ctx,p.outfit,p.x*TS,y*TS);else drawOutfit(ctx,p.a,p.outfit,p.x*TS-8,y*TS-10,16,16,face);
     if(p.tool){ctx.save();ctx.translate(p.x*TS+9,y*TS-7);ctx.rotate(Math.sin(now/100)*.6);ctx.fillStyle='#9fc3cc';ctx.fillRect(-1,-7,3,13);ctx.fillRect(-4,-8,9,3);ctx.fillStyle='#d49953';ctx.fillRect(-1,1,3,6);ctx.restore();}
@@ -546,6 +548,7 @@ export class Renderer {
     if ((p.s & PF.SPRINT) && !this.settings.reducedMotion) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; for (let i = 0; i < 3; i++) ctx.fillRect(Math.round(p.x * TS - 12 - i * 3), Math.round(p.y * TS - 6 + i * 3), 6, 1); }
     if (p.c) { ctx.fillStyle = p.c === 'wood' ? '#9a6a3a' : '#ffd23a'; ctx.fillRect(Math.round(p.x * TS + 4), Math.round(p.y * TS - 14), 5, 4); }
     if (p.hk === 'chew' || p.hk === 'dig') { if (Math.floor(now / 100) % 2) { ctx.fillStyle = p.hk === 'chew' ? '#c8904e' : '#8a6034'; ctx.fillRect(Math.round(p.x * TS + (Math.random() * 12 - 6)), Math.round(p.y * TS - 2), 2, 2); } }
+    if(p.skin){ctx.restore();ctx.globalAlpha=1;}
   }
 
   _drawHuman(ctx,n,now){

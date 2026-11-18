@@ -1,4 +1,4 @@
-import {flightView} from './runway.js';
+import {flightView,flightPilotActions} from './runway.js';
 import {rescueBot,campaignDestination} from './rescue-bot.js';
 import {rescuePublic,rescuePersonal} from './rescue-chapter.js';
 // Autopilot: plays an animal through the mission using only player inputs.
@@ -18,7 +18,7 @@ export function viewFromGame(game, pid) {
   const p = game.players.get(pid);
   return {
     vehicle:['parking','city'].includes(game.zooId)?game.personal(pid)?.vehicle:null,
-    flightTasks:game.rescue?flightView(game).tasks:null,prison:game.zooId==='city'?game.personal(pid)?.prison:null,rescue:game.rescue?rescuePublic(game):null,flight:game.rescue?rescuePersonal(game,p).flight:null,
+    flightActions:game.flightChapter?flightPilotActions(game,pid):null,flightTasks:game.rescue?flightView(game).tasks:null,prison:game.zooId==='city'?game.personal(pid)?.prison:null,rescue:game.rescue?rescuePublic(game):null,flight:game.rescue?rescuePersonal(game,p).flight:null,
     panel:game.rescue?rescuePersonal(game,p).control:controlPersonal(game,pid),
     teamClues:p.chapterStation!=null?game.activePlayers().map(q=>rescuePersonal(game,q).control?.instruction).filter(Boolean):p.inControlRoom?game.activePlayers().map(q=>controlPersonal(game,q.id)?.instruction).filter(Boolean):[],
     world: game, zoo: game.zoo, staff:game.staff.map(s=>({x:s.x,y:s.y,d:s.dir,ar:game.time<game.alertUntil})),

@@ -1,3 +1,4 @@
+import {stepCaptureCalm} from './team-capture.js';
 import {initUniforms,uniformWorks,uniformCrime,uniformHoldCrime,compromiseUniform,uniformTarget,uniformHold,uniformAction,uniformPersonal} from './uniforms.js';
 import {monsterSkin} from './monster-skins.js';
 import {pauseDraggedStaff,grabSleepingStaff,followDraggedStaff,stopDragging,staffFlashlight} from './dragging.js';
@@ -23,8 +24,8 @@ const LARGE_ANIMALS = new Set(['elephant', 'giraffe', 'zebra']);
 export const ALERT_SECONDS = 180;
 
 export function staffProfile(cfg, alerted) {
-  return alerted ? { ...cfg, range: cfg.range * (cfg.alertRangeScale || 1.2), halfAngle: cfg.halfAngle + (cfg.alertAngleExtra || .16),
-    patrolSpeed: cfg.alertSpeed || 1.9, investigateSpeed: cfg.alertSpeed || 1.9 } : cfg;
+  const level=Math.max(0,Math.min(1,Number(alerted)));return level ? { ...cfg, range: cfg.range * (1+((cfg.alertRangeScale || 1.2)-1)*level), halfAngle: cfg.halfAngle + (cfg.alertAngleExtra || .16)*level,
+    patrolSpeed: cfg.patrolSpeed+((cfg.alertSpeed || 1.9)-cfg.patrolSpeed)*level, investigateSpeed: (cfg.investigateSpeed||cfg.patrolSpeed)+((cfg.alertSpeed || 1.9)-(cfg.investigateSpeed||cfg.patrolSpeed))*level } : cfg;
 }
 
 // player status bit flags (for compact snapshots)
@@ -282,7 +283,7 @@ export class Game {
     this._stepDarts(dt);
     for (const n of this.npcs) this._stepNpc(n, dt);
     for (const o of this.objects) if (o.cool > 0) o.cool -= dt;
-    this._stepKeysAndExit(dt);scoreTick(this,dt);
+    this._stepKeysAndExit(dt);stepCaptureCalm(this,dt);scoreTick(this,dt);
   }
 
   // ---------- players ----------
@@ -997,6 +998,7 @@ export class Game {
   }
 
   _raiseAlert() {
+    this.alertScale=1;
     const wasAlert = this.time < this.alertUntil;
     this.alertUntil = this.permanentAlert ? Infinity : this.time + ALERT_SECONDS;
     if (!wasAlert) this.emit({k:'securityalert'});
@@ -1064,7 +1066,7 @@ export class Game {
   canSee(s, p) {
     if(s.downUntil>this.time)return false;
     const d = dist(s.x, s.y, p.x, p.y);
-    const cfg = staffProfile(this.zoo.staff, this.time < this.alertUntil);
+    const cfg = staffProfile(this.zoo.staff, this.time < this.alertUntil?(this.alertScale??1):0);
     if (d > cfg.range) return false;
     if (d > 1.1) {
       const ang = Math.atan2(p.y - s.y, p.x - s.x);
@@ -1078,7 +1080,7 @@ export class Game {
   }
 
   _stepStaff(s, dt) {
-    const cfg = staffProfile(this.zoo.staff, this.time < this.alertUntil);
+    const cfg = staffProfile(this.zoo.staff, this.time < this.alertUntil?(this.alertScale??1):0);
     if(s.downUntil>this.time){s.state='unconscious';return;}
     if(s.state==='unconscious'){s.state='return';s.path=null;}
     for (const g of this.gates) {
@@ -1194,7 +1196,7 @@ export class Game {
     if(p.uniform)compromiseUniform(this,p.uniform);
     stopDragging(this,p);
     p.cageKeys=0;p.inControlRoom=false;
-    p.capturedT = 1.1;
+    p.teamCaptive=true;p.capturedT = 1.1;
     p.hold = null; p.slide = null; p.shell = false; p.sprintT = 0;p.digChoice=null;p.digTarget=null;p.running=false;
     this._dropCarry(p);
     p.everCaught++;
@@ -1374,8 +1376,8 @@ export class Game {
       }),
       permanent:this.permanentAlert,
       darts:this.darts.map(d=>({x:r2(d.x),y:r2(d.y),dx:d.dx,dy:d.dy})),
-      security: this.permanentAlert ? -1 : Math.max(0,Math.ceil(this.alertUntil-this.time)),
-      st: this.staff.map((s) => ({ id:s.id,light:staffFlashlight(this,s),draggedBy:s.draggedBy||null,uniformTaken:!!s.uniformTaken, ar:this.time<this.alertUntil, x: r2(s.x), y: r2(s.y), d: r2(s.dir), s: STAFF_STATES.indexOf(s.state), al: r2(s.alert) })),
+      security: this.permanentAlert && !this.allTeamCaptured ? -1 : Math.max(0,Math.ceil(this.alertUntil-this.time)),
+      st: this.staff.map((s) => ({ id:s.id,light:staffFlashlight(this,s),draggedBy:s.draggedBy||null,uniformTaken:!!s.uniformTaken, ar:this.time<this.alertUntil, heat:this.time<this.alertUntil?(this.alertScale??1):0, x: r2(s.x), y: r2(s.y), d: r2(s.dir), s: STAFF_STATES.indexOf(s.state), al: r2(s.alert) })),
       np: this.npcs.map((n) => ({ a: n.animal, x: r2(n.x), y: r2(n.y), s: n.state, f: n.face })),
       broken:[...this.destroyedTerrain],lookout,
       obj: this.objectives(),
@@ -1413,7 +1415,7 @@ export class Game {
 
 // exported for the client (vision cones)
 export function visionPolygon(world, s, cfg, rays = 18) {
-  cfg = staffProfile(cfg,s.ar);
+  cfg = staffProfile(cfg,s.heat??s.ar);
   const pts = [[s.x, s.y]];
   for (let i = 0; i <= rays; i++) {
     const a = s.d - cfg.halfAngle + (2 * cfg.halfAngle * i) / rays;

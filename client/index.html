@@ -124,6 +124,16 @@
     </section>
 
     <section id="control-room" class="control-room" hidden aria-label="Exit control panel"></section>
+    <section id="team-capture" class="screen overlay" role="dialog" aria-modal="true" aria-labelledby="team-capture-h">
+      <div class="panel center">
+        <h2 id="team-capture-h">The whole crew got caught!</h2>
+        <p id="capture-choice-note"></p><p id="capture-cooling" class="info"></p>
+        <div class="menu"><button class="btn" data-act="capture-vote" data-choice="continue">Continue</button><button class="btn" data-act="capture-vote" data-choice="restart">Restart this part</button></div>
+        <div id="capture-votes" aria-live="polite"></div>
+        <button id="capture-confirm" class="btn primary" data-act="capture-confirm" disabled>Confirm choice</button>
+      </div>
+    </section>
+
     <section id="pause" class="screen overlay" role="dialog" aria-modal="true" aria-labelledby="pause-h">
       <div class="panel center">
         <h2 id="pause-h">Paused</h2>

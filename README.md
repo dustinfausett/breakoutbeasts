@@ -20,6 +20,13 @@ These actions and normal disguise discovery compromise that entire uniform type 
 keeper uniforms are tracked separately. Wallet and clothes actions have no on-screen hints. This status and collected uniforms persist through
 chapters and group saves; police capture confiscates the captured animal's uniforms.
 
+When the entire active crew has been captured, everyone can vote **Continue** or **Restart
+this part**. The host selects an option and confirms the final decision. Continue keeps the
+current world and existing cage escape puzzles. Restart restores the chapter entry or the
+host's most recent city location entry checkpoint, keeping progress from earlier locations.
+Guards gradually return to normal alertness over 30 seconds while everyone remains captured;
+the world keeps running during voting. A new alarm raises alertness again.
+
 ## Contents
 1. [Quick start](#1-quick-start)
 2. [How to play](#2-how-to-play)

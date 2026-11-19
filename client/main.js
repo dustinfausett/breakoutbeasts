@@ -64,7 +64,7 @@ function show(id) {
 }
 function overlay(id) {
   missionCode.reset();
-  for (const s of ['pause', 'settings', 'help', 'complete', 'conn']) $('#' + s).classList.toggle('show', s === id);
+  for (const s of ['pause', 'settings', 'help', 'complete', 'conn','team-capture']) $('#' + s).classList.toggle('show', s === id);
   app.overlay = id;
   input.enabled = app.screen === 'hud' && !id;
   if (id) { input.releaseAll(); const b = $('#' + id + ' .btn.primary') || $('#' + id + ' .btn'); if (b) setTimeout(() => b.focus({ preventScroll: true }), 30); }
@@ -244,6 +244,7 @@ function onMessage(msg) {
       if (app.mode === 'solo' && msg.phase === 'lobby' && app.screen !== 'animals' && !app.inGame) { show('animals'); buildAnimals(); }
       break;
     }
+    case 'captureClosed':if(app.overlay==='team-capture')overlay(null);break;
     case 'paused': app.groupPaused=!!msg.on;app.paused=!!msg.on;input.releaseAll();releaseVehicleControls();if(msg.on&&app.inGame){overlay('pause');renderPauseMenu();}else if(app.inGame&&app.overlay==='pause'){overlay(null);}break;
     case 'saved': finishSave(msg);break;
     case 'start': enterGame(msg); break;
@@ -321,6 +322,7 @@ function onSnap(msg) {
     const ks = Object.keys(h); if (ks.length > 200) delete h[ks[0]];
   }
   for (const ev of msg.ev || []) handleEvent(ev);
+  renderCaptureChoice(msg.captureDecision);
 
 }
 
@@ -708,6 +710,8 @@ function act(name, el) {
     case 'lobby-start': app.link.send({ t: 'start',startAt:app.startAt||'zoo' }); break;
     case 'lobby-animal': show('animals'); buildAnimals(); break;
     case 'lobby-leave': toTitle(); break;
+    case 'capture-vote':{const d=app.world?.snap?.captureDecision;if(d)app.link.send({t:'captureChoice',id:d.id,choice:el.dataset.choice});break;}
+    case 'capture-confirm':{const d=app.world?.snap?.captureDecision,choice=d?.players.find(p=>p.id===app.myId)?.vote;if(d&&choice)app.link.send({t:'captureChoice',id:d.id,choice,confirm:true});break;}
     case 'uniform-wear':app.link?.send({t:'uniform',op:'wear',uniform:el.dataset.uniform||null});closePause();break;
     case 'pause': openPause(); break;
     case 'resume': closePause(); break;
@@ -732,6 +736,17 @@ async function finishSave(msg){
  renderPauseMenu();
 }
 async function readProgressCode(){const raw=$('#progress-code').value.trim();if(!raw)return '';try{let code=raw;if(/^[A-HJ-NP-Z2-9]{10}$/i.test(raw)){const short=raw.toUpperCase();code='';try{code=localStorage.getItem('bb-checkpoint-'+short)||'';}catch{}if(!code){const response=await fetch('api/checkpoints/'+short),result=await response.json();if(!response.ok)throw new Error(result.error);code=result.backup;}}decodeCheckpoint(code);return code.replace(/\s/g,'');}catch(e){$('#title-msg').textContent=e.message||'Could not load progress.';return null;}}
+
+function renderCaptureChoice(d){
+ if(!d){if(app.overlay==='team-capture')overlay(null);return;}
+ if(app.overlay!=='team-capture'){overlay('team-capture');releaseVehicleControls();}
+ const host=d.hostId===app.myId,mine=d.players.find(p=>p.id===app.myId)?.vote;
+ $('#capture-choice-note').textContent=host?'Everyone can vote. Choose an option, then confirm your final decision.':'Vote for what to do next. The host makes the final decision.';
+ $('#capture-cooling').textContent=d.cooling?'Guards are calming down… '+d.cooling+'s':'Guards have returned to normal alertness.';
+ for(const b of document.querySelectorAll('[data-act="capture-vote"]')){b.disabled=!d.players.some(p=>p.id===app.myId);b.classList.toggle('primary',b.dataset.choice===mine);b.setAttribute('aria-pressed',String(b.dataset.choice===mine));}
+ const html=d.players.map(p=>`<p><b>${esc(p.name)}</b>: ${p.vote==='continue'?'Continue':p.vote==='restart'?'Restart this part':'Has not voted'}${p.connected?'':' (disconnected)'}</p>`).join('');if($('#capture-votes').innerHTML!==html)$('#capture-votes').innerHTML=html;
+ $('#capture-confirm').hidden=!host;$('#capture-confirm').disabled=!mine;$('#capture-confirm').textContent=mine==='restart'?'Restart this part':mine==='continue'?'Continue playing':'Confirm choice';
+}
 
 function renderPauseMenu(){
   const host=app.mode==='solo'||app.lobby?.hostId===app.myId;

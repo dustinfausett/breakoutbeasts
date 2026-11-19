@@ -1,4 +1,4 @@
-import {uniformTarget,uniformHold,uniformCrime,compromiseUniform} from './uniforms.js';
+import {uniformTarget,uniformHold,uniformCrime,uniformHoldCrime,compromiseUniform} from './uniforms.js';
 import {initAirport,airportObject,airportCrime,stepAirport} from './airport.js';
 import {arcadeObject,arcadeHold,arcadeAction,arcadePersonal} from './arcade.js';
 import {stepRunway} from './runway.js';
@@ -83,7 +83,7 @@ export class CityGame extends ParkingGame{
 
   if(o.kind==='vaultWheel')return this.gate('city-vault')?.state?{text:'Vault open — collect the cash inside',idle:true}:{text:'Hold E: everyone grab the vault wheel together',run:()=>{if(p.location==='bank')p.hold={kind:'cityVault',btn:'e',t:0,need:Infinity};}};
   if(o.kind==='vaultCash')return {text:this.vaultCash?`Hold E for 5 seconds: take vault money ($${this.vaultCash} left)`:'The vault is empty',...(this.vaultCash?{run:()=>{if(p.location==='bank'&&this.gate('city-vault').state&&p.x>this.zoo.bankLayout.wallX)p.hold={kind:'vaultCash',btn:'e',obj:o.id,t:0,need:5};}}:{idle:true})};
-  if(o.kind==='controlLatch')return {text:'Open the cage and rescue every captured animal',run:()=>{if(p.location==='control'&&!p.caged)this._releaseCityCage();}};
+  if(o.kind==='controlLatch')return {text:'Open the cage and rescue every captured animal',run:()=>{if(p.location==='control'&&!p.caged)this._releaseCityCage(p);}};
   return super._objectInteraction(p,o);
  }
  _enter(p,scene,from,arrival){
@@ -117,6 +117,7 @@ export class CityGame extends ParkingGame{
   if(initial||shorter||upgrade){this.controlAlarm=initial?seconds:Math.min(this.controlAlarm,seconds);this.controlLimit=kind==='police'?30:120;if(kind==='police'||initial)this.controlKind=kind;this.controlArrived=false;this.emit({k:'controlcalled',seconds:this.controlAlarm,kind:this.controlKind});}
  }
  _continueHold(p,inp,dt){
+  uniformHoldCrime(this,p,inp);
   if(uniformHold(this,p,inp,dt)||arcadeHold(this,p,inp,dt)||prisonHold(this,p,inp,dt)||shopHold(this,p,inp,dt)||rescueHold(this,p,inp,dt))return;
   if(p.hold.kind==='vaultCash'){const h=p.hold,o=this.obj(h.obj);if(!inp.e||Math.hypot(inp.mx||0,inp.my||0)>.15||!p.connected||p.caged||p.capturedT>0||p.location!=='bank'||!o||!this._near(p,{x:o.x+.5,y:o.y+.5},1.9)||p.x<=this.zoo.bankLayout.wallX||!this.gate('city-vault').state){p.hold=null;return;}h.t+=dt;if(h.t>=5){const amount=Math.min(500,this.vaultCash);this.vaultCash-=amount;p.money+=amount;p.hold=null;if(amount)this.emit({k:'cash',pid:p.id,amount});}return;}
   if(p.hold.kind==='policeKeys'){const h=p.hold,cop=this.staff.find(s=>s.id===h.staff);if(!inp.e||!cop||!this._canSteal(p,cop)){p.hold=null;return;}h.t+=dt;if(h.t>=h.need){p.hold=null;stealPoliceCar(this,p,cop);}return;}
@@ -137,7 +138,7 @@ export class CityGame extends ParkingGame{
  }
  _prisonEscape(prisoners){if(prisoners[0]?.location==='airport'){this._raiseAlert();for(const p of prisoners){p.policeEscapeUntil=this.time+20;p.grace=20;}for(const s of this.staff.filter(s=>s.airport)){s.state='investigate';s.path=null;s.goal=[52,397];}this.emit({k:'prisonescape',seconds:20});return;}alertPrisonEscape(this,prisoners);}
  _capture(s,p){const localAirport=p.location==='airport',policeArrest=!!s.police||localAirport;if(policeArrest&&p.policeEscapeUntil>this.time)return;if(policeArrest){if(p.uniform)compromiseUniform(this,p.uniform);p.uniform=null;p.uniformsOwned=[];p.uniformCompromised=false;p.money=0;p.outfit={};p.owned=[];p.cart=(p.cart||[]).filter(item=>item.type!=='clothes');p.shopShelf=null;p.airportCleared=null;this.checkpointWardrobe=(this.checkpointWardrobe||[]).filter(m=>m.a!==ANIMAL_IDS.indexOf(p.animal));}const car=this.cars?.find(c=>c.id===p.vehicleId);p.inVehicle=false;p.vehicleId=null;p.carKeys=[];p.carFob=null;if(car)assignCrew(this,car);cancelPrisonGame(this,p);p.arcade=null;p.captureOrigin=localAirport?'airportPolice':s.police?'police':isRescueScene(p.location)?'rescue':'city';p.chapterStation=null;p.inPlane=false;p.shopping=false;super._capture(s,p);}
- _releaseCityCage(){this.openGate(this.gate('city-cage'));for(const p of this.activePlayers())if(p.caged&&p.cageDistrict!=='rescue'&&p.cageDistrict!=='police'){p.caged=false;p.cageHits=0;p.hold=null;p.grace=5;}this.emit({k:'cityrescue'});}
+ _releaseCityCage(by){this.openGate(this.gate('city-cage'),by);for(const p of this.activePlayers())if(p.caged&&p.cageDistrict!=='rescue'&&p.cageDistrict!=='police'){p.caged=false;p.cageHits=0;p.hold=null;p.grace=5;}this.emit({k:'cityrescue'});}
  _stepKeysAndExit(dt){if(this.flightChapter){stepRunway(this,dt);return;}stepFleet(this,dt);for(const p of this.activePlayers())recoverCityPlayer(this,p);this._stepCity(dt);stepRescue(this,dt);stepPolice(this,dt);stepPrison(this);stepAirport(this,dt);}
  _stepCity(dt){
   let bankOpened=false;

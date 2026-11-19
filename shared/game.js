@@ -1,4 +1,4 @@
-import {initUniforms,uniformWorks,uniformCrime,compromiseUniform,uniformTarget,uniformHold,uniformAction,uniformPersonal} from './uniforms.js';
+import {initUniforms,uniformWorks,uniformCrime,uniformHoldCrime,compromiseUniform,uniformTarget,uniformHold,uniformAction,uniformPersonal} from './uniforms.js';
 import {monsterSkin} from './monster-skins.js';
 import {pauseDraggedStaff,grabSleepingStaff,followDraggedStaff,stopDragging,staffFlashlight} from './dragging.js';
 import {newScoreLog,scoreEvent,scoreTick,roundScore} from './scoring.js';
@@ -411,6 +411,7 @@ export class Game {
   }
 
   _continueHold(p, inp, dt) {
+    uniformHoldCrime(this,p,inp);
     if(uniformHold(this,p,inp,dt))return;
     const h = p.hold;
     if (h.kind==='ram' && Math.hypot(inp.mx||0,inp.my||0)>.15) {p.hold=null;return;}
@@ -764,6 +765,7 @@ export class Game {
       if (!p.cageKeys) return;
       // Keeper keys are universal and reusable until the animal is captured.
     }
+    uniformCrime(this,p);
     const a = o.action || {};
     if (a.open) {
       const g = this.gate(a.open);
@@ -780,6 +782,7 @@ export class Game {
 
   openGate(g, by) {
     if(g.state!==0)return;
+    if(by)uniformCrime(this,by);
     g.state = 1;
     if(g.enc!=null)this.enclosureChecks.push({enc:g.enc,guard:null});
     if (g.kind === 'side' && g.enc != null && by) this._rescueEnclosure(g.enc,by);
@@ -988,6 +991,7 @@ export class Game {
   }
 
   _rescueEnclosure(enc,p) {
+    uniformCrime(this,p);
     const npc=this.npcs.find(n=>n.enc===enc && n.state==='caged');
     if(npc){npc.state='leaving';npc.path=null;this.stats.rescued++;this.emit({k:'rescue',animal:npc.animal,by:p.name,pid:p.id});}
   }
@@ -999,6 +1003,7 @@ export class Game {
   }
 
   _ramGate(p,gate) {
+    uniformCrime(this,p);
     gate.hits = (gate.hits || 0) + 1;
     const needed = 3 + (this.fortification.get(gate.enc) || 0);
     const delay = Math.max(.5, 4 - (gate.hits - 1) * 1.5);

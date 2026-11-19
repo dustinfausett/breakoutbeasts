@@ -53,7 +53,7 @@ export class ParkingGame extends Game{
  _insideHolding(p){return !!this.holdingCage&&p.x>2&&p.x<9&&p.y>52&&p.y<59;}
  interactTarget(p){if(p.caged||this._insideHolding(p))return this._cageWallInteraction(p);const target=super.interactTarget(p);if(target)return target;return this._objectInteraction(p,this.obj('getaway'));}
  _objectInteraction(p,o){
-  if(o.kind==='holdingCageDoor'){if(p.caged)return {text:'Wait for a rescue, or grab a wall when everyone is captured',idle:true};return {text:'Open the cage and free your captured teammates',run:()=>this._openHoldingCage(p.name)};}
+  if(o.kind==='holdingCageDoor'){if(p.caged)return {text:'Wait for a rescue, or grab a wall when everyone is captured',idle:true};return {text:'Open the cage and free your captured teammates',run:()=>this._openHoldingCage(p.name,p)};}
   if(o.kind!=='vehicle')return super._objectInteraction(p,o);
   if(!this.vehicle||p.inVehicle||p.capturedT>0||!this._nearCar(p))return null;
   if(!this.vehicle.unlocked)return {text:p.cageKeys?'Use Unlock on your key fob first':'Locked car: find a keeper carrying its key fob',idle:true};
@@ -151,8 +151,8 @@ export class ParkingGame extends Game{
   if(!this.holdingCage)return;const team=this.activePlayers(),ready=team.length>0&&team.every(p=>(p.caged||this._insideHolding(p))&&p.connected&&p.capturedT<=0&&p.hold?.kind==='cageWall'&&p.input.e&&dist(p.x,p.y,p.hold.wall[0]+.5,p.hold.wall[1]+.5)<1.3);
   this.holdingCage.progress=ready?this.holdingCage.progress+dt:0;if(this.holdingCage.progress>=1.5)this._openHoldingCage('The whole crew');
  }
- _openHoldingCage(name){
-  this.openGate(this.gate('holding-gate'));this.obj('holding-door').state=1;for(const p of this.activePlayers())if(p.caged||p.hold?.kind==='cageWall'){p.caged=false;p.hold=null;p.grace=3;}this.holdingCage.progress=0;this.emit({k:'cagerescue',name});
+ _openHoldingCage(name,by){
+  this.openGate(this.gate('holding-gate'),by);this.obj('holding-door').state=1;for(const p of this.activePlayers())if(p.caged||p.hold?.kind==='cageWall'){p.caged=false;p.hold=null;p.grace=3;}this.holdingCage.progress=0;this.emit({k:'cagerescue',name});
  }
  _hitKeepers(){
   const v=this.vehicle;if(Math.abs(v.speed)<.6)return;const c=Math.cos(v.angle),s=Math.sin(v.angle);

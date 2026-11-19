@@ -15,8 +15,8 @@ collapses those details so they stay readable. Expanded details close again afte
 
 Hold **E** beside an unconscious keeper or officer to take their keys, release, then hold
 **E** again to steal their $20 wallet. Release and hold **E** a third time to take and wear their uniform. A uniform counts as a full disguise. Use **Menu →
-Stolen uniforms** to change back to your clothes or another collected uniform. Witnessed crimes
-and normal disguise discovery compromise that entire uniform type for the group: police and
+Stolen uniforms** to change back to your clothes or another collected uniform. Witnessed biting, cage unlocking, escape work, and dragging unconscious staff raise an alert.
+These actions and normal disguise discovery compromise that entire uniform type for the group: police and
 keeper uniforms are tracked separately. Wallet and clothes actions have no on-screen hints. This status and collected uniforms persist through
 chapters and group saves; police capture confiscates the captured animal's uniforms.
 

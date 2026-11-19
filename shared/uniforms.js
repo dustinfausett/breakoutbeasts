@@ -5,11 +5,20 @@ const scene=p=>p.location||p.scene||'street';
 export function initUniforms(g){g.uniforms={compromised:{police:false,keeper:false}};}
 export function uniformWorks(p){return UNIFORM_TYPES.includes(p.uniform)&&!p.uniformCompromised&&!p.disguiseBlown;}
 export function compromiseUniform(g,type){if(!UNIFORM_TYPES.includes(type))return false;g.uniforms=g.uniforms||{compromised:{police:false,keeper:false}};const fresh=!g.uniforms.compromised[type];g.uniforms.compromised[type]=true;for(const p of g.players.values())if(p.uniform===type){p.uniformCompromised=true;p.disguiseBlown=true;}if(fresh)g.emit({k:'uniformexposed',uniform:type});return true;}
+const guardWitness=(g,p)=>g.staff.find(s=>scene(s)===scene(p)&&!s.permanentDown&&!(s.downUntil>g.time)&&(g._policeVisible?g._policeVisible(s,p):g.canSee(s,p)));
 export function uniformWitnessed(g,p){if(p.hidden||p.under)return false;
- if(g.staff.some(s=>scene(s)===scene(p)&&!s.permanentDown&&!(s.downUntil>g.time)&&(g._policeVisible?g._policeVisible(s,p):g.canSee(s,p))))return true;
+ if(guardWitness(g,p))return true;
  return (g.humans||[]).some(n=>!n.asleep&&scene(n)===scene(p)&&dist(n.x,n.y,p.x,p.y)<8&&Math.abs(angleDiff(Math.atan2(p.y-n.y,p.x-n.x),n.angle||0))<1.25&&lineOfSight(n.x,n.y,p.x,p.y,(x,y)=>g.visionBlocked(x,y)));
 }
-export function uniformCrime(g,p){return !!p.uniform&&uniformWitnessed(g,p)&&compromiseUniform(g,p.uniform);}
+export function uniformCrime(g,p){
+ if(!p.uniform||!uniformWitnessed(g,p))return false;
+ compromiseUniform(g,p.uniform);g._raiseAlert();
+ const witness=guardWitness(g,p);if(witness&&(witness.state!=='chase'||witness.target!==p.id))g._radio(witness,p);
+ return true;
+}
+// Recheck visible escape work throughout a hold, including when a guard walks into view.
+const suspiciousHolds=new Set(['lever','crank','ram','chew','dig','groundDig','terrainHit','craft','steal','key','muzzleHelp','cageWall','rescueBrace','rescueUnlock','rescueTeam','rescueInsert','rescueFuse','cityVault','vaultCash','cityRam','cityCarKey','policeKeys','citySteal','uniformKeys','uniformWallet','uniformLoot','prisonLock']);
+export function uniformHoldCrime(g,p,inp){const h=p.hold;if(p.uniform&&h&&suspiciousHolds.has(h.kind)&&(h.btn==='sp'?inp.sp:h.btn==='b'?inp.b:inp.e))uniformCrime(g,p);}
 export function wearUniform(g,p,type){if(type==null){p.uniform=null;p.uniformCompromised=false;p.disguiseBlown=false;return true;}if(!UNIFORM_TYPES.includes(type)||!p.uniformsOwned?.includes(type))return false;p.uniform=type;p.uniformCompromised=!!g.uniforms?.compromised[type];p.disguiseBlown=false;return true;}
 export function uniformAction(g,pid,msg){const p=g.players.get(pid);if(!p?.active||!p.connected||p.capturedT>0||p.caged||p.inPlane||p.inControlRoom||p.chapterStation!=null||p.arcade||p.inVehicle)return;if(msg.op==='wear')wearUniform(g,p,msg.uniform);}
 const lootable=(g,p,s)=>p.active&&p.connected&&!p.caged&&p.capturedT<=0&&!p.inVehicle&&!p.inPlane&&!p.under&&!p.hop&&!p.slide&&p.dragging==null&&s&&(s.downUntil>g.time||s.permanentDown)&&!s.inCar&&scene(s)===scene(p)&&dist(p.x,p.y,s.x,s.y)<1.9&&lineOfSight(p.x,p.y,s.x,s.y,(x,y)=>g.visionBlocked(x,y));

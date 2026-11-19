@@ -1,4 +1,4 @@
-import {uniformWitnessed,compromiseUniform} from './uniforms.js';
+import {uniformCrime,uniformWitnessed,compromiseUniform} from './uniforms.js';
 import {flightView,flightPersonal,flightOwner,runwayAction,stepRunway} from './runway.js';
 import {stationPanel,routeStationClues,stationInstruction} from './stations.js';
 import {FOOD} from './shops.js';
@@ -45,7 +45,7 @@ export function rescueTarget(g,p){
 export function rescueObject(g,p,o){
  if(o.kind==='wayfinding')return {text:o.label,idle:true};
  if(o.kind==='districtLink')return {text:o.label,run:()=>g._enter(p,o.scene,null,o.to)};
- if(o.kind==='rescueLatch')return {text:'Open the zoo rescue cage',run:()=>{if(!p.caged)releaseCage(g);}};
+ if(o.kind==='rescueLatch')return {text:'Open the zoo rescue cage',run:()=>{if(!p.caged)releaseCage(g,p);}};
  if(o.kind==='rescueFuse'){
   const owner=active(g).find(q=>g.order.indexOf(q.id)===o.index);if(!owner)return {text:'Spare habitat fuse',idle:true};if(owner.id!==p.id)return {text:`This fuse belongs to ${owner.name}`,idle:true};if(g.rescue.fuses.has(p.id)||g.rescue.inserted.has(p.id))return {text:'Your habitat fuse is already collected',idle:true};return {text:'Hold E: collect your habitat relay fuse',run:()=>{p.hold={kind:'rescueFuse',btn:'e',obj:o.id,t:0,need:1.2};}};
  }
@@ -74,7 +74,7 @@ export function rescueObject(g,p,o){
 }
 export const powerDone=g=>active(g).every(p=>g.rescue.inserted.has(p.id));
 export const allRescued=g=>g.rescue.animals.every(a=>a.state==='escaped');
-function freeAnimal(g,a,bait=null,helpers=[]){a.bait=bait;g.obj('release-'+a.id).state=1;for(const o of g.objects)if(o.kind==='rescueTeam'&&o.cage===a.id)o.state=1;g.openGate(g.gate(a.gate));a.state='running';a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.bait||a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;g.emit({k:'districtrescue',species:a.species,cage:a.id,pids:helpers});}
+function freeAnimal(g,a,bait=null,helpers=[]){for(const id of helpers){const p=g.players.get(id);if(p)uniformCrime(g,p);}a.bait=bait;g.obj('release-'+a.id).state=1;for(const o of g.objects)if(o.kind==='rescueTeam'&&o.cage===a.id)o.state=1;g.openGate(g.gate(a.gate));a.state='running';a.path=bfs(g.w,g.h,Math.floor(a.x),Math.floor(a.y),a.bait||a.rally,(x,y)=>!g.entSolid[y*g.w+x]&&staffCanEnter(g.tileAt(x,y)),40000)||null;g.emit({k:'districtrescue',species:a.species,cage:a.id,pids:helpers});}
 export function rescueHold(g,p,inp,dt){
  const h=p.hold;if(!h.kind.startsWith('rescue'))return false;
  if(!inp.e||!p.connected||p.capturedT>0){p.hold=null;return true;}
@@ -91,7 +91,7 @@ export function rescueReturn(g,p){
  if(p.captureOrigin!=='rescue')return false;p.inVehicle=false;p.cageHits=0;p.carry=null;p.inPlane=false;p.chapterStation=null;p.caged=true;p.cageDistrict='rescue';p.capturedT=0;p.location='zoo';p.hold=null;p.shopping=false;p.shell=false;p.slide=null;p.hop=null;p.under=null;p.cageKeys=0;
  const i=g.order.indexOf(p.id),slots=g.zoo.rescueDistrict.holding.slots;[p.x,p.y]=slots[i].map(v=>v+.5);p.safe=[p.x,p.y];p.grace=5;g.closeGate(g.gate('rescue-holding'));return true;
 }
-function releaseCage(g){g.openGate(g.gate('rescue-holding'));for(const p of active(g))if(p.caged&&p.cageDistrict==='rescue'||insideRescue(g,p)){p.caged=false;p.hold=null;p.grace=5;}g.rescue.cageProgress=0;g.emit({k:'districtcagerescue'});}
+function releaseCage(g,by){g.openGate(g.gate('rescue-holding'),by);for(const p of active(g))if(p.caged&&p.cageDistrict==='rescue'||insideRescue(g,p)){p.caged=false;p.hold=null;p.grace=5;}g.rescue.cageProgress=0;g.emit({k:'districtcagerescue'});}
 export function rescueAction(g,pid,msg){
  const p=g.players.get(pid),r=g.rescue;if(!p?.active||!p.connected||p.caged||p.capturedT>0||g.phase!=='play')return;
  if(msg.op==='leavePlane'&&p.inPlane&&r.flight.phase==='boarding'){p.inPlane=false;r.flight.aboard.delete(p.id);p.x=101.5;p.y=407.5;p.safe=[p.x,p.y];p.grace=3;return;}

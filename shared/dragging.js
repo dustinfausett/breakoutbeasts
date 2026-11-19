@@ -1,3 +1,4 @@
+import {uniformCrime} from './uniforms.js';
 import {dist,lineOfSight} from './util.js';
 import {DIRS,staffCanEnter} from './tiles.js';
 import {HALF} from './physics.js';
@@ -15,7 +16,7 @@ export function grabSleepingStaff(g,p){
  if(p.dragging!=null){p.running=false;p.sprintT=0;return true;}if(!eligible(p)||!p.input.b)return false;
  const [dx,dy]=DIRS[p.face];
  const s=g.staff.filter(s=>asleep(g,s)&&!s.inCar&&!s.draggedBy&&scene(p)===scene(s)&&dist(p.x,p.y,s.x,s.y)<1.75&&(s.x-p.x)*dx+(s.y-p.y)*dy>-.35&&lineOfSight(p.x,p.y,s.x,s.y,(x,y)=>g.visionBlocked(x,y))).sort((a,b)=>dist(p.x,p.y,a.x,a.y)-dist(p.x,p.y,b.x,b.y))[0];
- if(!s)return false;p.dragging=s.id;p.dragLength=Math.max(.65,dist(p.x,p.y,s.x,s.y));s.draggedBy=p.id;p.running=false;p.sprintT=0;p.hold=null;s.state='unconscious';s.path=null;s.target=null;return true;
+ if(!s)return false;uniformCrime(g,p);p.dragging=s.id;p.dragLength=Math.max(.65,dist(p.x,p.y,s.x,s.y));s.draggedBy=p.id;p.running=false;p.sprintT=0;p.hold=null;s.state='unconscious';s.path=null;s.target=null;return true;
 }
 function bodyFits(g,s,x,y){
  const room=g.zoo.interiors?.[scene(s)]?.rect;
@@ -25,7 +26,7 @@ function bodyFits(g,s,x,y){
 }
 export function followDraggedStaff(g,p,from){
  if(p.dragging==null)return;const s=g.staff.find(s=>s.id===p.dragging);
- if(!ownsDrag(g,p,s)){stopDragging(g,p);return;}p.biteAnimT=.15;p.running=false;p.sprintT=0;
+ if(!ownsDrag(g,p,s)){stopDragging(g,p);return;}uniformCrime(g,p);p.biteAnimT=.15;p.running=false;p.sprintT=0;
  const d=dist(p.x,p.y,s.x,s.y),travel=dist(p.x,p.y,...from),pull=Math.max(0,Math.min(travel,d-p.dragLength));
  if(pull<=.00001)return;
  const x=s.x+(p.x-s.x)/d*pull,y=s.y+(p.y-s.y)/d*pull,steps=Math.max(1,Math.ceil(pull/.08));

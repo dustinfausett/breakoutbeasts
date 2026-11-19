@@ -18,3 +18,5 @@ export function drawOutfit(g,animal,outfit,x,y,w=16,h=16,face='right'){
 }
 export function outfitPreview(item){const c=document.createElement('canvas');c.width=64;c.height=64;const g=c.getContext('2d');g.imageSmoothingEnabled=false;const base=SPRITES[item.animal]?.idle?.r||SPRITES[item.animal]?.r[0];if(base)g.drawImage(base,0,0,64,64);g.drawImage(garmentCanvas(item),0,0,64,64);return c.toDataURL();}
 export function allGarmentPreviews(){return CLOTHES.map(item=>({...item,image:outfitPreview(item)}));}
+
+export function drawStaffUniform(g,animal,type,x,y,face){const colors=type==='police'?['#243b69','#385784','#233853']:['#a99a66','#bead7d','#63754e'];g.save();g.translate(x+(face==='left'?16:0),y);if(face==='left')g.scale(-1,1);for(const [i,slot] of ['hat','shirt','pants'].entries()){const item={id:`uniform-${type}-${animal}-${slot}`,animal,slot,color:colors[i],style:slot==='hat'?3:slot==='shirt'?2:0};g.drawImage(garmentCanvas(item),0,0,16,16);}g.fillStyle='#edce69';g.fillRect(9,10,2,2);g.restore();}

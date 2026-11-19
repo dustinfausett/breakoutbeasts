@@ -7,7 +7,7 @@ import {mountDigPicker,updateDigPicker} from './dig-picker.js';
 import {decodeCheckpoint} from './shared/checkpoints.js';
 import {mountLiveMap,updateLiveMap} from './live-map.js';
 import {mountRescueUI,updateRescueUI} from './rescue-ui.js';
-import {mountCityUI,updateCityUI,layoutNavigatorGPS} from './city-ui.js';
+import {mountCityUI,updateCityUI,layoutNavigatorGPS,layoutCityStatus} from './city-ui.js';
 import { mountVehiclePanel, updateVehiclePanel, updateKeyFob, releaseVehicleControls } from './vehicle-panel.js';
 // Breakout Beasts! client controller: menus, lobby, HUD, game loop, audio and captions.
 
@@ -73,7 +73,7 @@ let overlayReturn = null;
 
 function setObjectivesOpen(open){
   app.objectivesOpen=!!open;$('#objectives').hidden=!open;$('#objectives').classList.remove('collapsed');
-  $('#objectives-toggle').setAttribute('aria-expanded',String(!!open));layoutNavigatorGPS();
+  $('#objectives-toggle').setAttribute('aria-expanded',String(!!open));layoutNavigatorGPS();layoutCityStatus();
 }
 $('#objectives-toggle').addEventListener('click',()=>setObjectivesOpen(!app.objectivesOpen));
 $('#objectives-toggle').addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='Enter'){e.preventDefault();e.stopPropagation();if(!e.repeat)setObjectivesOpen(!app.objectivesOpen);}});
@@ -708,6 +708,7 @@ function act(name, el) {
     case 'lobby-start': app.link.send({ t: 'start',startAt:app.startAt||'zoo' }); break;
     case 'lobby-animal': show('animals'); buildAnimals(); break;
     case 'lobby-leave': toTitle(); break;
+    case 'uniform-wear':app.link?.send({t:'uniform',op:'wear',uniform:el.dataset.uniform||null});closePause();break;
     case 'pause': openPause(); break;
     case 'resume': closePause(); break;
     case 'save': app.link?.send({t:'save'});break;
@@ -734,6 +735,7 @@ async function readProgressCode(){const raw=$('#progress-code').value.trim();if(
 
 function renderPauseMenu(){
   const host=app.mode==='solo'||app.lobby?.hostId===app.myId;
+  const uniforms=app.world?.snap?.me?.uniforms;$('#uniform-options').hidden=!uniforms?.owned.length;$('#uniform-options').innerHTML=uniforms?.owned.length?`<p>Stolen uniforms</p>${uniforms.owned.map(u=>`<button class="btn small" data-act="uniform-wear" data-uniform="${u.type}" ${uniforms.wearing===u.type?'disabled':''}>Wear ${esc(u.label.toLowerCase())}${u.compromised?' · compromised':''}</button>`).join('')}<button class="btn small" data-act="uniform-wear" data-uniform="" ${uniforms.wearing?'':'disabled'}>Wear own clothes</button>`:'';
   $('#pause-h').textContent=app.paused?'Group paused':'Menu';
   $('#pause-copy-room').hidden=app.mode==='solo';$('#pause-room-code').textContent=app.mode==='solo'?'Solo game':`Room code: ${app.lobby?.code||''}`;
   $('#pause-note').textContent=app.paused?(host?'The whole group is paused. Save a checkpoint or resume when ready.':'The host paused the whole group. Wait for the host to resume.'):(host?'Choose Pause & Save Group to freeze play for everyone and generate a progress code.':'The game keeps moving while your menu is open. Only the host can pause and save.');

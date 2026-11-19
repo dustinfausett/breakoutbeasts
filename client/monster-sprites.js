@@ -8,10 +8,10 @@ export function buildMonsterSprites(sprites,images){const atlas=images['secret-m
   const run=frames.slice(1,5);sprites[id]={r:run,l:run.map(mirror),idle:{r:frames[0],l:mirror(frames[0])},walk:{r:run,l:run.map(mirror)},run:{r:run,l:run.map(mirror)},bite:{r:[frames[0],frames[5]],l:[mirror(frames[0]),mirror(frames[5])]}};
  }
 }
-export function drawMonsterOutfit(g,outfit,x,y){
- for(const slot of ['pants','shirt','hat']){const item=CLOTHES.find(c=>c.id===outfit?.[slot]);if(!item)continue;g.fillStyle=item.color;
+export function drawMonsterOutfit(g,outfit,x,y,uniform=null){
+ for(const slot of ['pants','shirt','hat']){const item=uniform?{color:(uniform==='police'?{hat:'#243b69',shirt:'#385784',pants:'#233853'}:{hat:'#a99a66',shirt:'#bead7d',pants:'#63754e'})[slot]}:CLOTHES.find(c=>c.id===outfit?.[slot]);if(!item)continue;g.fillStyle=item.color;
   if(slot==='hat'){g.fillRect(x-5,y-17,10,3);g.fillRect(x-3,y-20,6,3);g.fillStyle='#e6c37a';g.fillRect(x-4,y-15,8,1);}
-  if(slot==='shirt'){g.fillRect(x-4,y-7,8,5);g.fillStyle='#e7d7af';g.fillRect(x,y-6,1,3);}
+  if(slot==='shirt'){g.fillRect(x-4,y-7,8,5);g.fillStyle='#e7d7af';g.fillRect(x,y-6,1,3);if(uniform){g.fillStyle='#edce69';g.fillRect(x+2,y-6,2,2);}}
   if(slot==='pants'){g.fillRect(x-4,y-2,8,3);g.fillStyle='#c5b486';g.fillRect(x-4,y-2,8,1);}
  }
 }

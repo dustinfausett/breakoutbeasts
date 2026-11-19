@@ -1,3 +1,4 @@
+import {transferUniforms} from './uniforms.js';
 import {joinLiveGame} from './late-join.js';
 import {prepareTakeoff} from './runway.js';
 import {completeTasksForTesting as prepareAirport} from './mission-testing.js';
@@ -179,6 +180,7 @@ export class Room {
         if(remaining.some(p=>!p.connected))return this.error(pid,'waiting','Wait for your teammates to reconnect before continuing.');
         this.startMission(this.game.zooId==='city'?'takeoff':this.game.zooId==='parking'?'city':'parking');break;
       }
+      case 'uniform': this.game?.uniformAction?.(pid,msg);break;
       case 'arcade': if(this.phase==='playing')this.game?.arcadeAction?.(pid,msg);break;
       case 'prison': if(this.phase==='playing')this.game?.prisonAction?.(pid,msg);break;
       case 'dig': if(this.phase==='playing')this.game?.digAction(pid,msg);break;
@@ -264,6 +266,7 @@ export class Room {
     const list = [...this.players.values()].filter((p) => p.animal && p.connected && (!eligible||eligible.has(p.id))).sort((a, b) => a.joinedAt - b.joinedAt);
     const seed = Math.floor(this.rng() * 1e9);
     this.game = new (['city','takeoff'].includes(stage)?CityGame:stage==='parking'?ParkingGame:Game)({previousCarSlot:this.lastCarSlot,carColor:stage==='city'?carColor:null,zooId: this.zooId, players: list.map((p) => ({ id: p.id, name: p.name, animal: p.animal })), seed, options: this.options });
+    if(continuing){transferUniforms(previous,this.game);for(const p of this.game.activePlayers())p.money=previous.players.get(p.id)?.money||0;}
     if(stage==='takeoff'){prepareTakeoff(this.game);if(continuing)for(const p of this.game.activePlayers()){const old=previous.players.get(p.id);if(old)for(const key of ['money','outfit','owned','tools','food','airportPaid'])p[key]=structuredClone(old[key]);}}
     if(checkpoint==='airport'&&!saved){const g=this.game;prepareAirport(g);for(const [i,p] of g.activePlayers().entries()){p.money=100;p.inVehicle=false;p.vehicleId=null;p.location='airport';p.x=68.5+i%3;p.y=410.5+Math.floor(i/3);for(const c of CLOTHES.filter(c=>c.animal===p.animal&&c.style===0)){p.owned.push(c.id);p.outfit[c.slot]=c.id;}}}
     if(checkpoint==='control'&&!saved){

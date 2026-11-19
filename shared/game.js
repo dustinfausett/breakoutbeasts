@@ -1,3 +1,4 @@
+import {initUniforms,uniformWorks,uniformCrime,compromiseUniform,uniformTarget,uniformHold,uniformAction,uniformPersonal} from './uniforms.js';
 import {monsterSkin} from './monster-skins.js';
 import {pauseDraggedStaff,grabSleepingStaff,followDraggedStaff,stopDragging,staffFlashlight} from './dragging.js';
 import {newScoreLog,scoreEvent,scoreTick,roundScore} from './scoring.js';
@@ -108,7 +109,7 @@ export class Game {
     }
     this.rebuildBlock();
     this._placeSupplies();
-    initControlRoom(this);
+    initUniforms(this);initControlRoom(this);
   }
 
   _placeSupplies() {
@@ -143,7 +144,7 @@ export class Game {
       id: pd.id, name: pd.name || ANIMALS[pd.animal].name, animal: pd.animal, enc: enc.index,
       x: enc.spawn[0] + 0.5, y: enc.spawn[1] + 0.5, face: 'down', active: true, connected: true,
       input: { mx: 0, my: 0, sp: false, e: false }, prevSp: false, prevE: false, lastSeq: 0,
-      dragging:null,dragLength:0,stamina:1,staminaYellow:false,staminaUsing:false,exhausted:false,running:false,digChoice:null,digTarget:null,carry: null, shell: false, slide: null, sprintT: 0, noiseT: 0, cd: 0, cdMax: 1, grace: 0, capturedT: 0,
+      money:0,uniform:null,uniformCompromised:false,uniformsOwned:[],dragging:null,dragLength:0,stamina:1,staminaYellow:false,staminaUsing:false,exhausted:false,running:false,digChoice:null,digTarget:null,carry: null, shell: false, slide: null, sprintT: 0, noiseT: 0, cd: 0, cdMax: 1, grace: 0, capturedT: 0,
       under: null, hop: null, hold: null, lookout: 0, wobble: 0, onBeam: false, safe: null,
       muzzled:false, muzzleRattles:0, biteAnimT:0, biteCool:0, prevB:false, flinch:0,
       escaped: false, hidden: false, exposed: false, prepared: false, materials: 0, cageKeys: 0, ramCool: 0,
@@ -338,14 +339,14 @@ export class Game {
     const mayRun=p.dragging==null&&!p.caged&&!p.shell&&!p.hold&&!p.hop&&!p.under&&!p.slide;
     p.running=!!(inp.run&&wants&&mayRun&&p.stamina>0&&!p.exhausted);
     if(p.running)p.sprintT=Math.max(p.sprintT,.1);
-    if (p.hold && wants && !['steal','cityCarKey','citySteal'].includes(p.hold.kind)) {
+    if (p.hold && wants && !['steal','uniformKeys','cityCarKey','citySteal'].includes(p.hold.kind)) {
       if (p.hold.kind === 'chew') this.chew.set(p.hold.key, p.hold.t);
       p.hold = null;
     }
-    if (!p.shell && (!p.hold || ['steal','cityCarKey','citySteal'].includes(p.hold.kind)) && !p.slide && !p.hop && !p.under && wants) {
+    if (!p.shell && (!p.hold || ['steal','uniformKeys','cityCarKey','citySteal'].includes(p.hold.kind)) && !p.slide && !p.hop && !p.under && wants) {
       const steady = p.animal === 'flamingo' && inp.sp;
       const bx = p.x, by = p.y;
-      const sneak=['steal','cityCarKey','citySteal'].includes(p.hold?.kind)?.45:1;
+      const sneak=['steal','uniformKeys','cityCarKey','citySteal'].includes(p.hold?.kind)?.45:1;
       walkStep(this, p, inp.mx*sneak, inp.my*sneak, dt, steady);
       const moved = Math.hypot(p.x - bx, p.y - by);
       p.moving = moved > 0.001;
@@ -410,6 +411,7 @@ export class Game {
   }
 
   _continueHold(p, inp, dt) {
+    if(uniformHold(this,p,inp,dt))return;
     const h = p.hold;
     if (h.kind==='ram' && Math.hypot(inp.mx||0,inp.my||0)>.15) {p.hold=null;return;}
     const held = h.btn === 'sp' ? inp.sp : h.btn==='b'?inp.b:inp.e;
@@ -440,7 +442,7 @@ export class Game {
       } else if (h.kind === 'steal') {
         const s = this.staff.find(s => s.id === h.staff);
         if (s && this._canSteal(p, s)) {
-          p.cageKeys=1; s.keyCool = this.time + 12;this.emit({k:'keystolen',pid:p.id,staff:s.id});
+          this._takeStaffKeys(p,s);
           this.emit({ k: 'msg', pid: p.id, text: this.zooId==='parking'?'Key fob stolen! Unlock flashes your car’s lights. Panic sounds its alarm.':'Key stolen! Reuse it at enclosure locks until you are captured.' });
         }
       } else if (h.kind === 'craft') {
@@ -622,6 +624,7 @@ export class Game {
         p.hold={kind:'muzzleHelp',btn:'e',npcEnc:friend.enc,t:0,need:2.5};
       }};
     }
+    const uniform=uniformTarget(this,p);if(uniform)return uniform;
     const guard = this.staff.find(s => this._canSteal(p, s));
     if (guard) return { text: 'Hold E to steal a cage key from behind', run: () => { p.hold = { kind: 'steal', btn: 'e', staff: guard.id, t: 0, need: .9 }; } };
     // Wading and reaching are natural movement interactions; Space throws the voice.
@@ -909,6 +912,8 @@ export class Game {
     });
   }
 
+  uniformAction(pid,msg){uniformAction(this,pid,msg);}
+  _takeStaffKeys(p,s){p.cageKeys=1;s.keysLooted=true;s.keyCool=this.time+12;this.emit({k:'keystolen',pid:p.id,staff:s.id});}
   _canSteal(p,s) {
     const unconscious=(s.downUntil||0)>this.time;
     return p.active && !p.inControlRoom && !p.cageKeys && p.capturedT<=0 && !p.under && !p.hop && !p.shell && dist(p.x,p.y,s.x,s.y)<1.9 &&
@@ -932,7 +937,7 @@ export class Game {
     }
     const s=this.staff.find(q=>near(q) && !(q.downUntil>this.time));
     if(s){
-      s.downUntil=this.time+30;s.state='unconscious';s.target=null;s.path=null;
+      s.downUntil=this.time+30;s.state='unconscious';s.target=null;s.path=null;uniformCrime(this,p);
       this.permanentAlert=true;this._raiseAlert();
       this.noise(s.x,s.y,12,p);
       this.emit({k:'bitten',id:s.id,pid:p.id,x:s.x,y:s.y});
@@ -1064,7 +1069,7 @@ export class Game {
   }
 
   detectable(p) {
-    return p.active && p.connected && !p.inControlRoom && !p.hidden && !(p.shell && !p.exposed) && p.grace <= 0 && p.capturedT <= 0 && !p.under && !p.inExit && !this.inOwnEnclosure(p);
+    return !(this.zooId!=='city'&&uniformWorks(p)) && p.active && p.connected && !p.inControlRoom && !p.hidden && !(p.shell && !p.exposed) && p.grace <= 0 && p.capturedT <= 0 && !p.under && !p.inExit && !this.inOwnEnclosure(p);
   }
 
   _stepStaff(s, dt) {
@@ -1181,6 +1186,7 @@ export class Game {
   }
 
   _capture(s, p) {
+    if(p.uniform)compromiseUniform(this,p.uniform);
     stopDragging(this,p);
     p.cageKeys=0;p.inControlRoom=false;
     p.capturedT = 1.1;
@@ -1359,12 +1365,12 @@ export class Game {
       pd: this.plates.map((p) => (p.down ? 1 : 0)),
       pl: this.order.map((id) => {
         const p = this.players.get(id);
-        return { id, skin:monsterSkin(p.name), dragging:p.dragging, stamina:r2(p.stamina), staminaYellow:!!p.staminaYellow, exhausted:!!p.exhausted, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, room:!!p.inControlRoom, mu:!!p.muzzled,ba:(p.biteAnimT||0)>0||p.hold?.kind==='muzzleHelp', ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
+        return { id, uniform:p.uniform||null, skin:monsterSkin(p.name), dragging:p.dragging, stamina:r2(p.stamina), staminaYellow:!!p.staminaYellow, exhausted:!!p.exhausted, n: p.name, a: p.animal, x: r2(p.x), y: r2(p.y), f: p.face, s: this.playerFlags(p), c: p.carry, room:!!p.inControlRoom, mu:!!p.muzzled,ba:(p.biteAnimT||0)>0||p.hold?.kind==='muzzleHelp', ck:p.cageKeys, supplies:p.materials, act: p.active, con: p.connected, wb: r2(p.wobble), mv: p.moving ? 1 : 0, hp: p.hop ? p.hop.kind : null, hk: p.hold ? p.hold.kind : null };
       }),
       permanent:this.permanentAlert,
       darts:this.darts.map(d=>({x:r2(d.x),y:r2(d.y),dx:d.dx,dy:d.dy})),
       security: this.permanentAlert ? -1 : Math.max(0,Math.ceil(this.alertUntil-this.time)),
-      st: this.staff.map((s) => ({ id:s.id,light:staffFlashlight(this,s),draggedBy:s.draggedBy||null, ar:this.time<this.alertUntil, x: r2(s.x), y: r2(s.y), d: r2(s.dir), s: STAFF_STATES.indexOf(s.state), al: r2(s.alert) })),
+      st: this.staff.map((s) => ({ id:s.id,light:staffFlashlight(this,s),draggedBy:s.draggedBy||null,uniformTaken:!!s.uniformTaken, ar:this.time<this.alertUntil, x: r2(s.x), y: r2(s.y), d: r2(s.dir), s: STAFF_STATES.indexOf(s.state), al: r2(s.alert) })),
       np: this.npcs.map((n) => ({ a: n.animal, x: r2(n.x), y: r2(n.y), s: n.state, f: n.face })),
       broken:[...this.destroyedTerrain],lookout,
       obj: this.objectives(),
@@ -1378,9 +1384,9 @@ export class Game {
     const e = this.interactTarget(p);
     const sp = this.abilityTarget(p);
     return {
-      id: pid,skin:monsterSkin(p.name), x: p.x, y: p.y, seq: p.lastSeq,
+      uniforms:uniformPersonal(this,p),id: pid,skin:monsterSkin(p.name), x: p.x, y: p.y, seq: p.lastSeq,
       dragging:p.dragging,stamina:p.stamina,staminaYellow:!!p.staminaYellow,exhausted:p.exhausted,running:p.running,digChoice:p.digChoice,digTarget:p.digTarget,control:controlPersonal(this,pid),
-      pe: e ? { t: e.text, ok: !!e.run } : null,
+      pe: e && !e.quiet ? { t: e.text, ok: !!e.run } : null,
       ps: sp ? { t: sp.text, ok: !!sp.run } : null,
       hold: p.hold ? { k: p.hold.kind, p: p.hold.need === Infinity ? -1 : Math.min(1, p.hold.t / p.hold.need) } : null,
       cd: p.cdMax ? Math.round((p.cd / p.cdMax) * 100) / 100 : 0,

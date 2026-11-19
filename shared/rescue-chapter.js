@@ -1,3 +1,4 @@
+import {uniformWitnessed,compromiseUniform} from './uniforms.js';
 import {flightView,flightPersonal,flightOwner,runwayAction,stepRunway} from './runway.js';
 import {stationPanel,routeStationClues,stationInstruction} from './stations.js';
 import {FOOD} from './shops.js';
@@ -8,9 +9,9 @@ import {RESCUE_SPECIES,RESCUE_NAMES,RESCUE_SCENES,PLANE_JOBS} from './rescue-dat
 import {dist,bfs,lineOfSight,angleDiff} from './util.js';
 import {DIRS,staffCanEnter} from './tiles.js';
 import {makeKeepers} from './staff.js';
-import {CLOTHES,isDisguised} from './wardrobe.js';
+import {CLOTHES,isDisguised,disguiseSignature} from './wardrobe.js';
 export const isRescueScene=scene=>RESCUE_SCENES.includes(scene);
-const fingerprint=p=>[p.animal,...['hat','shirt','pants'].map(s=>p.outfit?.[s]||'bare')].join('|');
+const fingerprint=disguiseSignature;
 const insideRescue=(g,p)=>p.location==='zoo'&&g.inRect(p.x,p.y,g.zoo.rescueDistrict.holding.rect);
 const allCaptured=g=>g.activePlayers().length>0&&g.activePlayers().every(p=>(p.caged&&p.cageDistrict==='rescue'||insideRescue(g,p))&&p.capturedT<=0);
 const near=(g,p,o,r=1.8)=>dist(p.x,p.y,o.x+.5,o.y+.5)<r;
@@ -25,13 +26,13 @@ export function initRescue(g,staff=true){
 function newPanel(g,p){g.rescue.panels[p.id]=stationPanel(g,g.order.indexOf(p.id));}
 function routeClues(g){routeStationClues(g,g.rescue.panels);}
 
-export function exposeRescue(g,p){p.disguiseBlown=true;g.rescue.wanted.add(fingerprint(p));}
+export function exposeRescue(g,p){if(p.uniform&&!uniformWitnessed(g,p))return;if(p.uniform)compromiseUniform(g,p.uniform);p.disguiseBlown=true;g.rescue.wanted.add(fingerprint(p));}
 export function wantedInRescue(g,p){return g.rescue?.wanted.has(fingerprint(p));}
-function report(g,p){if(p.hidden||p.under||p.capturedT>0)return;const r=g.rescue,key=fingerprint(p);if(r.wanted.has(key)||r.reports.some(q=>q.key===key))return;const witness=g.humans.find(n=>n.visitor&&n.scene===p.location&&!n.asleep&&dist(n.x,n.y,p.x,p.y)<8&&Math.abs(angleDiff(Math.atan2(p.y-n.y,p.x-n.x),n.angle))<1.25&&lineOfSight(n.x,n.y,p.x,p.y,(x,y)=>g.visionBlocked(x,y)));if(!witness)return;witness.phoneUntil=g.time+3;const clothes=['hat','shirt','pants'].map(slot=>CLOTHES.find(c=>c.id===p.outfit?.[slot])?.name||'no '+slot);r.reports.push({key,due:g.time+3,description:`${p.animal}: ${clothes.join(', ')}`,scene:p.location});g.emit({k:'visitorcalling',pid:p.id});}
+function report(g,p){if(p.hidden||p.under||p.capturedT>0)return;const r=g.rescue,key=fingerprint(p);if(r.wanted.has(key)||r.reports.some(q=>q.key===key))return;const witness=g.humans.find(n=>n.visitor&&n.scene===p.location&&!n.asleep&&dist(n.x,n.y,p.x,p.y)<8&&Math.abs(angleDiff(Math.atan2(p.y-n.y,p.x-n.x),n.angle))<1.25&&lineOfSight(n.x,n.y,p.x,p.y,(x,y)=>g.visionBlocked(x,y)));if(!witness)return;witness.phoneUntil=g.time+3;const clothes=['hat','shirt','pants'].map(slot=>CLOTHES.find(c=>c.id===p.outfit?.[slot])?.name||'no '+slot);r.reports.push({key,uniform:p.uniform||null,due:g.time+3,description:`${p.animal}: ${p.uniform?p.uniform+' uniform':clothes.join(', ')}`,scene:p.location});g.emit({k:'visitorcalling',pid:p.id});}
 export function rescueBite(g,p){
  if(!isRescueScene(p.location)||p.caged||p.muzzled||p.capturedT>0||p.chapterStation!=null||p.inPlane||p.under||p.hop||p.slide||p.shell)return false;
  const [fx,fy]=DIRS[p.face],n=g.humans.find(n=>n.visitor&&n.scene===p.location&&!n.asleep&&dist(p.x,p.y,n.x,n.y)<1.75&&(n.x-p.x)*fx+(n.y-p.y)*fy>-.35&&lineOfSight(p.x,p.y,n.x,n.y,(x,y)=>g.visionBlocked(x,y)));
- if(!n)return false;n.asleep=true;p.biteAnimT=.4;p.biteCool=0;p.disguiseBlown=true;g.rescue.wanted.add(fingerprint(p));g.permanentAlert=true;g._raiseAlert();report(g,p);g.emit({k:'citybite',pid:p.id});return true;
+ if(!n)return false;n.asleep=true;p.biteAnimT=.4;p.biteCool=0;exposeRescue(g,p);g.permanentAlert=true;g._raiseAlert();report(g,p);g.emit({k:'citybite',pid:p.id});return true;
 }
 export function rescueTarget(g,p){
  if(p.caged&&p.cageDistrict==='rescue'||insideRescue(g,p)){
@@ -109,7 +110,7 @@ export function stepRescue(g,dt){
  }
  const brace=allCaptured(g)&&crew.every(p=>p.connected&&p.hold?.kind==='rescueBrace'&&p.input.e&&dist(p.x,p.y,p.hold.wall[0]+.5,p.hold.wall[1]+.5)<1.4);
  r.cageProgress=brace?r.cageProgress+dt:0;if(r.cageProgress>=1.5)releaseCage(g);
- const due=r.reports.filter(q=>q.due<=g.time);r.reports=r.reports.filter(q=>q.due>g.time);for(const q of due){r.wanted.add(q.key);r.description=q.description;g._raiseAlert();g.emit({k:'visitordescription',description:q.description});}
+ const due=r.reports.filter(q=>q.due<=g.time);r.reports=r.reports.filter(q=>q.due>g.time);for(const q of due){if(q.uniform)compromiseUniform(g,q.uniform);r.wanted.add(q.key);r.description=q.description;g._raiseAlert();g.emit({k:'visitordescription',description:q.description});}
  for(const p of crew)if(!r.panels[p.id])newPanel(g,p);
  if(!r.signal&&r.panelPhase){
   if(r.panelPhase==='waiting'&&crew.every(p=>p.chapterStation!=null&&p.connected))r.panelPhase='arming';

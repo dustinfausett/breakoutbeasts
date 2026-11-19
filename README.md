@@ -10,6 +10,16 @@ through the Moonleaf Gate together, without getting caught by the night keepers.
 
 ---
 
+On phones, tap the money button to expand disguise and inventory details. Opening objectives
+collapses those details so they stay readable. Expanded details close again after four seconds.
+
+Hold **E** beside an unconscious keeper or officer to take their keys, release, then hold
+**E** again to steal their $20 wallet. Release and hold **E** a third time to take and wear their uniform. A uniform counts as a full disguise. Use **Menu →
+Stolen uniforms** to change back to your clothes or another collected uniform. Witnessed crimes
+and normal disguise discovery compromise that entire uniform type for the group: police and
+keeper uniforms are tracked separately. Wallet and clothes actions have no on-screen hints. This status and collected uniforms persist through
+chapters and group saves; police capture confiscates the captured animal's uniforms.
+
 ## Contents
 1. [Quick start](#1-quick-start)
 2. [How to play](#2-how-to-play)

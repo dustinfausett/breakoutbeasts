@@ -552,12 +552,12 @@ export class Renderer {
   }
 
   _drawHuman(ctx,n,now){
-    ctx.save();ctx.translate(n.x*TS,n.y*TS);if(!n.asleep&&Math.cos(n.d)<0)ctx.scale(-1,1);if(n.asleep){ctx.rotate(Math.PI/2);ctx.translate(-4,0);}const bob=n.asleep||!n.moving?0:Math.floor(now/(n.running?85:160)+n.x)%2;
+    ctx.save();ctx.translate(n.x*TS,n.y*TS);if(!n.asleep&&Math.cos(n.d)<0)ctx.scale(-1,1);if(n.asleep){ctx.scale(.5,.5);ctx.rotate(Math.PI/2);ctx.translate(-4,0);}const bob=n.asleep||!n.moving?0:Math.floor(now/(n.running?85:160)+n.x)%2;
     ctx.fillStyle=['#66849e','#a17980','#7d9565','#a78d60'][n.color];ctx.fillRect(-5,-7-bob,10,9);ctx.fillStyle='#e8bd98';ctx.fillRect(-3,-13-bob,7,6);ctx.fillStyle='#493b35';ctx.fillRect(-3,-14-bob,7,2);ctx.fillStyle='#202c37';ctx.fillRect(-4,2-bob,3,5+(n.moving?bob:0));ctx.fillRect(2,2-bob,3,5-(n.moving?bob:0));ctx.fillStyle='#241e21';ctx.fillRect(1,-11-bob,1,1);ctx.fillStyle='#e3d8a6';ctx.fillRect(0,-6-bob,1,5);if(n.calling){ctx.fillStyle='#d9b67b';ctx.fillRect(7,-15,4,8);ctx.fillStyle='#8cdbdf';ctx.fillRect(8,-13,2,4);}if(n.asleep){ctx.fillStyle='#fff0bf';ctx.font='8px monospace';ctx.fillText('z',8,-8);}ctx.restore();
   }
   _drawStaff(ctx, s, now) {
-    if(s.uniformTaken){ctx.save();ctx.translate(s.x*TS,s.y*TS);if(s.s===6)ctx.rotate(Math.PI/2);ctx.fillStyle='#d3d1bc';ctx.fillRect(-5,-7,10,8);ctx.fillStyle='#e8bd98';ctx.fillRect(-3,-13,7,6);ctx.fillStyle='#63717b';ctx.fillRect(-4,1,3,6);ctx.fillRect(2,1,3,6);ctx.restore();return;}
-    if(s.s===6){const image=(s.police?SPRITES.policeDown:SPRITES.staffDown).r[0];ctx.drawImage(image,s.x*TS-16,s.y*TS-14,32,22);return;}
+    if(s.uniformTaken){ctx.save();ctx.translate(s.x*TS,s.y*TS);if(s.s===6){ctx.scale(.5,.5);ctx.rotate(Math.PI/2);}ctx.fillStyle='#d3d1bc';ctx.fillRect(-5,-7,10,8);ctx.fillStyle='#e8bd98';ctx.fillRect(-3,-13,7,6);ctx.fillStyle='#63717b';ctx.fillRect(-4,1,3,6);ctx.fillRect(2,1,3,6);ctx.restore();return;}
+    if(s.s===6){const image=(s.police?SPRITES.policeDown:SPRITES.staffDown).r[0];ctx.drawImage(image,s.x*TS-8,s.y*TS-7,16,11);return;}
     this._drawAnimal(ctx,s.police?'police':'staff',s.x,s.y,Math.cos(s.d)<0?'left':'right',s.mv,0,now,{action:s.s===2?'run':'walk'});
     if(s.police){ctx.fillStyle='#253f79';ctx.fillRect(s.x*TS-6,s.y*TS-11,12,4);ctx.fillStyle='#ffe486';ctx.fillRect(s.x*TS-1,s.y*TS-3,3,3);}
   }

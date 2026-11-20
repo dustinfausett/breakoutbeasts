@@ -719,7 +719,7 @@ Validation for this update: the full suite passed 265/265 tests, including all 1
 
 ### Bank arrival timing and prison escape consequences
 
-Opening the bank vault keeps the full 30-second police response countdown. Entering the vault raises alert and records it as the bank officers' search priority; it neither spawns officers nor shortens their arrival timer. Once police arrive, they prioritize that recorded vault location and immediately identify an outfit they see inside.
+Biting someone in the bank starts a full 120-second response countdown. Bank incidents never use the faster neighborhood responder queue, and repeat bites do not restart the timer. Opening the bank vault keeps the full 30-second police response countdown. Entering the vault raises alert and records it as the bank officers' search priority; it neither spawns officers nor shortens their arrival timer. Once police arrive, they prioritize that recorded vault location and immediately identify an outfit they see inside.
 
 Unlocking the police prison alerts up to four existing nearby street officers and sends them toward the station. Escapees and free rescuers already inside receive a 20-second getaway allowance, which survives passing through the exit door. Officers arriving early wait outside until the allowance ends, then enter and search the station. This response does not spawn extra officers.
 

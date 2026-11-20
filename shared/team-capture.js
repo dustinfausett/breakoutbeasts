@@ -54,7 +54,7 @@ function reduceExtras(g,dt){if(g.time<g.alertUntil||g.permanentAlert){g.calmStaf
 export function stepCaptureCalm(g,dt){
  for(const p of g.activePlayers())if(p.teamCaptive&&p.capturedT<=0&&!p.caged&&!g.inOwnEnclosure(p))p.teamCaptive=false;
  const all=allTeamCaptive(g),caught=allTeamCaught(g),was=g.allTeamCaptured,wasInCells=g.allInCells;g.allTeamCaptured=caught;g.allInCells=all;
- if(caught){g.alertScale=0;g.alertUntil=g.time;g.permanentAlert=false;g.darts=[];g.checks=[];g.controlAlarm=null;g.localControl=[];if(g.police){g.police.backupQueue=[];g.police.suspicions.clear();}if(!was||all&&!wasInCells)disperse(g);}
+ if(caught){g.alertScale=0;g.alertUntil=g.time;g.permanentAlert=false;g.darts=[];g.checks=[];g.controlAlarm=null;g.bankBiteReported=false;g.localControl=[];if(g.police){g.police.backupQueue=[];g.police.suspicions.clear();}if(!was||all&&!wasInCells)disperse(g);}
  const crew=g.activePlayers(),ready=all&&crew.every(p=>p.connected&&p.hold?.kind==='teamWall'&&p.input.e&&wallValid(g,p,p.hold));
  g.teamWallProgress=ready?(g.teamWallProgress||0)+dt:0;for(const p of crew)if(p.hold?.kind==='teamWall')p.hold.t=g.teamWallProgress;
  if(g.teamWallProgress>=WALL_HOLD_SECONDS)releaseTeam(g);

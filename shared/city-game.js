@@ -23,7 +23,7 @@ import {gpsFor} from './navigation.js';
 import {makeKeepers} from './staff.js';
 export class CityGame extends ParkingGame{
  constructor(args){
-  super({...args,worldId:'city',options:{...args.options,staff:false}});this.visited=new Set();this.scoreLog.staffEnabled=args.options?.staff!==false;this.vaultCash=12000;this.vaultProgress=0;this.controlAlarm=null;this.controlArrived=false;this.controlKind='animal';this.controlLimit=120;
+  super({...args,worldId:'city',options:{...args.options,staff:false}});this.visited=new Set();this.scoreLog.staffEnabled=args.options?.staff!==false;this.vaultCash=12000;this.vaultProgress=0;this.controlAlarm=null;this.controlArrived=false;this.controlKind='animal';this.controlLimit=120;this.bankBiteReported=false;
   for(const gate of this.zoo.gates)this._addGate({...gate,tiles:gate.tiles.map(t=>[...t])});
   this.humans=[];
   for(const p of this.activePlayers()){p.money=0;p.tools=[];p.food={};p.cart=[];p.carKeys=[];p.owned=[];p.outfit={};p.location='street';p.disguiseBlown=false;p.cageHits=0;p.shopping=false;p.inVehicle=true;p.x=this.vehicle.x;p.y=this.vehicle.y;}
@@ -112,7 +112,15 @@ export class CityGame extends ParkingGame{
  }
  noise(x,y,r,src,delay=0){const all=this.staff;this.staff=all.filter(s=>(s.scene||'street')===(src?.location||'street'));try{return super.noise(x,y,r,src,delay);}finally{this.staff=all;}}
  _cashPeople(){for(const s of this.staff){s.scene=s.scene||'street';if(s.wallet==null)s.wallet=20;s.asleep=s.downUntil>this.time;}return [...this.humans,...this.staff.filter(s=>!s.inCar)];}
- _callLocalControl(p){this._callControl();this.localControl=this.localControl||[];if(!this.localControl.some(r=>!r.done&&r.scene===p.location))this.localControl.push({scene:p.location,x:p.x,y:p.y,at:this.time+12});this.msg(p,'Animal control is coming to this area!');}
+ _callLocalControl(p){
+  // Bank staff use the displayed response timer, never the faster neighborhood response.
+  const bank=p.location==='bank';
+  if(bank&&!this.bankBiteReported&&!this.bankAlarmTriggered&&!this.gate('city-vault').state){this.controlAlarm=null;this.controlArrived=false;this.controlKind='animal';}
+  this._callControl();this.localControl=this.localControl||[];
+  if(bank)this.bankBiteReported=true;
+  else if(!this.localControl.some(r=>!r.done&&r.scene===p.location))this.localControl.push({scene:p.location,x:p.x,y:p.y,at:this.time+12});
+  this.msg(p,'Animal control is coming to this area!');
+ }
  _callControl(seconds=120,kind='animal'){
   if(this.controlArrived&&(kind!=='police'||this.controlKind==='police'))return;
   const initial=this.controlAlarm===null,shorter=!initial&&seconds<this.controlAlarm,upgrade=kind==='police'&&this.controlKind!=='police';
@@ -145,7 +153,7 @@ export class CityGame extends ParkingGame{
  _stepCity(dt){
   let bankOpened=false;
   stepCrowds(this,dt);
-  for(const r of this.localControl||[])if(!r.done&&this.time>=r.at){r.done=true;const tile=this._nearestStaffTile(Math.floor(r.x),Math.floor(r.y));if(tile){const cops=makeKeepers([{route:[tile,...[[3,0],[0,3],[-3,0],[0,-3]].map(([dx,dy])=>[tile[0]+dx,tile[1]+dy]).filter(([x,y])=>this._staffPass(x,y))],start:0},{route:[tile,...[[3,0],[0,3],[-3,0],[0,-3]].map(([dx,dy])=>[tile[0]+dx,tile[1]+dy]).filter(([x,y])=>this._staffPass(x,y))],start:0}],2);for(const s of cops){s.id=this.nid++;s.scene=r.scene;s.state='investigate';s.goal=tile;s.animalControl=true;s.reinforcement=true;this.staff.push(s);}}}
+  for(const r of this.localControl||[])if(!r.done&&this.time>=r.at){r.done=true;if(r.scene==='bank')continue;const tile=this._nearestStaffTile(Math.floor(r.x),Math.floor(r.y));if(tile){const cops=makeKeepers([{route:[tile,...[[3,0],[0,3],[-3,0],[0,-3]].map(([dx,dy])=>[tile[0]+dx,tile[1]+dy]).filter(([x,y])=>this._staffPass(x,y))],start:0},{route:[tile,...[[3,0],[0,3],[-3,0],[0,-3]].map(([dx,dy])=>[tile[0]+dx,tile[1]+dy]).filter(([x,y])=>this._staffPass(x,y))],start:0}],2);for(const s of cops){s.id=this.nid++;s.scene=r.scene;s.state='investigate';s.goal=tile;s.animalControl=true;s.reinforcement=true;this.staff.push(s);}}}
   for(const p of this.activePlayers())if(!p.caged&&!p.inPlane&&p.location==='bank'&&p.x>this.zoo.bankLayout.wallX&&p.y<=144){this._raiseAlert();if(!this.bankAlarmTriggered){this.bankAlarmTriggered=true;this._callControl(30,'police');if(!this.controlArrived){this.controlAlarm=30;this.controlLimit=30;}}this.vaultSearch=[Math.floor(p.x),Math.floor(p.y)];for(const s of this.staff.filter(s=>s.police&&s.scene==='bank'))if(this.detectable(p)&&this._policeVisible(s,p))policeExpose(this,p);}
   if(this.vaultSearch)for(const s of this.staff.filter(s=>s.police&&s.scene==='bank'&&s.state!=='chase'&&!(s.downUntil>this.time))){if(!s.goal||s.goal[0]!==this.vaultSearch[0]||s.goal[1]!==this.vaultSearch[1]){s.goal=[...this.vaultSearch];s.path=null;}s.state='investigate';}
 

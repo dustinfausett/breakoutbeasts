@@ -1,3 +1,4 @@
+import {SnapshotDecoder} from './shared/snapshot-wire.js';
 // Links between the client and a Room. OnlineLink talks to the server over WebSockets;
 // SoloLink runs the very same Room + Game rules locally in the browser.
 
@@ -33,7 +34,7 @@ export class OnlineLink {
   constructor(handler, status) {
     this.handler = handler;
     this.status = status;  // (state, info) -> UI: 'connecting' | 'open' | 'reconnecting' | 'lost'
-    this.online = true;
+    this.online = true;this.decoder=new SnapshotDecoder();
     this.ws = null;
     this.queue = [];
     this.code = null; this.token = null;
@@ -56,7 +57,7 @@ export class OnlineLink {
       this.status('connecting');
       let ws;
       try { ws = new WebSocket(this.url()); } catch (e) { reject(e); return; }
-      this.ws = ws;
+      this.ws = ws;this.decoder.reset();
       const to = setTimeout(() => { if (!settled) { settled = true; try { ws.close(); } catch { /* */ } reject(new Error('timeout')); } }, 8000);
       ws.onopen = () => {
         clearTimeout(to);
@@ -67,10 +68,11 @@ export class OnlineLink {
         resolve();
       };
       ws.onmessage = (ev) => {
+        if(this.ws!==ws)return;
         let msg; try { msg = JSON.parse(ev.data); } catch { return; }
         if (msg.t === 'joined') { this.code = msg.code; this.token = msg.token; this._saveSession(); }
         if (msg.t === 'error' && msg.code === 'expired') this._clearSession();
-        this.handler(msg);
+        this.handler(this.decoder.decode(msg));
       };
       ws.onclose = () => {
         clearTimeout(to);
@@ -94,7 +96,7 @@ export class OnlineLink {
       try {
         await this.connect();
         this.retryUntil = 0;
-        this.ws.send(JSON.stringify({ t: 'resume', code: this.code, token: this.token }));
+        this.ws.send(JSON.stringify({ t: 'resume', wire:1, code: this.code, token: this.token }));
       } catch {
         this._reconnectLoop();
       }
@@ -106,9 +108,9 @@ export class OnlineLink {
     else if (msg.t !== 'in') this.queue.push(msg);
   }
 
-  async create(name) { await this.connect(); this.send({ t: 'create', name }); }
-  async join(code, name) { await this.connect(); this.send({ t: 'join', code, name }); }
-  async resume(code, token) { this.code = code; this.token = token; await this.connect(); this.send({ t: 'resume', code, token }); }
+  async create(name) { await this.connect(); this.send({ t: 'create', wire:1, name }); }
+  async join(code, name) { await this.connect(); this.send({ t: 'join', wire:1, code, name }); }
+  async resume(code, token) { this.code = code; this.token = token; await this.connect(); this.send({ t: 'resume', wire:1, code, token }); }
 
   /** Test hook: simulate a dropped connection. */
   dropForTest() { if (this.ws) this.ws.close(); }

@@ -1,3 +1,4 @@
+import {SnapshotStream} from './snapshot-stream.js';
 import {checkpointStore,shortCheckpointCode} from './checkpoint-store.js';
 import {decodeCheckpoint} from '../shared/checkpoints.js';
 // Breakout Beasts! server: serves the game client and runs authoritative multiplayer rooms
@@ -56,11 +57,11 @@ export function createServer({ port = 8080, host = '0.0.0.0', roomOptions = {}, 
     });
   });
 
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws', maxPayload: 4096 });
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws', maxPayload: 4096,perMessageDeflate:{threshold:1024,zlibDeflateOptions:{level:1,memLevel:5},concurrencyLimit:4} });
 
   const sendTo = (room) => (pid, msg) => {
     for (const [ws, info] of sockets) {
-      if (info.room === room && info.pid === pid && ws.readyState === 1) { ws.send(JSON.stringify(msg)); }
+      if (info.room === room && info.pid === pid && ws.readyState === 1) { if(info.compact)info.stream.send(msg);else ws.send(JSON.stringify(msg)); }
     }
   };
 
@@ -77,7 +78,7 @@ export function createServer({ port = 8080, host = '0.0.0.0', roomOptions = {}, 
   wss.on('connection', (ws, req) => {
     if (allowedOrigins && req.headers.origin && !allowedOrigins.includes(req.headers.origin)) { ws.close(1008, 'origin'); return; }
     const info = { room: null, pid: null, alive: true, budget: 60, lastRefill: Date.now() };
-    sockets.set(ws, info);
+    info.stream=new SnapshotStream(ws,()=>info.room?.game?.players.get(info.pid)?.location||'street');sockets.set(ws, info);
     const reply = (msg) => { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); };
     ws.on('pong', () => { info.alive = true; });
     ws.on('message', (data) => {
@@ -91,6 +92,7 @@ export function createServer({ port = 8080, host = '0.0.0.0', roomOptions = {}, 
       try { msg = JSON.parse(data.toString()); } catch { return; }
       if (!msg || typeof msg !== 'object') return;
       if (!info.room) {
+        info.compact=msg.wire===1;
         if (msg.t === 'create') {
           const room = newRoom();
           info.room = room;

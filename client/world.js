@@ -74,7 +74,7 @@ export class ClientWorld {
     const special = me.special || (pl.s & (PF.CAUGHT | PF.HOP | PF.UNDER | PF.SLIDE | PF.SHELL | PF.HOLD)) || !pl.act;
     const base = { x: me.x, y: me.y, animal: pl.a, face: pl.f, sprintT: 0 };
     if (special) { this.pending = []; this.pred = base; this.prevPred = { ...base }; return; }
-    for (const inp of this.pending) walkStep(this, base, inp.mx, inp.my, TICK, false);
+    for (const inp of this.pending){base.sprintT=this._predictedSprint(inp,me,pl);walkStep(this, base, inp.mx, inp.my, TICK, false);}
     if (!this.pred) { this.pred = base; this.prevPred = { ...base }; return; }
     // smooth small corrections, snap large ones
     const err = Math.hypot(base.x - this.pred.x, base.y - this.pred.y);
@@ -90,8 +90,11 @@ export class ClientWorld {
     if (this.pending.length > 40) this.pending.shift();
     const me = this.snap?.me;
     if (me && me.special) return;
+    this.pred.sprintT=this._predictedSprint(inp,me,this.me());
     walkStep(this, this.pred, inp.mx, inp.my, TICK, false);
   }
+
+  _predictedSprint(inp,me,pl){return (me?.stamina??1)>0&&((inp.run&&!me?.exhausted)||(!me?.running&&!!(pl?.s&PF.SPRINT)))?.1:0;}
 
   localPos(now) {
     if (!this.pred) return null;

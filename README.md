@@ -32,6 +32,16 @@ world; Restart restores the current part's entry checkpoint. Capture never opens
 popup. Under **Settings → Joystick position**, each player can choose the default left
 joystick/right buttons or a right joystick/left buttons; the choice is saved on that device.
 
+Multiplayer keeps its 20 Hz simulation while streaming compact state changes and only the
+pedestrians in each player's current scene. WebSocket compression reduces transfer size;
+slow connections receive the newest world state with retained events and map changes.
+Rendering skips offscreen characters, and sprint movement is predicted locally.
+
+To measure one-, four-, and eight-player city/airport traffic and server tick cost locally:
+`node tools/benchmark-multiplayer.mjs 3`. Results compare the previous uncompressed stream
+with the optimized stream, including actual network bytes. Refresh each device after a
+deployment to load the updated client.
+
 ## Contents
 1. [Quick start](#1-quick-start)
 2. [How to play](#2-how-to-play)

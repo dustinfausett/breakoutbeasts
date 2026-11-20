@@ -206,6 +206,7 @@ export class Room {
         let q = this.queues.get(pid);
         if (!q) { q = []; this.queues.set(pid, q); }
         q.push({ mx: +msg.mx || 0, my: +msg.my || 0, sp: !!msg.sp, e: !!msg.e, b:!!msg.b,run:!!msg.run, seq: +msg.s || 0 });
+        if(q.length>1){const a=q.at(-2),b=q.at(-1);if(a.e===b.e&&a.b===b.b&&a.sp===b.sp)q.splice(q.length-2,1);}
         while (q.length > 4) q.shift();
         break;
       }
@@ -337,7 +338,7 @@ export class Room {
     if (!this.game || this.phase !== 'playing' || this.paused) return;
     // inputs
     for (const [pid, q] of this.queues) {
-      if (q.length) this.game.setInput(pid, q.shift());
+      if(q.length){let latest=q.shift();while(q.length&&latest.e===q[0].e&&latest.b===q[0].b&&latest.sp===q[0].sp)latest=q.shift();this.game.setInput(pid,latest);}
     }
     const host=this.game.players.get(this.hostId);if(host&&!host.caged&&host.capturedT<=0){const part=host.location||this.missionStage;if(part!==this.capturePart){this.capturePart=part;if(this.game.zooId==='city'&&!this.game.flightChapter)this.partRestarts.set(part,captureCheckpoint(this.game,this.hostId));}}
     this.game.step(dt);

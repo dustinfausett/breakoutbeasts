@@ -186,7 +186,8 @@ export class Renderer {
       if (pb.id === w.myId && view.local) { x = view.local.x; y = view.local.y; }
       return { ...pb, x, y, f: pb.id === w.myId && view.local ? view.local.face : pb.f };
     }).filter((p) => p.act);
-    let staff = sB.st.map((sb, i) => { const sa = sA.st[i] || sb; return { ...sb, mv:Math.hypot(sb.x-sa.x,sb.y-sa.y)>.005, x: lerp(sa.x, sb.x, k), y: lerp(sa.y, sb.y, k), d: lerpAngle(sa.d, sb.d, k) }; });
+    const oldStaff=new Map(sA.st.map(s=>[s.id,s]));
+    let staff = sB.st.map((sb) => { const old=oldStaff.get(sb.id),sa=old&&(old.scene||'street')===(sb.scene||'street')?old:sb; return { ...sb, mv:Math.hypot(sb.x-sa.x,sb.y-sa.y)>.005, x: lerp(sa.x, sb.x, k), y: lerp(sa.y, sb.y, k), d: lerpAngle(sa.d, sb.d, k) }; });
     let npcs = sB.np.map((nb, i) => { const na = sA.np[i] || nb; return { ...nb, mv:Math.hypot(nb.x-na.x,nb.y-na.y)>.005, x: lerp(na.x, nb.x, k), y: lerp(na.y, nb.y, k) }; });
     const crates = sB.cr.map((cb, i) => { const ca = sA.cr[i] || cb; return [lerp(ca[0], cb[0], Math.min(1, k * 1.5)), lerp(ca[1], cb[1], Math.min(1, k * 1.5))]; });
 
@@ -213,7 +214,7 @@ export class Renderer {
     const drivenCar=me.car?(snap.cars?.find(c=>c.id===me.carId)||snap.obj.parking?.car):null,ownCarCells=drivenCar?new Set(vehicleCells(drivenCar,w.w,w.h)):null;
     const visionWorld=drivenCar?{w:w.w,h:w.h,visionBlocked:(x,y)=>ownCarCells.has(y*w.w+x)?tileBlocksVision(w.tiles[y*w.w+x]):w.visionBlocked(x,y)}:w;
     const observer=drivenCar?{x:me.x,y:me.y,angle:drivenCar.angle}:{x:me.x,y:me.y,face:me.f};
-    const visible=()=>true;
+    const visible=(x,y,margin=3)=>x*TS>=cx-margin*TS&&x*TS<=cx+viewW+margin*TS&&y*TS>=cy-margin*TS&&y*TS<=cy+viewH+margin*TS;
     if(this.settings.hard)staff=staff.filter(s=>animalCanSeeGuard(visionWorld,observer,s.x,s.y));
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.map,this.mapBounds.x*TS,this.mapBounds.y*TS,this.mapBounds.w*TS,this.mapBounds.h*TS);
@@ -261,7 +262,7 @@ export class Renderer {
 
     // vision cones
     const cfg = w.zoo.staff;
-    this._cones = staff.filter(s=>(s.light??(s.s===6?0:1))>0).map((s) => ({ s, poly: visionPolygon(w, s, cfg, 16) }));
+    this._cones = staff.filter(s=>visible(s.x,s.y,(cfg.range||8)+2)&&(s.light??(s.s===6?0:1))>0).map((s) => ({ s, poly: visionPolygon(w, s, cfg, 16) }));
     for (const { s, poly } of this._cones) {
       ctx.save();ctx.globalAlpha=s.light??1;
       ctx.beginPath(); poly.forEach(([x, y], j) => (j ? ctx.lineTo(x * TS, y * TS) : ctx.moveTo(x * TS, y * TS))); ctx.closePath();
@@ -275,17 +276,18 @@ export class Renderer {
     const plane=snap.rescue?.flight;
     if(plane){ctx.save();ctx.translate(plane.x*TS,plane.y*TS);ctx.fillStyle='#c8d9d5';ctx.beginPath();ctx.moveTo(0,-125);ctx.lineTo(18,-75);ctx.lineTo(18,-10);ctx.lineTo(230,52);ctx.lineTo(225,78);ctx.lineTo(18,47);ctx.lineTo(15,115);ctx.lineTo(75,140);ctx.lineTo(70,151);ctx.lineTo(0,137);ctx.lineTo(-70,151);ctx.lineTo(-75,140);ctx.lineTo(-15,115);ctx.lineTo(-18,47);ctx.lineTo(-225,78);ctx.lineTo(-230,52);ctx.lineTo(-18,-10);ctx.lineTo(-18,-75);ctx.closePath();ctx.fill();ctx.strokeStyle='#577982';ctx.lineWidth=4;ctx.stroke();ctx.fillStyle='#275065';ctx.fillRect(-12,-70,24,22);ctx.fillStyle='#e0ae65';ctx.fillRect(-18,2,36,6);ctx.restore();}
     // City customers share depth sorting with animals and keepers.
-    const humans=snap.humans||[];
+    const oldHumans=new Map((sA.humans||[]).map(n=>[n.id,n]));
+    const humans=(sB.humans||[]).map(n=>{const old=oldHumans.get(n.id);return old&&(old.scene||'street')===(n.scene||'street')?{...n,x:lerp(old.x,n.x,k),y:lerp(old.y,n.y,k),d:lerpAngle(old.d,n.d,k)}:n;});
     // characters sorted by y
     const ents = [];
-    for (const n of npcs) ents.push({ y: n.y, draw: () => this._drawAnimal(ctx, n.a, n.x, n.y, n.f || 'down', n.mv, 0, now, { npc: true, state: n.s }) });
+    for (const n of npcs) if(visible(n.x,n.y))ents.push({ y: n.y, draw: () => this._drawAnimal(ctx, n.a, n.x, n.y, n.f || 'down', n.mv, 0, now, { npc: true, state: n.s }) });
     for (const p of players) {
-      if (p.car || p.plane || (p.s & PF.UNDER)) continue;
+      if (p.car || p.plane || (p.s & PF.UNDER)||!visible(p.x,p.y)) continue;
       ents.push({ y: p.y, draw: () => this._drawPlayer(ctx, p, now) });
     }
-    for(const a of snap.rescue?.animals||[])if(a.state!=='escaped'||a.location==='street')ents.push({y:a.y,draw:()=>this._drawAnimal(ctx,'rescue_'+a.species,a.x,a.y,a.face,a.moving,0,now,{action:a.moving?'run':'walk'})});
-    for(const human of humans)ents.push({y:human.y,draw:()=>this._drawHuman(ctx,human,now)});
-    for (const s of staff.filter(s=>!s.inCar)) ents.push({ y: s.y, draw: () => this._drawStaff(ctx, s, now) });
+    for(const a of snap.rescue?.animals||[])if(visible(a.x,a.y)&&(a.state!=='escaped'||a.location==='street'))ents.push({y:a.y,draw:()=>this._drawAnimal(ctx,'rescue_'+a.species,a.x,a.y,a.face,a.moving,0,now,{action:a.moving?'run':'walk'})});
+    for(const human of humans)if(visible(human.x,human.y))ents.push({y:human.y,draw:()=>this._drawHuman(ctx,human,now)});
+    for (const s of staff.filter(s=>!s.inCar&&visible(s.x,s.y))) ents.push({ y: s.y, draw: () => this._drawStaff(ctx, s, now) });
     ents.sort((a, b) => a.y - b.y);
     for (const e of ents) e.draw();
 
@@ -347,7 +349,7 @@ export class Renderer {
       label(bay.used?`FUSE ${bay.index+1}${mine?' · YOURS':''}`:`Unused bay ${bay.index+1}`,sx,sy, bay.used?'#ffe29a':'#98a59f');
     }
     for (const p of players) {
-      if (p.car || p.plane || (p.s & PF.UNDER)) continue;
+      if (p.car || p.plane || (p.s & PF.UNDER)||!visible(p.x,p.y)) continue;
       const [sx, sy] = toS(p.x, p.y);
       const top = sy - 18 * S;
       const mine = p.id === w.myId;

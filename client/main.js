@@ -600,7 +600,7 @@ function gameTick() {
   app.seq++;
   const msg = { t: 'in', s: app.seq, mx: Math.round(inp.mx * 100) / 100, my: Math.round(inp.my * 100) / 100, sp: inp.sp ? 1 : 0, e: inp.e ? 1 : 0, b:inp.b?1:0,run:inp.run?1:0 };
   app.link?.send(msg);
-  w.predictStep({ seq: app.seq, mx: msg.mx, my: msg.my });
+  w.predictStep({ seq: app.seq, mx: msg.mx, my: msg.my,run:msg.run });
 }
 
 function clientView() {

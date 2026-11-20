@@ -1405,7 +1405,7 @@ export class Game {
       hold: p.hold ? { k: p.hold.kind, p: p.hold.need === Infinity ? -1 : Math.min(1, p.hold.t / p.hold.need) } : null,
       cd: p.cdMax ? Math.round((p.cd / p.cdMax) * 100) / 100 : 0,
       grace: Math.round(p.grace * 10) / 10,
-      special: !!(p.dragging!=null || p.digChoice || p.inControlRoom || p.slide || p.hop || p.under || p.capturedT > 0 || p.shell || p.hold || p.sprintT > 0 || p.onBeam),
+      special: !!(p.dragging!=null || p.digChoice || p.inControlRoom || p.slide || p.hop || p.under || p.capturedT > 0 || p.shell || p.hold || p.onBeam),
     };
   }
 

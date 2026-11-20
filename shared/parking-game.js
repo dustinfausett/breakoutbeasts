@@ -1,3 +1,4 @@
+import {cellTarget} from './team-capture.js';
 import {carsOverlap,movableCars,moveDrivenCar,stepAnimalCarPushes,pushPersonal,initParkingCars,carSnapshot} from './car-pushing.js';
 import {parkingGPS} from './navigation.js';
 import {Game} from './game.js';
@@ -51,7 +52,7 @@ export class ParkingGame extends Game{
  _nearCar(p){const v=this.vehicle,c=Math.cos(v.angle),s=Math.sin(v.angle),dx=p.x-v.x,dy=p.y-v.y,u=dx*c+dy*s,l=-dx*s+dy*c;if(Math.hypot(Math.max(0,Math.abs(u)-2.25),Math.max(0,Math.abs(l)-1.65))>1.15)return false;const own=new Set(vehicleCells(v,this.w,this.h));return lineOfSight(p.x,p.y,v.x,v.y,(x,y)=>own.has(y*this.w+x)?tileBlocksVision(this.tileAt(x,y)):this.visionBlocked(x,y));}
  _door(){const v=this.vehicle;return [v.x-Math.sin(v.angle)*2.75,v.y+Math.cos(v.angle)*2.75];}
  _insideHolding(p){return !!this.holdingCage&&p.x>2&&p.x<9&&p.y>52&&p.y<59;}
- interactTarget(p){if(p.caged||this._insideHolding(p))return this._cageWallInteraction(p);const target=super.interactTarget(p);if(target)return target;return this._objectInteraction(p,this.obj('getaway'));}
+ interactTarget(p){const cell=cellTarget(this,p);if(cell)return cell;if(p.caged||this._insideHolding(p))return this._cageWallInteraction(p);const target=super.interactTarget(p);if(target)return target;return this._objectInteraction(p,this.obj('getaway'));}
  _objectInteraction(p,o){
   if(o.kind==='holdingCageDoor'){if(p.caged)return {text:'Wait for a rescue, or grab a wall when everyone is captured',idle:true};return {text:'Open the cage and free your captured teammates',run:()=>this._openHoldingCage(p.name,p)};}
   if(o.kind!=='vehicle')return super._objectInteraction(p,o);

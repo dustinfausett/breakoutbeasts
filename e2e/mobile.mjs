@@ -28,7 +28,7 @@ export async function run() {
       const fit=await page.evaluate(()=>{const r=document.querySelector('#game').getBoundingClientRect(),v=visualViewport;return Math.abs(r.width-v.width)<1&&Math.abs(r.height-v.height)<1;});
       R.ok(`${label}: the playfield fills the visible viewport`,fit);
       const canvasAfter=await page.locator('#game').boundingBox();R.ok(`${label}: opening objectives does not shrink the playfield`,canvasBefore.width===canvasAfter.width&&canvasBefore.height===canvasAfter.height);
-      R.ok(`${label}: team stats and caption panels stay off the playfield`,await page.locator('#team').isHidden()&&await page.locator('#captions').isHidden());
+      R.ok(`${label}: team stats stay hidden and captions stay above touch controls`,await page.locator('#team').isHidden()&&await page.evaluate(()=>{const c=document.querySelector('#captions').getBoundingClientRect(),top=Math.min(...['#tbtn-e','#tbtn-sp','#tbtn-b','#tbtn-run'].map(id=>document.querySelector(id).getBoundingClientRect().top));return !c.height||c.bottom<=top;}));
       const controlsFit=await page.evaluate(()=>{const ids=['#stick','#tbtn-e','#tbtn-sp','#tbtn-b'],rs=ids.map(id=>document.querySelector(id).getBoundingClientRect());return rs.every(r=>r.left>=0&&r.top>=0&&r.right<=visualViewport.width&&r.bottom<=visualViewport.height)&&rs.every((r,i)=>rs.every((b,j)=>i===j||r.right<=b.left||b.right<=r.left||r.bottom<=b.top||b.bottom<=r.top));});
       R.ok(`${label}: joystick and action buttons fit without overlapping`,controlsFit);
       R.ok(`${label}: touch controls are shown`, await page.isVisible('#stick') && await page.isVisible('#tbtn-e') && await page.isVisible('#tbtn-sp'));

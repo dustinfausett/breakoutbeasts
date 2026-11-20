@@ -124,16 +124,6 @@
     </section>
 
     <section id="control-room" class="control-room" hidden aria-label="Exit control panel"></section>
-    <section id="team-capture" class="screen overlay" role="dialog" aria-modal="true" aria-labelledby="team-capture-h">
-      <div class="panel center">
-        <h2 id="team-capture-h">The whole crew got caught!</h2>
-        <p id="capture-choice-note"></p><p id="capture-cooling" class="info"></p>
-        <div class="menu"><button class="btn" data-act="capture-vote" data-choice="continue">Continue</button><button class="btn" data-act="capture-vote" data-choice="restart">Restart this part</button></div>
-        <div id="capture-votes" aria-live="polite"></div>
-        <button id="capture-confirm" class="btn primary" data-act="capture-confirm" disabled>Confirm choice</button>
-      </div>
-    </section>
-
     <section id="pause" class="screen overlay" role="dialog" aria-modal="true" aria-labelledby="pause-h">
       <div class="panel center">
         <h2 id="pause-h">Paused</h2>
@@ -141,6 +131,7 @@
         <section id="save-result" hidden><label class="field">Last saved group progress code<textarea id="saved-progress-code" rows="1" readonly spellcheck="false" aria-label="Saved group progress code"></textarea></label><p id="save-summary" class="info"></p><p class="info">Keep this ten-character code, and download a backup. Next time, open Resume group progress on the title screen and paste it when creating a room. Completed objectives and purchases are kept; unfinished puzzles restart at a safe entrance.</p><button class="btn" data-act="copy-save">Copy progress code</button><button class="btn" data-act="download-save">Download save</button></section>
         <div class="menu">
           <button class="btn primary" data-act="resume" id="pause-resume">Resume</button>
+          <button class="btn" id="pause-part" data-act="part-menu" hidden>Continue or restart this part</button><section id="host-part-choices" hidden><button class="btn" data-act="resume">Continue playing</button><button class="btn" data-act="restart-part">Restart this part</button></section>
           <button class="btn" data-act="save" id="pause-save">Pause &amp; Save Group</button>
           <button class="btn" data-act="settings">Settings</button>
           <button class="btn" data-act="help">How to Play</button>
@@ -162,6 +153,7 @@
         <label class="field">Touch controls
           <select id="set-touch"><option value="auto">Automatic</option><option value="on">Always show</option><option value="off">Hide</option></select>
         </label>
+        <label class="field">Joystick position<select id="set-touch-side"><option value="left">Left joystick · right action buttons</option><option value="right">Right joystick · left action buttons</option></select></label>
         <div class="row"><button class="btn primary" data-act="settings-close">Done</button></div>
       </div>
     </section>

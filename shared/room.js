@@ -1,4 +1,4 @@
-import {updateCaptureDecision,captureDecisionState,captureChoice} from './team-capture.js';
+import {restartPart} from './team-capture.js';
 import {transferUniforms} from './uniforms.js';
 import {joinLiveGame} from './late-join.js';
 import {prepareTakeoff} from './runway.js';
@@ -43,7 +43,7 @@ export class Room {
     this.hostId = null;
     this.phase = 'lobby';
     this.game = null;
-    this.paused = false;this.captureSerial=0;this.captureDecision=null;this.captureAcknowledged=false;
+    this.paused = false;
     this.loadedCheckpoint=null;
     this.queues = new Map();
     this.sent = new Map();       // pid -> { tv, dv }
@@ -136,10 +136,9 @@ export class Room {
   handle(pid, msg) {
     const p = this.players.get(pid);
     if (!p || !msg || typeof msg.t !== 'string') return;
-    if(this.captureDecision&&['in','arcade','prison','testComplete','dig','city','vehicle','uniform','rescue','panel','save','pause','replay'].includes(msg.t))return;
     if(this.paused&&['in','arcade','prison','testComplete','dig','city','vehicle','rescue','panel','continueWithout','chat','emote'].includes(msg.t))return;
     switch (msg.t) {
-      case 'captureChoice':captureChoice(this,pid,msg);break;
+      case 'restartPart':restartPart(this,pid);break;
       case 'name': p.name = cleanName(msg.name, p.name); this.broadcastLobby(); break;
       case 'pick': {
         const a = msg.animal;
@@ -260,7 +259,7 @@ export class Room {
   }
 
   startMission(stage='zoo',saved=null) {
-    this.missionStage=stage;this.captureDecision=null;this.captureAcknowledged=false;
+    this.missionStage=stage;
     const checkpoint=stage;stage=stage==='airport'?'city':stage==='control'?'zoo':stage==='driving'?'parking':stage;
     const continuing=(stage==='parking'&&this.game?.zooId==='moonleaf')||(stage==='city'&&this.game?.zooId==='parking')||(stage==='takeoff'&&this.game?.zooId==='city');
     const previous=this.game;
@@ -306,7 +305,7 @@ export class Room {
 
   toLobby() {
     this.phase = 'lobby';
-    this.game = null;this.captureDecision=null;this.captureAcknowledged=false;
+    this.game = null;
     this.paused=false;this.loadedCheckpoint=null;
     this.results = null;
     for (const p of this.players.values()) { p.ready = false; p.spectator = false; if (!p.connected) p.dcAt = 0; }
@@ -341,7 +340,7 @@ export class Room {
       if (q.length) this.game.setInput(pid, q.shift());
     }
     const host=this.game.players.get(this.hostId);if(host&&!host.caged&&host.capturedT<=0){const part=host.location||this.missionStage;if(part!==this.capturePart){this.capturePart=part;if(this.game.zooId==='city'&&!this.game.flightChapter)this.partRestarts.set(part,captureCheckpoint(this.game,this.hostId));}}
-    this.game.step(dt);updateCaptureDecision(this);
+    this.game.step(dt);
     const events = this._pendingEvents.concat(this.game.drainEvents());
     this._pendingEvents = [];
     const snap = this.game.snapshot();
@@ -350,7 +349,7 @@ export class Room {
     for (const p of this.players.values()) {
       if (!p.connected) continue;
       const s = this.sent.get(p.id) || { tv: -1, dv: -1 };
-      const msg = { t: 'snap', ...snap, captureDecision:captureDecisionState(this), me: this.game.personal(p.id), ev: events.filter((e) => e.k !== 'msg' || e.pid === p.id), waiting };
+      const msg = { t: 'snap', ...snap, me: this.game.personal(p.id), ev: events.filter((e) => e.k !== 'msg' || e.pid === p.id), waiting };
       if (s.tv !== this.game.tileVersion) { msg.tm = [...this.game.tileMods.entries()]; msg.tv = this.game.tileVersion; }
       if (s.dv !== this.game.defsVersion) { msg.defs = this.game.defs(); msg.dv = this.game.defsVersion; }
       this.sent.set(p.id, { tv: this.game.tileVersion, dv: this.game.defsVersion });

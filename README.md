@@ -20,12 +20,17 @@ These actions and normal disguise discovery compromise that entire uniform type 
 keeper uniforms are tracked separately. Wallet and clothes actions have no on-screen hints. This status and collected uniforms persist through
 chapters and group saves; police capture confiscates the captured animal's uniforms.
 
-When the entire active crew has been captured, everyone can vote **Continue** or **Restart
-this part**. The host selects an option and confirms the final decision. Continue keeps the
-current world and existing cage escape puzzles. Restart restores the chapter entry or the
-host's most recent city location entry checkpoint, keeping progress from earlier locations.
-Guards gradually return to normal alertness over 30 seconds while everyone remains captured;
-the world keeps running during voting. A new alarm raises alertness again.
+When the entire active crew is captured, alerts clear immediately and guards disperse.
+Everyone can hold **E** at a different wall section in their own cell for 1.5 seconds;
+all players must hold together, even across different buildings, to unlock every occupied
+cell at once. Letting go resets the shared progress. Garbage cans inside cells let muzzled
+animals remove their muzzles. Extra emergency guards retire one at a time every 10 seconds
+without an active alert, while the normal patrol remains.
+
+The host can open **Menu → Continue or restart this part**. Continue keeps the current
+world; Restart restores the current part's entry checkpoint. Capture never opens a voting
+popup. Under **Settings → Joystick position**, each player can choose the default left
+joystick/right buttons or a right joystick/left buttons; the choice is saved on that device.
 
 ## Contents
 1. [Quick start](#1-quick-start)

@@ -312,4 +312,7 @@ body.touch-on #city-status{width:70px;max-width:24vw}body.touch-on #city-status-
 
 body.touch-on #city-status-toggle{padding:7px 3px}@media(max-width:650px),(pointer:coarse){#city-status-toggle{padding:7px 3px}}
 
-#team-capture{z-index:40}#team-capture .panel{max-height:calc(100dvh - 24px);overflow:auto}#capture-votes{margin:12px auto;max-width:360px;font-size:14px}#capture-votes p{margin:5px 0}#team-capture .btn[aria-pressed="true"]{outline:3px solid #77a778}
+
+#host-part-choices[hidden],#pause-part[hidden]{display:none!important}#host-part-choices{padding:8px;border:2px solid #8c987b;border-radius:6px}#host-part-choices .btn{margin:4px}
+body.touch-swapped #touch{scale:-1 1;--edge-right:max(12px,env(safe-area-inset-left))}body.touch-swapped #touch .stick,body.touch-swapped #touch .tbtn{scale:-1 1}body.touch-swapped #touch .stick{left:max(12px,env(safe-area-inset-right))}
+.touch{position:absolute;inset:0;pointer-events:none}.touch .stick,.touch .tbtn{pointer-events:auto}

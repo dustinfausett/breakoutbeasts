@@ -1,4 +1,4 @@
-import {stepCaptureCalm} from './team-capture.js';
+import {stepCaptureCalm,ensureCellBins,cellTarget,cellHold,allTeamCaught} from './team-capture.js';
 import {initUniforms,uniformWorks,uniformCrime,uniformHoldCrime,compromiseUniform,uniformTarget,uniformHold,uniformAction,uniformPersonal} from './uniforms.js';
 import {monsterSkin} from './monster-skins.js';
 import {pauseDraggedStaff,grabSleepingStaff,followDraggedStaff,stopDragging,staffFlashlight} from './dragging.js';
@@ -265,9 +265,10 @@ export class Game {
   // ---------- main step ----------
   step(dt = TICK) {
     if (this.phase !== 'play') return;
-    pauseDraggedStaff(this,dt);
+    ensureCellBins(this);pauseDraggedStaff(this,dt);
     this.time += dt; this.tick++;
     for (const pid of this.order) this._stepPlayer(this.players.get(pid), dt);
+    stepCaptureCalm(this,dt);
     this._stepGates(dt);
     this._stepParts();
     const due = this.checks.filter(c=>c.due<=this.time);
@@ -283,7 +284,7 @@ export class Game {
     this._stepDarts(dt);
     for (const n of this.npcs) this._stepNpc(n, dt);
     for (const o of this.objects) if (o.cool > 0) o.cool -= dt;
-    this._stepKeysAndExit(dt);stepCaptureCalm(this,dt);scoreTick(this,dt);
+    this._stepKeysAndExit(dt);scoreTick(this,dt);
   }
 
   // ---------- players ----------
@@ -412,6 +413,7 @@ export class Game {
   }
 
   _continueHold(p, inp, dt) {
+    if(cellHold(this,p,inp))return;
     uniformHoldCrime(this,p,inp);
     if(uniformHold(this,p,inp,dt))return;
     const h = p.hold;
@@ -616,6 +618,7 @@ export class Game {
 
   // ---------- interaction (E) ----------
   interactTarget(p) {
+    const cell=cellTarget(this,p);if(cell)return cell;
     if(p.dragging!=null)return {text:'Hold Bite and move to drag; release to let go',idle:true};
     if (p.capturedT > 0 || p.under || p.hop || p.slide) return null;
     const [px, py] = this.ptile(p);
@@ -998,6 +1001,7 @@ export class Game {
   }
 
   _raiseAlert() {
+    if(allTeamCaught(this))return;
     this.alertScale=1;
     const wasAlert = this.time < this.alertUntil;
     this.alertUntil = this.permanentAlert ? Infinity : this.time + ALERT_SECONDS;
@@ -1020,6 +1024,7 @@ export class Game {
   }
 
   _radio(s,p) {
+    if(allTeamCaught(this))return;
     this._raiseAlert();
     for (const guard of this.staff) {
       if(guard.downUntil>this.time)continue;
@@ -1032,6 +1037,7 @@ export class Game {
 
   noise(x, y, r, src, delay = 0) {
     this.emit({ k: 'noise', x, y, r,pid:src?.id });
+    if(allTeamCaught(this))return;
     for (const s of this.staff) {
       if (s.state === 'chase' || s.state === 'cheer' || s.downUntil>this.time) continue;
       if (dist(s.x, s.y, x, y) <= r) {
@@ -1057,6 +1063,7 @@ export class Game {
   _staffPass(x, y) {
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return false;
     const i = this.idx(x, y);
+    if(this.allTeamCaptured&&this.gates.some(g=>g.kind==='holding'&&g.tiles.some(([gx,gy])=>gx===x&&gy===y)))return true;
     if (this.zoo.staffMask[i] || this.entSolid[i]) return false;
     if (!staffCanEnter(this.tiles[i])) return false;
     for (const p of this.players.values()) if (p.active && p.shell && Math.floor(p.x) === x && Math.floor(p.y) === y) return false;
@@ -1224,7 +1231,7 @@ export class Game {
       this.setTile(x,y,z.tiles[this.idx(x,y)]);
       this.chew.delete(this.idx(x,y));this.breakDamage.delete(this.idx(x,y));this.destroyedTerrain.delete(this.idx(x,y));
     }
-    this.objects=this.objects.filter(o=>o.enc!==enc||o.kind==='supplies');
+    this.objects=this.objects.filter(o=>o.enc!==enc||o.kind==='supplies'||o.captureCan);
     this.objects.push(...z.objects.filter(o=>o.enc===enc&&o.kind!=='supplies').map(o=>({...o,state:0,cool:0})));
     for(const g of this.gates.filter(g=>g.enc===enc)){
       g.state=0;g.timer=0;g.hits=0;g.broken=false;

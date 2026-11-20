@@ -30,7 +30,7 @@ const params = new URLSearchParams(location.search);
 const AUTOPILOT = params.get('autopilot') === '1';
 
 // ---------------- settings ----------------
-const DEFAULTS = { music: 40, sfx: 70, mute: false, motion: false, captions: true, bigtext: false, hard: false, touch: 'auto' };
+const DEFAULTS = { music: 40, sfx: 70, mute: false, motion: false, captions: true, bigtext: false, hard: false, touch: 'auto', touchSide:'left' };
 function loadSettings() { try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('bb-settings') || '{}') }; } catch { return { ...DEFAULTS }; } }
 function saveSettings() { try { localStorage.setItem('bb-settings', JSON.stringify(settings)); } catch { /* storage unavailable */ } }
 const settings = loadSettings();
@@ -64,7 +64,7 @@ function show(id) {
 }
 function overlay(id) {
   missionCode.reset();
-  for (const s of ['pause', 'settings', 'help', 'complete', 'conn','team-capture']) $('#' + s).classList.toggle('show', s === id);
+  for (const s of ['pause', 'settings', 'help', 'complete', 'conn']) $('#' + s).classList.toggle('show', s === id);
   app.overlay = id;
   input.enabled = app.screen === 'hud' && !id;
   if (id) { input.releaseAll(); const b = $('#' + id + ' .btn.primary') || $('#' + id + ' .btn'); if (b) setTimeout(() => b.focus({ preventScroll: true }), 30); }
@@ -91,7 +91,7 @@ function applySettings() {
   document.body.classList.toggle('reduced', settings.motion);
   document.body.classList.toggle('bigtext', settings.bigtext);
   const touchOn = settings.touch === 'on' || (settings.touch === 'auto' && (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window));
-  document.body.classList.toggle('touch-on', touchOn);
+  document.body.classList.toggle('touch-on', touchOn);document.body.classList.toggle('touch-swapped',settings.touchSide==='right');
   if (app.renderer) {app.renderer.settings.reducedMotion = settings.motion;app.renderer.settings.hard=settings.hard;app.renderer.settings.compactHUD=touchOn;app.renderer.resize();}
   $('#title-hard').checked=settings.hard;$('#join-hard').checked=settings.hard;
 }
@@ -244,7 +244,6 @@ function onMessage(msg) {
       if (app.mode === 'solo' && msg.phase === 'lobby' && app.screen !== 'animals' && !app.inGame) { show('animals'); buildAnimals(); }
       break;
     }
-    case 'captureClosed':if(app.overlay==='team-capture')overlay(null);break;
     case 'paused': app.groupPaused=!!msg.on;app.paused=!!msg.on;input.releaseAll();releaseVehicleControls();if(msg.on&&app.inGame){overlay('pause');renderPauseMenu();}else if(app.inGame&&app.overlay==='pause'){overlay(null);}break;
     case 'saved': finishSave(msg);break;
     case 'start': enterGame(msg); break;
@@ -322,7 +321,6 @@ function onSnap(msg) {
     const ks = Object.keys(h); if (ks.length > 200) delete h[ks[0]];
   }
   for (const ev of msg.ev || []) handleEvent(ev);
-  renderCaptureChoice(msg.captureDecision);
 
 }
 
@@ -710,8 +708,8 @@ function act(name, el) {
     case 'lobby-start': app.link.send({ t: 'start',startAt:app.startAt||'zoo' }); break;
     case 'lobby-animal': show('animals'); buildAnimals(); break;
     case 'lobby-leave': toTitle(); break;
-    case 'capture-vote':{const d=app.world?.snap?.captureDecision;if(d)app.link.send({t:'captureChoice',id:d.id,choice:el.dataset.choice});break;}
-    case 'capture-confirm':{const d=app.world?.snap?.captureDecision,choice=d?.players.find(p=>p.id===app.myId)?.vote;if(d&&choice)app.link.send({t:'captureChoice',id:d.id,choice,confirm:true});break;}
+    case 'part-menu':$('#host-part-choices').hidden=!$('#host-part-choices').hidden;break;
+    case 'restart-part':app.link?.send({t:'restartPart'});break;
     case 'uniform-wear':app.link?.send({t:'uniform',op:'wear',uniform:el.dataset.uniform||null});closePause();break;
     case 'pause': openPause(); break;
     case 'resume': closePause(); break;
@@ -737,20 +735,10 @@ async function finishSave(msg){
 }
 async function readProgressCode(){const raw=$('#progress-code').value.trim();if(!raw)return '';try{let code=raw;if(/^[A-HJ-NP-Z2-9]{10}$/i.test(raw)){const short=raw.toUpperCase();code='';try{code=localStorage.getItem('bb-checkpoint-'+short)||'';}catch{}if(!code){const response=await fetch('api/checkpoints/'+short),result=await response.json();if(!response.ok)throw new Error(result.error);code=result.backup;}}decodeCheckpoint(code);return code.replace(/\s/g,'');}catch(e){$('#title-msg').textContent=e.message||'Could not load progress.';return null;}}
 
-function renderCaptureChoice(d){
- if(!d){if(app.overlay==='team-capture')overlay(null);return;}
- if(app.overlay!=='team-capture'){overlay('team-capture');releaseVehicleControls();}
- const host=d.hostId===app.myId,mine=d.players.find(p=>p.id===app.myId)?.vote;
- $('#capture-choice-note').textContent=host?'Everyone can vote. Choose an option, then confirm your final decision.':'Vote for what to do next. The host makes the final decision.';
- $('#capture-cooling').textContent=d.cooling?'Guards are calming down… '+d.cooling+'s':'Guards have returned to normal alertness.';
- for(const b of document.querySelectorAll('[data-act="capture-vote"]')){b.disabled=!d.players.some(p=>p.id===app.myId);b.classList.toggle('primary',b.dataset.choice===mine);b.setAttribute('aria-pressed',String(b.dataset.choice===mine));}
- const html=d.players.map(p=>`<p><b>${esc(p.name)}</b>: ${p.vote==='continue'?'Continue':p.vote==='restart'?'Restart this part':'Has not voted'}${p.connected?'':' (disconnected)'}</p>`).join('');if($('#capture-votes').innerHTML!==html)$('#capture-votes').innerHTML=html;
- $('#capture-confirm').hidden=!host;$('#capture-confirm').disabled=!mine;$('#capture-confirm').textContent=mine==='restart'?'Restart this part':mine==='continue'?'Continue playing':'Confirm choice';
-}
-
 function renderPauseMenu(){
   const host=app.mode==='solo'||app.lobby?.hostId===app.myId;
   const uniforms=app.world?.snap?.me?.uniforms;$('#uniform-options').hidden=!uniforms?.owned.length;$('#uniform-options').innerHTML=uniforms?.owned.length?`<p>Stolen uniforms</p>${uniforms.owned.map(u=>`<button class="btn small" data-act="uniform-wear" data-uniform="${u.type}" ${uniforms.wearing===u.type?'disabled':''}>Wear ${esc(u.label.toLowerCase())}${u.compromised?' · compromised':''}</button>`).join('')}<button class="btn small" data-act="uniform-wear" data-uniform="" ${uniforms.wearing?'':'disabled'}>Wear own clothes</button>`:'';
+  $('#pause-part').hidden=!host;$('#host-part-choices').hidden=true;
   $('#pause-h').textContent=app.paused?'Group paused':'Menu';
   $('#pause-copy-room').hidden=app.mode==='solo';$('#pause-room-code').textContent=app.mode==='solo'?'Solo game':`Room code: ${app.lobby?.code||''}`;
   $('#pause-note').textContent=app.paused?(host?'The whole group is paused. Save a checkpoint or resume when ready.':'The host paused the whole group. Wait for the host to resume.'):(host?'Choose Pause & Save Group to freeze play for everyone and generate a progress code.':'The game keeps moving while your menu is open. Only the host can pause and save.');
@@ -790,10 +778,10 @@ for(const id of ['#title-hard','#join-hard'])$(id).addEventListener('input',e=>{
 function syncSettingsUI() {
   $('#set-hard').checked=settings.hard;
   $('#set-music').value = settings.music; $('#set-sfx').value = settings.sfx; $('#set-mute').checked = settings.mute;
-  $('#set-motion').checked = settings.motion; $('#set-captions').checked = settings.captions; $('#set-bigtext').checked = settings.bigtext; $('#set-touch').value = settings.touch;
+  $('#set-motion').checked = settings.motion; $('#set-captions').checked = settings.captions; $('#set-bigtext').checked = settings.bigtext; $('#set-touch').value = settings.touch;$('#set-touch-side').value=settings.touchSide;
 }
-for (const [id, key, type] of [['#set-hard','hard','b'], ['#set-music', 'music', 'n'], ['#set-sfx', 'sfx', 'n'], ['#set-mute', 'mute', 'b'], ['#set-motion', 'motion', 'b'], ['#set-captions', 'captions', 'b'], ['#set-bigtext', 'bigtext', 'b'], ['#set-touch', 'touch', 's']]) {
-  $(id).addEventListener('input', (e) => { settings[key] = type === 'n' ? Number(e.target.value) : type === 'b' ? e.target.checked : e.target.value; applySettings(); saveSettings(); if (key === 'sfx') audio.play('click'); });
+for (const [id, key, type] of [['#set-hard','hard','b'], ['#set-music', 'music', 'n'], ['#set-sfx', 'sfx', 'n'], ['#set-mute', 'mute', 'b'], ['#set-motion', 'motion', 'b'], ['#set-captions', 'captions', 'b'], ['#set-bigtext', 'bigtext', 'b'], ['#set-touch', 'touch', 's'],['#set-touch-side','touchSide','s']]) {
+  $(id).addEventListener('input', (e) => { if(key==='touchSide')input.releaseAll();settings[key] = type === 'n' ? Number(e.target.value) : type === 'b' ? e.target.checked : e.target.value; applySettings(); saveSettings(); if (key === 'sfx') audio.play('click'); });
 }
 
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
